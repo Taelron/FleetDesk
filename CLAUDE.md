@@ -1,129 +1,80 @@
 # FleetDesk — Project Instructions
 
-## What is this
+Go TUI (Bubble Tea) for managing fleets of Linux VMs over SSH, Azure resources via the `az` CLI, and Kubernetes clusters via `kubectl`.
 
-Go TUI application (Bubble Tea) managing fleets of Linux VMs (SSH), Azure resources (az CLI), and Kubernetes clusters (kubectl).
+## Source of truth
 
-## Workflow
+Linear is canonical for all design content — workspace **Taelron**. This file points at it; it does not duplicate it. When documents disagree, resolution order is **ADRs > Domain Model > Specification > README**.
 
-Source of truth: [AI Development Baseline — Step-by-Step Guide](https://linear.app/fleetdesk/document/ai-development-baseline-step-by-step-guide-40d44987b7b6)
+Read the applicable documents at the **start of every session** — the Linear copy is more current than any cached context. Fetch full text via `curl` + `$LINEAR_API_KEY` (not the Linear MCP — token cost); fetch by document ID (`list_documents` is truncated).
 
-| Step | When | Who | Output |
-|------|------|-----|--------|
-| 0 — Product discovery | Once per product | Claude Web + You | Product Brief |
-| 1 — Plan & spec | Once per release | Claude Web + You | Release plan + Linear issues |
-| 2 — Architecture | Per issue | CC Opus (Plan Mode) | Linear comment contract + ADR |
-| 3 — Implementation | Per issue | CC Sonnet | Feature + tests + PR |
-| 4 — Integration testing | Per issue | You | Test Run results |
-| 5 — Pre-flight | Per push (auto) | Hook | Pass / fail |
-| 6 — PR + merge | Per PR | Claude GitHub + CC | Reviewed + merged PR |
-| 7 — Ship | Once per release | You + CC | Tagged release |
+**Taelron baselines** (Taelron Baselines project — apply to every product):
 
-Key rules:
-- Step 1 uses the Release Plan Template in Linear — Claude Web handles it. `/release-plan` is optional for CC-side grooming only.
-- Step 2 posts the enriched spec + design + acceptance tests as a comment on the Linear issue — this is the contract between architect and developer. Claude GitHub checks the PR against it.
-- Step 3: CC reads the Step 2 contract, writes failing tests first (TDD), then implements. Tests are committed before implementation.
-- Step 6: CC presents review summary. **CC never merges without explicit human approval.**
-- Use `/feature-dev` for Steps 2-3, `design-reviewer` subagent for architecture validation in Step 2.
-- Use `/test-plan` to create Test Plan and Test Run documents in Linear (Step 2).
-- Pre-flight hook runs automatically before every `git push` (Step 5).
+- [AI Workflow](https://linear.app/taelron/document/ai-workflow-805fb2002fce) — collaboration model, session startup, review gates
+- [Delivery Workflow](https://linear.app/taelron/document/delivery-workflow-edab9d0993e8) — milestone/issue rhythm, verification handoff, drift handling
+- [Hexagonal Architecture](https://linear.app/taelron/document/hexagonal-architecture-b142001f420e) — layer structure, port/adapter contract
+- [TUI Go Conventions](https://linear.app/taelron/document/tui-go-conventions-1aca4ef63a66) — Bubble Tea, async, context lifecycle
+- [UI Patterns](https://linear.app/taelron/document/ui-patterns-9c3982a46ef2) — TUI design patterns
 
-### Post-implementation workflow
+**FleetDesk product docs** (FleetDesk project):
 
-After implementation is complete, NEVER suggest manual testing directly. Follow the steps in order:
+- [FleetDesk SPEC](https://linear.app/taelron/document/fleetdesk-spec-25e34eb61c20)
+- [FleetDesk ADR Index](https://linear.app/taelron/document/fleetdesk-adr-index-877f77ec6d93)
+- [FleetDesk Roadmap](https://linear.app/taelron/document/fleetdesk-roadmap-6c87af1c8252)
+- [FleetDesk Business Model](https://linear.app/taelron/document/fleetdesk-business-model-c01edf4d8e03)
+- [FleetDesk UI](https://linear.app/taelron/document/fleetdesk-ui-31a471474d2c)
 
-1. Push branch and create PR (`git push` + `gh pr create`)
-2. Step 4 (pre-flight) runs automatically on push
-3. Wait for Claude GitHub review (Step 5) — fix findings, loop until clean
-4. Only THEN does the human do integration testing (Step 6)
+## Phase & workflow
 
-Do not skip or reorder these steps. The human tests on reviewed code, not raw implementation.
+FleetDesk is in **Phase 2 — refinement** (per @AI Workflow): incremental, issue-driven work; new ADRs are rare; the product evolves rather than emerges.
 
-## Architecture
+Every non-trivial change runs through the **two-session `/feature-dev` split** against a single Linear issue (per @Delivery Workflow) — **not** stock `/feature-dev`:
 
-- Package structure: `internal/config/`, `internal/ssh/`, `internal/azure/`, `internal/k8s/`, `internal/app/`
-- Backend packages (ssh/, azure/, k8s/) must NOT import Bubble Tea — pure data-fetching and parsing only
-- Each view: fetch function -> message type -> model handler -> render function
-- Destructive actions require [Y/n] confirmation prompts
+```
+/feature-dev-plan  FLE-N     # session 1: explore + design → post plan to the Linear issue → stop
+/feature-dev-build FLE-N     # session 2: implement the approved plan → in-session review → PR
+```
 
-## Action Engine
+The plan-approval pause is structural: implementation lives only in `/feature-dev-build`, which the human starts as a separate session after reviewing the plan posted on the issue. The PR carries a verification handoff (ordered Make targets, purpose, expected result). Claude reviews the PR (advisory); the human verifies behavior locally and merges. CC never merges.
 
-Generic transition system with poll/oneshot strategies using closures.
+## Architecture (FleetDesk-specific)
 
-- Engine must NOT switch on resource type — use closures set by the caller for execution, polling, refresh, and state detection
-- If a new backend requires editing the engine core, the abstraction is broken
-- Bubble Tea Model is a value type — closures that mutate model state capture a stale snapshot
+- Packages: `internal/config/`, `internal/ssh/`, `internal/azure/`, `internal/k8s/`, `internal/app/`.
+- Backend packages (`ssh/`, `azure/`, `k8s/`) must NOT import Bubble Tea — pure data-fetching and parsing (general rule: @Hexagonal Architecture).
+- Each view: fetch function → message type → model handler → render function.
+- **Action Engine** — generic transition system (poll/oneshot) using closures. The engine must NOT switch on resource type; callers set closures for execution, polling, refresh, and state detection. If a new backend requires editing the engine core, the abstraction is broken. The Bubble Tea Model is a value type — closures that mutate model state capture a stale snapshot.
 
-## Build & Test
+## Build & test
 
 ```bash
 make check    # build + test + lint (required before PR)
-make build    # build binary
-make test     # run unit tests
+make build
+make test
 ```
 
-### Testing tiers
+Testing tiers: **Unit** (parsers/formatters/config) and **UI** (navigation, key bindings, state transitions, rendering — via `teatest`) run in CI; **Integration** (real SSH/Azure/K8s) is manual, tracked in Linear.
 
-| Level | What | How | CI? |
-|-------|------|-----|-----|
-| Unit | Parsers, formatters, config, helpers | `go test` | Yes |
-| UI | Navigation, key bindings, state transitions, view rendering, flash messages, overlays | `go test` + `teatest` | Yes |
-| Integration | Real infra — SSH, Azure, K8s | Manual on real hosts | No |
+`teatest` UI tests drive a real `tea.Program`:
 
-TDD: Opus (Step 2) designs *what to test* across all tiers. Sonnet (Step 3) translates unit + UI tests into Go test code. Integration tests go into the Test Plan/Run in Linear for Step 4.
+- Always set an initial term size; use `WaitFor` with a 2s duration; `WaitFinished` with a 2s timeout after the quit key.
+- Construct `Model` via a helper that sets `AppConfig.FleetDir` to a non-empty placeholder (empty FleetDir triggers the first-run wizard).
+- Prefer `bytes.Contains` on raw output over golden files until a view's rendering is stable.
+- Canonical example: `internal/app/teatest_baseline_test.go`.
 
-### UI test pattern (teatest)
+## Security (FleetDesk-specific)
 
-UI tests drive a real `tea.Program` via `github.com/charmbracelet/x/exp/teatest`. They verify rendered output and key-handler wiring end-to-end.
+General secret/config threat model: @Security & Secret Handling. FleetDesk specifics:
 
-Minimal shape:
-
-```go
-tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(100, 30))
-
-teatest.WaitFor(t, tm.Output(),
-    func(bts []byte) bool { return bytes.Contains(bts, []byte("expected text")) },
-    teatest.WithDuration(2*time.Second),
-)
-
-tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
-```
-
-Guidelines:
-- Always set an initial term size — the Model's width/height guards fall back to 80×24 but explicit is clearer and avoids reflow surprises
-- Use `WaitFor` with a 2s duration for render assertions — teatest's 1s default is sometimes tight under CI load
-- Use `WaitFinished` with a 2s timeout after sending the quit key
-- Construct `Model` via a test helper that sets `AppConfig.FleetDir` to a placeholder (any non-empty string) — an empty FleetDir triggers the first-run wizard and makes the view state unpredictable
-- Use `bytes.Contains` on raw output rather than golden files for baseline tests — golden files make sense only once a view's rendering is stable
-
-See `internal/app/teatest_baseline_test.go` for the canonical example.
-
-## Security
-
-- No hardcoded credentials, keys, or secrets — use environment variables
-- Sanitize user input before shell execution (SSH commands, kubectl, az CLI)
-- No secrets in error messages, log output, or debug logs
-- Passwords: never cache, log, or persist beyond the session
-- SSH auth: each method tried individually to avoid MaxAuthTries exhaustion
-- API keys: from `$LINEAR_API_KEY`, `$ANTHROPIC_API_KEY` — never in code
-- Proactively flag security implications during design review, even if the plan doesn't mention them
-
-## Knowledge
-
-- When corrected, update memory immediately — don't wait for end of session
-- When making an architectural decision, draft an ADR in docs/adr/
-- When a new convention or rule emerges, propose adding it to CLAUDE.md
+- Sanitize user input before shell execution (SSH, `kubectl`, `az`).
+- No secrets in code, error messages, logs, or debug output; passwords never cached/logged/persisted beyond the session.
+- SSH auth: try each method individually to avoid MaxAuthTries exhaustion.
+- API keys from `$LINEAR_API_KEY` / `$ANTHROPIC_API_KEY` — never in code.
+- Flag security implications during design review even when the plan doesn't mention them.
 
 ## Git
 
-- One PR per FLE (squash merge)
-- Branch: `feature/fle-xx-description`
-- Conventional commits: feat/fix/chore/refactor
+One PR per issue (squash merge). Branch `feature/fle-NN-description`. Conventional commits (feat/fix/chore/refactor).
 
-## Linear
+## Linear access
 
-- API: curl + GraphQL (not MCP — saves tokens)
-- API key: `$LINEAR_API_KEY`
-- Team ID: `17a04ad2-7044-485f-b011-cf9ebeaa7eb2`
-- Priority: Urgent (1), High (2), Medium (3), Low (4)
+`curl` + GraphQL with `$LINEAR_API_KEY` (not MCP). Fetch documents and issues by ID.
