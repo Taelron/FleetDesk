@@ -1,4 +1,34 @@
-.PHONY: test test-report build lint check clean
+.PHONY: test test-report build lint check clean verify-fresh-clone verify-nolint verify-lint-baseline
+
+# Single pin for golangci-lint, shared by `lint` and `check` (which
+# bootstraps transitively via `lint`'s prerequisite). The recipe below
+# downloads the official release binary into the git-ignored bin/tools/
+# directory, checksum-verified, rather than building from source — building
+# from source would pull golangci-lint's dependency graph into this module's
+# go.sum for a tool this module doesn't otherwise need. Follows TAE-73's form.
+GOLANGCI_LINT_VERSION := v2.11.4
+GOLANGCI_LINT_DIR     := bin/tools
+GOLANGCI_LINT_BIN     := $(GOLANGCI_LINT_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+
+# verify-nolint's exact suppression inventory (TAE-80's own record). Any
+# issue that removes a suppression decrements the matching count here in the
+# same change — a mismatch is the point, not a bug.
+NOLINT_ERRCHECK_TAE82_WANT := 13
+NOLINT_GOSEC_TAE22_WANT    := 2
+NOLINT_GOSEC_TAE23_WANT    := 3
+NOLINT_GOSEC_TAE42_WANT    := 4
+NOLINT_GOSEC_CASE1_WANT    := 19
+NOLINT_TOTAL_WANT          := 41
+
+# verify-lint-baseline's negative control. BASELINE_EXPECT is a function of
+# BOTH BASELINE_REF and this file's *current* enabled linter set, not of the
+# ref alone: the target copies the working tree's .golangci.yml into the
+# baseline clone before linting it. Any later change to the enabled set (for
+# example TAE-83 adding depguard) re-scores the baseline tree and this
+# number goes stale — update it in the same change that changes the set,
+# the same way verify-nolint's expected counts move with their owning issues.
+BASELINE_REF    ?= e11985e
+BASELINE_EXPECT ?= 170
 
 test:           ## Run unit tests
 	go test ./... -race -v
@@ -11,13 +41,99 @@ test-report:    ## Run unit tests with coverage report
 build:          ## Build binary
 	go build -o fleetdesk .
 
-lint:           ## Run linter
-	golangci-lint run
+$(GOLANGCI_LINT_BIN):
+	@os=$$(go env GOOS); arch=$$(go env GOARCH); \
+	ver=$(GOLANGCI_LINT_VERSION); vernum=$${ver#v}; \
+	asset="golangci-lint-$${vernum}-$${os}-$${arch}"; \
+	tarball="$${asset}.tar.gz"; \
+	url="https://github.com/golangci/golangci-lint/releases/download/$${ver}/$${tarball}"; \
+	sums_url="https://github.com/golangci/golangci-lint/releases/download/$${ver}/golangci-lint-$${vernum}-checksums.txt"; \
+	tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	echo "bootstrapping golangci-lint $$ver ($$os/$$arch)..."; \
+	curl -sSfL -o "$$tmp/$$tarball" "$$url" || { echo "download failed: $$url"; exit 1; }; \
+	curl -sSfL -o "$$tmp/checksums.txt" "$$sums_url" || { echo "download failed: $$sums_url"; exit 1; }; \
+	want=$$(grep " $$tarball\$$" "$$tmp/checksums.txt" | awk '{print $$1}'); \
+	if [ -z "$$want" ]; then echo "no checksum entry for $$tarball in $$sums_url"; exit 1; fi; \
+	if command -v sha256sum >/dev/null 2>&1; then \
+		got=$$(sha256sum "$$tmp/$$tarball" | awk '{print $$1}'); \
+	elif command -v shasum >/dev/null 2>&1; then \
+		got=$$(shasum -a 256 "$$tmp/$$tarball" | awk '{print $$1}'); \
+	else \
+		echo "neither sha256sum nor shasum found on PATH — cannot verify checksum"; exit 1; \
+	fi; \
+	if [ "$$want" != "$$got" ]; then \
+		echo "checksum mismatch for $$tarball: want $$want, got $$got"; exit 1; \
+	fi; \
+	tar -xzf "$$tmp/$$tarball" -C "$$tmp"; \
+	mkdir -p $(GOLANGCI_LINT_DIR); \
+	cp "$$tmp/$$asset/golangci-lint" "$(GOLANGCI_LINT_BIN)"; \
+	chmod +x "$(GOLANGCI_LINT_BIN)"; \
+	echo "bootstrap OK — $(GOLANGCI_LINT_BIN), checksum verified"
+
+lint: $(GOLANGCI_LINT_BIN) ## Verify .golangci.yml, then run golangci-lint across the module
+	@./$(GOLANGCI_LINT_BIN) config verify
+	@./$(GOLANGCI_LINT_BIN) run
+	@echo "lint OK — config verified, zero findings"
 
 check:          ## Run all checks before PR (build + test + lint)
 	$(MAKE) build
 	$(MAKE) test
 	$(MAKE) lint
 
+verify-nolint: ## TAE-80: assert the //nolint suppression inventory matches the exact record this issue left behind
+	@lines="$$(grep -rn --include='*.go' --exclude='*_test.go' '//nolint:' . 2>/dev/null)"; \
+	total=$$(printf '%s\n' "$$lines" | grep -c '//nolint:'); \
+	errcheck_tae82=$$(printf '%s\n' "$$lines" | grep '//nolint:errcheck' | grep -c 'TAE-82'); \
+	gosec_tae22=$$(printf '%s\n' "$$lines" | grep '//nolint:gosec' | grep -c 'TAE-22'); \
+	gosec_tae23=$$(printf '%s\n' "$$lines" | grep '//nolint:gosec' | grep -c 'TAE-23'); \
+	gosec_tae42=$$(printf '%s\n' "$$lines" | grep '//nolint:gosec' | grep -c 'TAE-42'); \
+	gosec_case1=$$(printf '%s\n' "$$lines" | grep '//nolint:gosec' | grep -vc -E 'TAE-22|TAE-23|TAE-42'); \
+	unknown="$$(printf '%s\n' "$$lines" | grep -oE 'TAE-[0-9]+' | grep -vE '^(TAE-82|TAE-22|TAE-23|TAE-42)$$')"; \
+	fail=0; \
+	if [ "$$errcheck_tae82" -ne $(NOLINT_ERRCHECK_TAE82_WANT) ]; then echo "FAIL errcheck/TAE-82: want $(NOLINT_ERRCHECK_TAE82_WANT), got $$errcheck_tae82"; printf '%s\n' "$$lines" | grep '//nolint:errcheck' | grep 'TAE-82'; fail=1; fi; \
+	if [ "$$gosec_tae22" -ne $(NOLINT_GOSEC_TAE22_WANT) ]; then echo "FAIL gosec/TAE-22: want $(NOLINT_GOSEC_TAE22_WANT), got $$gosec_tae22"; printf '%s\n' "$$lines" | grep '//nolint:gosec' | grep 'TAE-22'; fail=1; fi; \
+	if [ "$$gosec_tae23" -ne $(NOLINT_GOSEC_TAE23_WANT) ]; then echo "FAIL gosec/TAE-23: want $(NOLINT_GOSEC_TAE23_WANT), got $$gosec_tae23"; printf '%s\n' "$$lines" | grep '//nolint:gosec' | grep 'TAE-23'; fail=1; fi; \
+	if [ "$$gosec_tae42" -ne $(NOLINT_GOSEC_TAE42_WANT) ]; then echo "FAIL gosec/TAE-42: want $(NOLINT_GOSEC_TAE42_WANT), got $$gosec_tae42"; printf '%s\n' "$$lines" | grep '//nolint:gosec' | grep 'TAE-42'; fail=1; fi; \
+	if [ "$$gosec_case1" -ne $(NOLINT_GOSEC_CASE1_WANT) ]; then echo "FAIL gosec case-1 (no issue key): want $(NOLINT_GOSEC_CASE1_WANT), got $$gosec_case1"; printf '%s\n' "$$lines" | grep '//nolint:gosec' | grep -vE 'TAE-22|TAE-23|TAE-42'; fail=1; fi; \
+	if [ "$$total" -ne $(NOLINT_TOTAL_WANT) ]; then echo "FAIL total nolint directives: want $(NOLINT_TOTAL_WANT), got $$total"; fail=1; fi; \
+	if [ -n "$$unknown" ]; then echo "FAIL nolint directive(s) cite an issue key outside the inventory: $$unknown"; fail=1; fi; \
+	if [ "$$fail" -ne 0 ]; then exit 1; fi; \
+	echo "verify-nolint OK — $$total directives: errcheck/TAE-82 $$errcheck_tae82, gosec/TAE-22 $$gosec_tae22, gosec/TAE-23 $$gosec_tae23, gosec/TAE-42 $$gosec_tae42, gosec case-1 $$gosec_case1"
+
+verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## TAE-80: negative control — confirm the pre-fix tree lints to BASELINE_EXPECT findings under the current config
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	git clone --quiet . "$$tmp" >/dev/null 2>&1; \
+	git -C "$$tmp" checkout --quiet $(BASELINE_REF); \
+	cp .golangci.yml "$$tmp/.golangci.yml"; \
+	out=$$(cd "$$tmp" && $(abspath $(GOLANGCI_LINT_BIN)) run 2>&1); \
+	n=$$(printf '%s\n' "$$out" | grep -oE '^[0-9]+ issues:' | grep -oE '^[0-9]+'); \
+	if [ -z "$$n" ]; then echo "verify-lint-baseline FAIL — could not parse an issue count from golangci-lint output:"; printf '%s\n' "$$out"; exit 1; fi; \
+	if [ "$$n" -ne "$(BASELINE_EXPECT)" ]; then echo "verify-lint-baseline FAIL — $(BASELINE_REF) lints to $$n findings under the current config, want $(BASELINE_EXPECT)"; exit 1; fi; \
+	echo "verify-lint-baseline OK — $(BASELINE_REF) lints to $$n findings under the current config"
+
+verify-fresh-clone: ## TAE-80 AC 8: clone the committed tree, strip golangci-lint from PATH, confirm `make check` bootstraps its own binary and passes
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	git clone --quiet . "$$tmp" >/dev/null 2>&1; \
+	strippedpath=""; \
+	oldifs="$$IFS"; IFS=':'; \
+	for d in $$PATH; do \
+		if [ ! -x "$$d/golangci-lint" ]; then \
+			strippedpath="$$strippedpath$${strippedpath:+:}$$d"; \
+		fi; \
+	done; \
+	IFS="$$oldifs"; \
+	if ( cd "$$tmp" && PATH="$$strippedpath" $(MAKE) check ); then :; else \
+		echo "verify-fresh-clone FAIL — make check did not pass in the clone"; exit 1; \
+	fi; \
+	if [ ! -x "$$tmp/$(GOLANGCI_LINT_BIN)" ]; then \
+		echo "verify-fresh-clone FAIL — $(GOLANGCI_LINT_BIN) was not bootstrapped inside the clone"; exit 1; \
+	fi; \
+	os=$$(go env GOOS); arch=$$(go env GOARCH); \
+	echo "verify-fresh-clone OK — bootstrapped $(GOLANGCI_LINT_VERSION) on $$os/$$arch, make check green"
+
 clean:          ## Remove build artifacts
 	rm -f fleetdesk coverage.out coverage.html
+	rm -rf bin

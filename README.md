@@ -154,6 +154,14 @@ FleetDesk uses your existing SSH setup — no additional configuration needed:
 3. Default keys (~/.ssh/id_ed25519, id_rsa, id_ecdsa)
 4. Password fallback (inline masked prompt)
 
+## Development
+
+Run `make check` before opening a PR — it builds, runs the test suite, and
+lints. `make lint` fetches a pinned golangci-lint (checksum-verified) into
+`bin/tools/` on first run; the only prerequisites are `curl`, `tar`, and
+`sha256sum` or `shasum`. `make verify-fresh-clone` proves a clean machine
+with no pre-installed `golangci-lint` still passes `make check`.
+
 ## License
 
 MIT

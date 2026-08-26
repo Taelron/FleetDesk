@@ -1,0 +1,73 @@
+# FleetDesk lint configuration — TAE-80.
+#
+# The canonical @Go Conventions config (SwitchX's), byte-identical where not
+# stated otherwise. Every deviation and addition below carries a comment
+# naming its reason, per this issue's AC 3.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - revive
+    - gosec
+    - bodyclose
+    - misspell
+    # Addition: mechanises AC 7 — every //nolint directive must name a
+    # specific linter and a reason, so a suppression's discipline is checked
+    # by the tool rather than by convention alone.
+    - nolintlint
+  settings:
+    # errcheck's default exclusions are kept deliberately: no
+    # disable-default-exclusions. See @Go Conventions' Linting section.
+    errcheck: {}
+    revive:
+      rules:
+        - name: var-naming
+        - name: package-comments
+        - name: exported
+          # Deviation: disables revive's type-name stutter check
+          # (e.g. k8s.K8sPod, azure.AzureSubscription). Clearing it would
+          # rename ~200 call sites across every open M3 issue's files for no
+          # behaviour change — declined in TAE-80.
+          arguments:
+            - disableStutteringCheck
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    rules:
+      # gosec's path-traversal checks are false-positive-heavy on tests that
+      # legitimately read fixtures and write under t.TempDir().
+      - path: "_test\\.go"
+        linters:
+          - gosec
+  # Deviation: depguard is omitted. The canonical rules encode the
+  # four-layer hexagonal split (domain/app/storage/ui); Design Notes D-1
+  # records that FleetDesk does not have that split — its layering is
+  # app + backend packages instead. A FleetDesk-shaped guard enforcing D-1's
+  # own invariants (backends carry zero Bubble Tea/Lipgloss imports; backends
+  # never import internal/app) is TAE-83.
+
+issues:
+  # Deviation: both caps disabled. golangci-lint's defaults
+  # (max-issues-per-linter: 50, max-same-issues: 3) truncate output
+  # silently — they turned this issue's own 170 findings into a reported
+  # 122, then 103, before the config was ever run. Without this, a reported
+  # count is not the whole count and `make lint`'s zero-findings claim is not
+  # verifiable against it.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
