@@ -80,11 +80,15 @@ func TestGolangciConfigDocumentsDeviations(t *testing.T) {
 	})
 
 	t.Run("revive stutter check disablement is explained", func(t *testing.T) {
+		// Unlike depguard's omission, disabling revive's stutter check is done
+		// via a live argument (e.g. disableStutteringCheck) -- "stutter" is
+		// expected to appear in real YAML, not just in comments. What AC3
+		// requires is that the deviation is explained *somewhere* in a comment.
 		if !strings.Contains(strings.ToLower(cfg), "stutter") {
 			t.Fatal("expected a mention of the disabled revive stutter check (TAE-80 AC3)")
 		}
-		if !mentionedOnlyInComment(cfg, "stutter") {
-			t.Error("expected the revive stutter check disablement to carry an explanatory comment, not a live stutter rule (TAE-80 AC3)")
+		if !hasCommentMentioning(cfg, "stutter") {
+			t.Error("expected a comment explaining the revive stutter check disablement (TAE-80 AC3)")
 		}
 	})
 }
@@ -108,6 +112,22 @@ func mentionedOnlyInComment(cfg, word string) bool {
 		}
 	}
 	return found
+}
+
+// hasCommentMentioning reports whether any comment in cfg (the "#" onward
+// portion of a line) mentions word, case-insensitively.
+func hasCommentMentioning(cfg, word string) bool {
+	word = strings.ToLower(word)
+	for _, line := range strings.Split(cfg, "\n") {
+		hashIdx := strings.Index(line, "#")
+		if hashIdx == -1 {
+			continue
+		}
+		if strings.Contains(strings.ToLower(line[hashIdx:]), word) {
+			return true
+		}
+	}
+	return false
 }
 
 func lineOrPrecedingIsCommented(cfg, key string) bool {
