@@ -11,7 +11,7 @@ func helpSection(title string, binds [][]string) string {
 	b.WriteString("  " + title + "\n")
 	b.WriteString("  " + strings.Repeat("\u2500", 30) + "\n")
 	for _, bind := range binds {
-		b.WriteString(fmt.Sprintf("  %-12s %s\n", bind[0], bind[1]))
+		fmt.Fprintf(&b, "  %-12s %s\n", bind[0], bind[1])
 	}
 	return b.String()
 }

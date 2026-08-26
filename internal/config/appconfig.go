@@ -1,3 +1,5 @@
+// Package config loads and validates FleetDesk's fleet definitions and
+// application configuration.
 package config
 
 import (
@@ -42,7 +44,7 @@ func (c AppConfig) Editor() string {
 // LoadAppConfig reads and validates config.yaml from the given config directory.
 func LoadAppConfig(configDir string) (AppConfig, error) {
 	path := filepath.Join(configDir, "config.yaml")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: constant config dir
 	if err != nil {
 		if os.IsNotExist(err) {
 			return AppConfig{}, ErrNoConfig
@@ -75,7 +77,7 @@ func LoadAppConfig(configDir string) (AppConfig, error) {
 
 // WriteDefaultAppConfig creates config.yaml with the given values.
 func WriteDefaultAppConfig(configDir, fleetDir, editor string) error {
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil { //nolint:gosec // G301: config dir 0755, known permission defect — TAE-23
 		return fmt.Errorf("creating config dir: %w", err)
 	}
 
@@ -89,7 +91,7 @@ func WriteDefaultAppConfig(configDir, fleetDir, editor string) error {
 	}
 
 	path := filepath.Join(configDir, "config.yaml")
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0644); err != nil { //nolint:gosec // G306: config.yaml 0644, known permission defect — TAE-23
 		return fmt.Errorf("writing config: %w", err)
 	}
 	return nil
@@ -133,8 +135,8 @@ func validateFleetDir(dir string) error {
 	if err != nil {
 		return fmt.Errorf("fleet directory is not writable: %s", dir)
 	}
-	f.Close()
-	os.Remove(f.Name())
+	_ = f.Close()
+	_ = os.Remove(f.Name())
 
 	return nil
 }

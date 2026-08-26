@@ -41,7 +41,6 @@ func (m Model) renderLogFileList() string {
 	} else {
 		nameCol := len("NAME")
 		pathCol := len("PATH")
-		sizeCol := len("SIZE")
 		// modCol not needed — last column is not fixed-width
 		for _, e := range filtered {
 			if len(e.entry.Name) > nameCol {
@@ -60,7 +59,7 @@ func (m Model) renderLogFileList() string {
 		if pathCol > maxPath {
 			pathCol = maxPath
 		}
-		sizeCol = 8
+		sizeCol := 8
 
 		hdr := fmt.Sprintf("     %-*s  %-*s  %-*s  %s",
 			nameCol, "NAME"+m.sortIndicator(1),

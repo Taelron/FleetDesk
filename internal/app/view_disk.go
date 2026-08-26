@@ -132,7 +132,7 @@ func (m Model) renderDiskList() string {
 			// highlight high disk usage
 			pct := strings.TrimSuffix(d.UsePercent, "%")
 			var pctVal int
-			fmt.Sscanf(pct, "%d", &pctVal)
+			fmt.Sscanf(pct, "%d", &pctVal) //nolint:errcheck,gosec // TAE-82: a failed parse silently skips the disk-usage highlight threshold
 			if pctVal >= 90 && i != m.diskCursor {
 				style = flashErrorStyle
 			} else if pctVal >= 80 && i != m.diskCursor {

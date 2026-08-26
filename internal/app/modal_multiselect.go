@@ -28,6 +28,7 @@ func NewMultiSelectContent(options []MultiSelectOption) StepContent {
 	}
 }
 
+// HandleKey implements StepContent for MultiSelectContent.
 func (ms *MultiSelectContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	switch msg.String() {
 	case "up", "k":
@@ -49,6 +50,7 @@ func (ms *MultiSelectContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, b
 	return ms, nil, false
 }
 
+// View implements StepContent for MultiSelectContent.
 func (ms *MultiSelectContent) View(width int) string {
 	var lines []string
 	for i, opt := range ms.options {
@@ -74,6 +76,7 @@ func (ms *MultiSelectContent) View(width int) string {
 	return strings.Join(lines, "\n")
 }
 
+// Result implements StepContent for MultiSelectContent.
 func (ms *MultiSelectContent) Result() any {
 	var keys []string
 	for i, opt := range ms.options {

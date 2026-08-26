@@ -57,10 +57,10 @@ type transition struct {
 	Strategy     string // "poll" or "oneshot"
 
 	// Callbacks — set by caller, called by engine. Engine never switches on ResourceType.
-	ExecFn          tea.Cmd              // execute the action (built at key-press time)
+	ExecFn          tea.Cmd                // execute the action (built at key-press time)
 	PollFn          func() (string, error) // poll current state; return ("gone", nil) for not-found
-	RefreshFn       func() tea.Cmd       // refresh list after completion
-	IsTransitioning func(string) bool    // is this state still transitioning? (nil = no transitioning states)
+	RefreshFn       func() tea.Cmd         // refresh list after completion
+	IsTransitioning func(string) bool      // is this state still transitioning? (nil = no transitioning states)
 }
 
 type pollTickMsg time.Time
@@ -273,6 +273,7 @@ const (
 // networkSubViewCount is the number of sub-views in the network picker.
 const networkSubViewCount = 4
 
+// Model is the Bubble Tea application model holding all TUI state.
 type Model struct {
 	view view
 
@@ -293,20 +294,19 @@ type Model struct {
 	selectedAzureSub    int
 	azureResourceCursor int
 	azureResourceCounts azure.AzureResourceCounts
-	azureResourceErr error
+	azureResourceErr    error
 	azureCountsLoaded   bool
 
 	// azure VM list
-	azureVMs           []azure.VM
-	azureVMCursor      int
-	azureVMDetail      azure.VMDetail
-	showAzureVMDetail  bool
+	azureVMs            []azure.VM
+	azureVMCursor       int
+	azureVMDetail       azure.VMDetail
+	showAzureVMDetail   bool
 	azureActivityLog    []azure.ActivityLogEntry
 	azureActivityCursor int
 	azureVMDetailScroll int
-	pendingTransition *transition           // pending action for confirm dispatch
-	transitions       map[string]transition // overlay: "type/name" → in-flight action
-	polling           bool                  // true if a poll chain is active
+	transitions         map[string]transition // overlay: "type/name" → in-flight action
+	polling             bool                  // true if a poll chain is active
 
 	// azure AKS list
 	azureAKSClusters []azure.AKSDetail
@@ -320,17 +320,17 @@ type Model struct {
 	selectedK8sCluster int
 	k8sContexts        []k8s.K8sContext
 	k8sContextCursor   int
-	selectedK8sContext  string
+	selectedK8sContext string
 	k8sResourceCursor  int
 	k8sResourceCounts  k8s.K8sResourceCounts
 	k8sResourceErrors  []string
-	k8sCountsLoaded          bool
-	k8sNodes        []k8s.K8sNode
-	k8sNodeCursor   int
-	k8sNodeDetail   k8s.K8sNodeDetail
-	k8sNodeUsage  *k8s.K8sNodeUsage // nil = loading
-	k8sNodePods   []k8s.K8sNodePod // nil = loading
-	k8sNodePodCursor int
+	k8sCountsLoaded    bool
+	k8sNodes           []k8s.K8sNode
+	k8sNodeCursor      int
+	k8sNodeDetail      k8s.K8sNodeDetail
+	k8sNodeUsage       *k8s.K8sNodeUsage // nil = loading
+	k8sNodePods        []k8s.K8sNodePod  // nil = loading
+	k8sNodePodCursor   int
 
 	// k8s workloads
 	k8sNamespaces         []k8s.K8sNamespace
@@ -345,17 +345,17 @@ type Model struct {
 	k8sPodContainerCursor int
 
 	// k8s pod logs
-	k8sPodLogs         []k8s.K8sLogEntry
-	k8sPodLogCursor    int
-	k8sPodLogCancel    context.CancelFunc
-	k8sPodLogChan      chan string
-	k8sPodLogStreaming     bool
-	k8sPodLogAllContainers bool // true = show sidecar logs too
-	k8sPodLogMinLevel      int  // 0=all, 1=Info+, 2=Warn+, 3=Error+
-	showK8sLogDetail      bool
-	k8sLogDetailScroll    int  // scroll offset for log detail view
+	k8sPodLogs               []k8s.K8sLogEntry
+	k8sPodLogCursor          int
+	k8sPodLogCancel          context.CancelFunc
+	k8sPodLogChan            chan string
+	k8sPodLogStreaming       bool
+	k8sPodLogAllContainers   bool // true = show sidecar logs too
+	k8sPodLogMinLevel        int  // 0=all, 1=Info+, 2=Warn+, 3=Error+
+	showK8sLogDetail         bool
+	k8sLogDetailScroll       int  // scroll offset for log detail view
 	k8sLogDetailWasStreaming bool // resume streaming after closing detail
-	k8sPodLogFromDetail   bool // true when logs opened from pod detail (Esc returns to detail)
+	k8sPodLogFromDetail      bool // true when logs opened from pod detail (Esc returns to detail)
 
 	// supervisord processes
 	processes     []config.Process
@@ -372,14 +372,14 @@ type Model struct {
 	streamCursor      int
 	streamCancel      context.CancelFunc
 	streamChan        chan string
-	streamStreaming    bool
+	streamStreaming   bool
 	streamTitle       string // display title in breadcrumb
 	streamSourceName  string // clean name for file save (no special chars)
 	streamReturnView  view
-	streamNewestFirst bool // true = newest on top (log tail), false = append (command output)
-	streamAutoDone    bool // true = show "Done" when command finishes
-	streamGeneration  int  // incremented on each start, used to discard stale messages
-	streamExitCode    *int // shared with goroutine; written before channel close
+	streamNewestFirst bool             // true = newest on top (log tail), false = append (command output)
+	streamAutoDone    bool             // true = show "Done" when command finishes
+	streamGeneration  int              // incremented on each start, used to discard stale messages
+	streamExitCode    *int             // shared with goroutine; written before channel close
 	streamLastConfig  *SSHStreamConfig // saved for pause/resume
 
 	// probes fleet
@@ -396,27 +396,27 @@ type Model struct {
 	// metrics dashboard
 	metrics          map[int]config.HostMetrics
 	metricsCursor    int
-	metricsSortedIdx []int          // sorted host indices for metrics view
-	metricErrors     map[int]bool   // hosts where metrics fetch failed
+	metricsSortedIdx []int        // sorted host indices for metrics view
+	metricErrors     map[int]bool // hosts where metrics fetch failed
 
 	// resource picker
 	selectedHost   int
 	resourceCursor int
 
 	// service list
-	services           []config.Service
-	serviceCursor      int
-	showServiceDetail  bool
-	serviceDetailUnit  string // unit name being viewed
-	serviceStatus      config.ServiceStatus
-	serviceLogLines    []string
-	serviceLogCursor   int
+	services          []config.Service
+	serviceCursor     int
+	showServiceDetail bool
+	serviceDetailUnit string // unit name being viewed
+	serviceStatus     config.ServiceStatus
+	serviceLogLines   []string
+	serviceLogCursor  int
 
 	// container list
-	containers          []config.Container
-	containerCursor     int
-	showContainerDetail  bool
-	containerDetail      config.ContainerDetail
+	containers            []config.Container
+	containerCursor       int
+	showContainerDetail   bool
+	containerDetail       config.ContainerDetail
 	containerDetailCursor int
 
 	// cron jobs
@@ -478,9 +478,9 @@ type Model struct {
 	auditCursor       int
 
 	// accounts
-	accounts           []config.Account
-	accountCursor      int
-	showAccountDetail    bool
+	accounts              []config.Account
+	accountCursor         int
+	showAccountDetail     bool
 	accountDetailSections []accountDetailSection
 
 	// filter / search
@@ -488,15 +488,15 @@ type Model struct {
 	filterText   string
 
 	// column sort
-	sortColumn int  // 0 = default sort, 1+ = user-selected column
+	sortColumn int // 0 = default sort, 1+ = user-selected column
 	sortAsc    bool
 
 	// log detail
 	showLogDetail bool
 
 	// SSH
-	ssh   *ssh.Manager
-	azure *azure.Manager
+	ssh    *ssh.Manager
+	azure  *azure.Manager
 	logger *slog.Logger
 
 	// flash message
@@ -531,19 +531,20 @@ type Model struct {
 	noteLastCreated string         // path of just-created note; delete on exit if still empty
 }
 
+// NewModel builds the initial Model from loaded fleets and app configuration.
 func NewModel(fleets []config.Fleet, appCfg config.AppConfig, logger *slog.Logger, version, commit string) Model {
 	m := Model{
-		view:    viewFleetPicker,
-		fleets:  fleets,
-		appCfg:  appCfg,
-		ssh:     ssh.NewManager(logger),
-		azure:   azure.NewManager(logger),
+		view:          viewFleetPicker,
+		fleets:        fleets,
+		appCfg:        appCfg,
+		ssh:           ssh.NewManager(logger),
+		azure:         azure.NewManager(logger),
 		k8s:           k8s.NewManager(logger),
 		probesManager: probes.NewManager(logger),
 		logger:        logger,
-		version: version,
-		commit:  commit,
-		noteCounts: make(map[string]int),
+		version:       version,
+		commit:        commit,
+		noteCounts:    make(map[string]int),
 	}
 	if appCfg.FleetDir != "" {
 		m.noteEngine = notes.New(appCfg.FleetDir)
@@ -554,9 +555,10 @@ func NewModel(fleets []config.Fleet, appCfg config.AppConfig, logger *slog.Logge
 	return m
 }
 
+// Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
 	// On startup, the initial view is Fleet Picker (or first-run wizard). If
-	// it's noteable, fire an initial note-count load so indicators appear
+	// it supports notes, fire an initial note-count load so indicators appear
 	// without waiting for the first tick.
 	return m.refreshNoteCountsCmd()
 }
@@ -630,6 +632,7 @@ func (m Model) testSudo(idx int) tea.Cmd {
 	}
 }
 
+// Update implements tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -938,7 +941,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-
 
 	case k8sClusterProbeMsg:
 		if msg.index < len(m.k8sClusters) {
@@ -1279,9 +1281,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						// Determine target based on the transitioning action
 						target := "running"
 						action := strings.ToLower(c.ProvisioningState)
-						if action == "stopping" {
+						switch action {
+						case "stopping":
 							target = "stopped"
-						} else if action == "deleting" {
+						case "deleting":
 							target = "gone"
 						}
 						m.transitions[key] = transition{
@@ -1939,7 +1942,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-
+// View implements tea.Model.
 func (m Model) View() string {
 	// If modal is active, render it on top of the current view
 	if m.modal != nil && !m.modal.Done() {

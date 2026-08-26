@@ -7,8 +7,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/azure"
-	"github.com/Gaetan-Jaminon/fleetdesk/internal/k8s"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/k8s"
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -153,8 +153,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.flashError = false
 
 	// Global `n` key intercept (FLE-78): open Note List for the currently
-	// selected resource. Only fires on noteable list views; individual view
-	// handlers never see the `n` key when their view is noteable.
+	// selected resource. Only fires on views that support notes; individual
+	// view handlers never see the `n` key when their view supports notes.
 	if msg.String() == "n" && isNoteableView(m.view) && m.noteEngine != nil {
 		ref, ok := m.currentNoteRef()
 		if !ok {
@@ -1759,14 +1759,18 @@ func (m Model) handleAzureVMListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 						ResourceType: "vm", ResourceName: vm.Name,
 						Action: "start", Display: "starting...", TargetState: "running",
 						Strategy: "poll",
-						ExecFn: m.executeAzureVMAction(vmName, rg, "start"),
+						ExecFn:   m.executeAzureVMAction(vmName, rg, "start"),
 						PollFn: func() (string, error) {
 							states, err := azure.FetchVMPowerStates(am, sub.ID, []string{vmName}, logger)
-							if err != nil { return "", err }
-							if s, ok := states[strings.ToLower(vmName)]; ok { return s, nil }
+							if err != nil {
+								return "", err
+							}
+							if s, ok := states[strings.ToLower(vmName)]; ok {
+								return s, nil
+							}
 							return "", fmt.Errorf("vm %s not in poll results", vmName)
 						},
-						RefreshFn: func() tea.Cmd { return m.fetchAzureVMs() },
+						RefreshFn:       func() tea.Cmd { return m.fetchAzureVMs() },
 						IsTransitioning: isAzureTransitioningState,
 					})
 			}
@@ -1786,14 +1790,18 @@ func (m Model) handleAzureVMListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 						ResourceType: "vm", ResourceName: vm.Name,
 						Action: "deallocate", Display: "deallocating...", TargetState: "deallocated",
 						Strategy: "poll",
-						ExecFn: m.executeAzureVMAction(vmName, rg, "deallocate"),
+						ExecFn:   m.executeAzureVMAction(vmName, rg, "deallocate"),
 						PollFn: func() (string, error) {
 							states, err := azure.FetchVMPowerStates(am, sub.ID, []string{vmName}, logger)
-							if err != nil { return "", err }
-							if s, ok := states[strings.ToLower(vmName)]; ok { return s, nil }
+							if err != nil {
+								return "", err
+							}
+							if s, ok := states[strings.ToLower(vmName)]; ok {
+								return s, nil
+							}
 							return "", fmt.Errorf("vm %s not in poll results", vmName)
 						},
-						RefreshFn: func() tea.Cmd { return m.fetchAzureVMs() },
+						RefreshFn:       func() tea.Cmd { return m.fetchAzureVMs() },
 						IsTransitioning: isAzureTransitioningState,
 					})
 			}
@@ -1813,14 +1821,18 @@ func (m Model) handleAzureVMListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 						ResourceType: "vm", ResourceName: vm.Name,
 						Action: "restart", Display: "restarting...", TargetState: "running",
 						Strategy: "poll",
-						ExecFn: m.executeAzureVMAction(vmName, rg, "restart"),
+						ExecFn:   m.executeAzureVMAction(vmName, rg, "restart"),
 						PollFn: func() (string, error) {
 							states, err := azure.FetchVMPowerStates(am, sub.ID, []string{vmName}, logger)
-							if err != nil { return "", err }
-							if s, ok := states[strings.ToLower(vmName)]; ok { return s, nil }
+							if err != nil {
+								return "", err
+							}
+							if s, ok := states[strings.ToLower(vmName)]; ok {
+								return s, nil
+							}
 							return "", fmt.Errorf("vm %s not in poll results", vmName)
 						},
-						RefreshFn: func() tea.Cmd { return m.fetchAzureVMs() },
+						RefreshFn:       func() tea.Cmd { return m.fetchAzureVMs() },
 						IsTransitioning: isAzureTransitioningState,
 					})
 			}
@@ -1921,14 +1933,18 @@ func (m Model) handleAzureAKSListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					ResourceType: "aks", ResourceName: c.Name,
 					Action: "start", Display: "starting...", TargetState: "running",
 					Strategy: "poll",
-					ExecFn: m.executeAzureAKSAction(clusterName, rg, "start"),
+					ExecFn:   m.executeAzureAKSAction(clusterName, rg, "start"),
 					PollFn: func() (string, error) {
 						states, err := azure.FetchAKSPowerStates(am, sub.ID, []string{clusterName}, logger)
-						if err != nil { return "", err }
-						if s, ok := states[strings.ToLower(clusterName)]; ok { return s, nil }
+						if err != nil {
+							return "", err
+						}
+						if s, ok := states[strings.ToLower(clusterName)]; ok {
+							return s, nil
+						}
 						return "gone", nil
 					},
-					RefreshFn: func() tea.Cmd { return m.fetchAzureAKSClusters() },
+					RefreshFn:       func() tea.Cmd { return m.fetchAzureAKSClusters() },
 					IsTransitioning: isAzureTransitioningState,
 				})
 		}
@@ -1944,14 +1960,18 @@ func (m Model) handleAzureAKSListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					ResourceType: "aks", ResourceName: c.Name,
 					Action: "stop", Display: "stopping...", TargetState: "stopped",
 					Strategy: "poll",
-					ExecFn: m.executeAzureAKSAction(clusterName, rg, "stop"),
+					ExecFn:   m.executeAzureAKSAction(clusterName, rg, "stop"),
 					PollFn: func() (string, error) {
 						states, err := azure.FetchAKSPowerStates(am, sub.ID, []string{clusterName}, logger)
-						if err != nil { return "", err }
-						if s, ok := states[strings.ToLower(clusterName)]; ok { return s, nil }
+						if err != nil {
+							return "", err
+						}
+						if s, ok := states[strings.ToLower(clusterName)]; ok {
+							return s, nil
+						}
 						return "gone", nil
 					},
-					RefreshFn: func() tea.Cmd { return m.fetchAzureAKSClusters() },
+					RefreshFn:       func() tea.Cmd { return m.fetchAzureAKSClusters() },
 					IsTransitioning: isAzureTransitioningState,
 				})
 		}
@@ -1967,14 +1987,18 @@ func (m Model) handleAzureAKSListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					ResourceType: "aks", ResourceName: c.Name,
 					Action: "delete", Display: "deleting...", TargetState: "gone",
 					Strategy: "poll",
-					ExecFn: m.executeAzureAKSAction(clusterName, rg, "delete"),
+					ExecFn:   m.executeAzureAKSAction(clusterName, rg, "delete"),
 					PollFn: func() (string, error) {
 						states, err := azure.FetchAKSPowerStates(am, sub.ID, []string{clusterName}, logger)
-						if err != nil { return "", err }
-						if s, ok := states[strings.ToLower(clusterName)]; ok { return s, nil }
+						if err != nil {
+							return "", err
+						}
+						if s, ok := states[strings.ToLower(clusterName)]; ok {
+							return s, nil
+						}
 						return "gone", nil
 					},
-					RefreshFn: func() tea.Cmd { return m.fetchAzureAKSClusters() },
+					RefreshFn:       func() tea.Cmd { return m.fetchAzureAKSClusters() },
 					IsTransitioning: isAzureTransitioningState,
 				})
 		}
@@ -2118,7 +2142,7 @@ func (m Model) handleK8sContextListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					ResourceType: "k8s-context", ResourceName: ctx.Name,
 					Action: "delete", Display: "deleting...",
 					Strategy: "oneshot",
-					ExecFn: m.executeK8sContextDelete(ctxName),
+					ExecFn:   m.executeK8sContextDelete(ctxName),
 					RefreshFn: func() tea.Cmd {
 						return m.fetchK8sContexts(clusterName)
 					},
@@ -2301,11 +2325,15 @@ func (m Model) handleK8sNamespaceListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		filtered := m.filteredK8sNamespaces()
-		if m.k8sNamespaceCursor > 0 { m.k8sNamespaceCursor-- }
+		if m.k8sNamespaceCursor > 0 {
+			m.k8sNamespaceCursor--
+		}
 		_ = filtered
 	case "down", "j":
 		filtered := m.filteredK8sNamespaces()
-		if m.k8sNamespaceCursor < len(filtered)-1 { m.k8sNamespaceCursor++ }
+		if m.k8sNamespaceCursor < len(filtered)-1 {
+			m.k8sNamespaceCursor++
+		}
 	case "enter":
 		filtered := m.filteredK8sNamespaces()
 		if len(filtered) > 0 && m.k8sNamespaceCursor < len(filtered) {
@@ -2324,7 +2352,12 @@ func (m Model) handleK8sNamespaceListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.k8sNamespaceCursor = 0
 	case "1", "2", "3", "4", "5", "6", "7":
 		col := int(msg.Runes[0] - '0')
-		if m.sortColumn == col { m.sortAsc = !m.sortAsc } else { m.sortColumn = col; m.sortAsc = true }
+		if m.sortColumn == col {
+			m.sortAsc = !m.sortAsc
+		} else {
+			m.sortColumn = col
+			m.sortAsc = true
+		}
 		m.sortView()
 	case "r":
 		m.k8sNamespaces = nil
@@ -2332,8 +2365,15 @@ func (m Model) handleK8sNamespaceListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		showLoading(&m, "namespaces", "Loading namespaces...")
 		return m, m.fetchK8sNamespaces()
 	case "esc":
-		if m.filterActive { m.filterActive = false; m.filterText = ""; m.k8sNamespaceCursor = 0 } else {
-			m.view = viewK8sResourcePicker; m.sortColumn = 0; m.filterText = ""; m.filterActive = false
+		if m.filterActive {
+			m.filterActive = false
+			m.filterText = ""
+			m.k8sNamespaceCursor = 0
+		} else {
+			m.view = viewK8sResourcePicker
+			m.sortColumn = 0
+			m.filterText = ""
+			m.filterActive = false
 		}
 	case "q":
 		return m, tea.Quit
@@ -2345,11 +2385,15 @@ func (m Model) handleK8sWorkloadListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		filtered := m.filteredK8sWorkloads()
-		if m.k8sWorkloadCursor > 0 { m.k8sWorkloadCursor-- }
+		if m.k8sWorkloadCursor > 0 {
+			m.k8sWorkloadCursor--
+		}
 		_ = filtered
 	case "down", "j":
 		filtered := m.filteredK8sWorkloads()
-		if m.k8sWorkloadCursor < len(filtered)-1 { m.k8sWorkloadCursor++ }
+		if m.k8sWorkloadCursor < len(filtered)-1 {
+			m.k8sWorkloadCursor++
+		}
 	case "enter":
 		filtered := m.filteredK8sWorkloads()
 		if len(filtered) > 0 && m.k8sWorkloadCursor < len(filtered) {
@@ -2370,7 +2414,12 @@ func (m Model) handleK8sWorkloadListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.k8sWorkloadCursor = 0
 	case "1", "2", "3":
 		col := int(msg.Runes[0] - '0')
-		if m.sortColumn == col { m.sortAsc = !m.sortAsc } else { m.sortColumn = col; m.sortAsc = true }
+		if m.sortColumn == col {
+			m.sortAsc = !m.sortAsc
+		} else {
+			m.sortColumn = col
+			m.sortAsc = true
+		}
 		m.sortView()
 	case "r":
 		m.k8sWorkloads = nil
@@ -2379,8 +2428,15 @@ func (m Model) handleK8sWorkloadListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		showLoading(&m, "workloads", "Loading workloads...")
 		return m, m.fetchK8sWorkloads(ns)
 	case "esc":
-		if m.filterActive { m.filterActive = false; m.filterText = ""; m.k8sWorkloadCursor = 0 } else {
-			m.view = viewK8sNamespaceList; m.sortColumn = 0; m.filterText = ""; m.filterActive = false
+		if m.filterActive {
+			m.filterActive = false
+			m.filterText = ""
+			m.k8sWorkloadCursor = 0
+		} else {
+			m.view = viewK8sNamespaceList
+			m.sortColumn = 0
+			m.filterText = ""
+			m.filterActive = false
 		}
 	case "q":
 		return m, tea.Quit
@@ -2392,11 +2448,15 @@ func (m Model) handleK8sPodListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		filtered := m.filteredK8sPodList()
-		if m.k8sPodCursor > 0 { m.k8sPodCursor-- }
+		if m.k8sPodCursor > 0 {
+			m.k8sPodCursor--
+		}
 		_ = filtered
 	case "down", "j":
 		filtered := m.filteredK8sPodList()
-		if m.k8sPodCursor < len(filtered)-1 { m.k8sPodCursor++ }
+		if m.k8sPodCursor < len(filtered)-1 {
+			m.k8sPodCursor++
+		}
 	case "enter":
 		filtered := m.filteredK8sPodList()
 		if len(filtered) > 0 && m.k8sPodCursor < len(filtered) {
@@ -2411,7 +2471,12 @@ func (m Model) handleK8sPodListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.k8sPodCursor = 0
 	case "1", "2", "3", "4", "5", "6":
 		col := int(msg.Runes[0] - '0')
-		if m.sortColumn == col { m.sortAsc = !m.sortAsc } else { m.sortColumn = col; m.sortAsc = true }
+		if m.sortColumn == col {
+			m.sortAsc = !m.sortAsc
+		} else {
+			m.sortColumn = col
+			m.sortAsc = true
+		}
 		m.sortView()
 	case "l":
 		filtered := m.filteredK8sPodList()
@@ -2447,7 +2512,7 @@ func (m Model) handleK8sPodListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					ResourceType: "k8s-pod", ResourceName: p.Name,
 					Action: "delete", Display: "deleting...", TargetState: "gone",
 					Strategy: "poll",
-					ExecFn: m.executeK8sPodAction(podNs, podName, "delete"),
+					ExecFn:   m.executeK8sPodAction(podNs, podName, "delete"),
 					PollFn: func() (string, error) {
 						_, err := km.RunCommand("get", "pod", podName, "-n", podNs, "--context", ctxName, "-o", "name")
 						if err != nil {
@@ -2470,8 +2535,15 @@ func (m Model) handleK8sPodListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		showLoading(&m, "pods", "Loading pods...")
 		return m, m.fetchK8sPods(ns, w.Name)
 	case "esc":
-		if m.filterActive { m.filterActive = false; m.filterText = ""; m.k8sPodCursor = 0 } else {
-			m.view = viewK8sWorkloadList; m.sortColumn = 0; m.filterText = ""; m.filterActive = false
+		if m.filterActive {
+			m.filterActive = false
+			m.filterText = ""
+			m.k8sPodCursor = 0
+		} else {
+			m.view = viewK8sWorkloadList
+			m.sortColumn = 0
+			m.filterText = ""
+			m.filterActive = false
 		}
 	case "q":
 		return m, tea.Quit

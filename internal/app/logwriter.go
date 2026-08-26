@@ -22,10 +22,10 @@ type logWriter struct {
 // Returns nil (no error) if the file cannot be created — log saving is best-effort.
 func newLogWriter(fleetDir, fleetName, hostName, sourceName string) *logWriter {
 	dir := filepath.Join(fleetDir, "logs", fspath.Sanitize(fleetName), fspath.Sanitize(hostName))
-	os.MkdirAll(dir, 0755)
+	_ = os.MkdirAll(dir, 0755) //nolint:gosec // G301: log dir 0755, known permission defect — TAE-42
 
 	fileName := fmt.Sprintf("%s-%s.log", fspath.Sanitize(sourceName), time.Now().Format("2006-01-02_150405"))
-	f, err := os.Create(filepath.Join(dir, fileName))
+	f, err := os.Create(filepath.Join(dir, fileName)) //nolint:gosec // G304: every dynamic segment goes through fspath.Sanitize
 	if err != nil {
 		return nil
 	}
@@ -37,7 +37,7 @@ func (lw *logWriter) WriteLine(line string) {
 	if lw == nil || lw.file == nil {
 		return
 	}
-	lw.file.WriteString(line + "\n")
+	lw.file.WriteString(line + "\n") //nolint:errcheck,gosec // TAE-82: a failed write still flashes "Saved N lines" as success
 }
 
 // WriteLines writes multiple lines to the log file.
@@ -46,7 +46,7 @@ func (lw *logWriter) WriteLines(lines []string) {
 		return
 	}
 	for _, line := range lines {
-		lw.file.WriteString(line + "\n")
+		lw.file.WriteString(line + "\n") //nolint:errcheck,gosec // TAE-82: a failed write still flashes "Saved N lines" as success
 	}
 }
 
@@ -55,7 +55,7 @@ func (lw *logWriter) Close() {
 	if lw == nil || lw.file == nil {
 		return
 	}
-	lw.file.Close()
+	_ = lw.file.Close()
 	lw.file = nil
 }
 

@@ -1,10 +1,12 @@
+// Package probes runs background health checks (SSH reachability, cert
+// expiry) against fleet hosts and reports their status.
 package probes
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +26,8 @@ import (
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
 )
 
+// CertWarnDays is how many days before TLS certificate expiry a probe
+// starts warning.
 const (
 	maxBodyPreview   = 2048
 	CertWarnDays     = 7
@@ -114,7 +118,7 @@ func buildHTTPClient(timeout time.Duration, proxyURL string, insecureSkipVerify 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			MinVersion:         tls.VersionTLS12,
-			InsecureSkipVerify: insecureSkipVerify,
+			InsecureSkipVerify: insecureSkipVerify, //nolint:gosec // G402: the insecure_skip_verify config field, per-probe override
 		},
 	}
 
@@ -177,7 +181,7 @@ func runProbe(ctx context.Context, client *http.Client, entry config.ProbeEntry,
 		result.ErrorMsg = RedactError(err, proxyURL)
 		return result
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	result.Code = resp.StatusCode
 

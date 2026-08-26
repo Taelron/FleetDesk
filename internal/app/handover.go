@@ -47,7 +47,7 @@ func (s *sshExec) Run() error {
 	}
 	sshArgs = append(sshArgs, s.args...)
 
-	c := exec.Command("ssh", sshArgs...)
+	c := exec.Command("ssh", sshArgs...) //nolint:gosec // G204: ssh handover, argv, host/user/port from the user's own fleet YAML
 	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
@@ -59,7 +59,7 @@ func (s *sshExec) Run() error {
 		status = fmt.Sprintf("\u2717 %v", s.err)
 	}
 	fmt.Printf("\n%s\n%s\nPress Enter to return to fleetdesk...", sep, status)
-	bufio.NewReader(os.Stdin).ReadBytes('\n')
+	_, _ = bufio.NewReader(os.Stdin).ReadBytes('\n')
 
 	return nil
 }
@@ -93,7 +93,7 @@ func (e *editorExec) Run() error {
 		parts = []string{"vi"}
 	}
 	args := append(parts[1:], e.path)
-	c := exec.Command(parts[0], args...)
+	c := exec.Command(parts[0], args...) //nolint:gosec // G204: user-configured editor, argv
 	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
@@ -135,7 +135,7 @@ func (c *cmdExec) Run() error {
 	sep := strings.Repeat("\u2501", 50)
 	fmt.Printf("\n%s\n\u25b6 %s\n%s\n\n", sep, c.banner, sep)
 
-	cmd := exec.Command(c.name, c.args...)
+	cmd := exec.Command(c.name, c.args...) //nolint:gosec // G204: shellQuote'd values, argv
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -147,7 +147,7 @@ func (c *cmdExec) Run() error {
 		status = fmt.Sprintf("\u2717 %v", c.err)
 	}
 	fmt.Printf("\n%s\n%s\nPress Enter to return to fleetdesk...", sep, status)
-	bufio.NewReader(os.Stdin).ReadBytes('\n')
+	_, _ = bufio.NewReader(os.Stdin).ReadBytes('\n')
 
 	return nil
 }

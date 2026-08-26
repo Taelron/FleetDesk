@@ -1,3 +1,5 @@
+// Command fleetdesk is a terminal UI for managing fleets of Linux VMs over
+// SSH, Azure resources via the az CLI, and Kubernetes clusters via kubectl.
 package main
 
 import (
@@ -36,7 +38,7 @@ func main() {
 	// Ensure config directory exists
 	configDir := config.ConfigPath()
 	if configDir != "" {
-		if err := os.MkdirAll(configDir, 0755); err != nil {
+		if err := os.MkdirAll(configDir, 0755); err != nil { //nolint:gosec // G301: config dir 0755, known permission defect — TAE-23
 			fmt.Fprintf(os.Stderr, "error creating config dir: %v\n", err)
 			os.Exit(1)
 		}

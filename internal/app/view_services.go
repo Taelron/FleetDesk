@@ -36,12 +36,12 @@ func (m Model) renderServiceList() string {
 			activeDisplay += " (" + m.serviceStatus.SubState + ")"
 		}
 		activeStyled := activeDisplay
-		switch {
-		case m.serviceStatus.ActiveState == "active":
+		switch m.serviceStatus.ActiveState {
+		case "active":
 			activeStyled = lipgloss.NewStyle().Foreground(colorGreen).Render(activeDisplay)
-		case m.serviceStatus.ActiveState == "failed":
+		case "failed":
 			activeStyled = lipgloss.NewStyle().Foreground(colorRed).Render(activeDisplay)
-		case m.serviceStatus.ActiveState == "inactive":
+		case "inactive":
 			activeStyled = lipgloss.NewStyle().Foreground(colorYellow).Render(activeDisplay)
 		}
 

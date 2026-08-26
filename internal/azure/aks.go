@@ -1,3 +1,5 @@
+// Package azure fetches Azure resources (subscriptions, VMs, AKS clusters)
+// through the az CLI.
 package azure
 
 import (
@@ -50,14 +52,14 @@ func FetchAKSClusters(m *Manager, subName, subID, tenantID string, logger *slog.
 func ParseGraphAKS(data []byte) ([]AKSDetail, error) {
 	var result struct {
 		Data []struct {
-			Name          string `json:"name"`
-			ResourceGroup string `json:"resourceGroup"`
-			Location      string `json:"location"`
-			ID            string `json:"id"`
-			K8sVersion    string `json:"k8sVersion"`
-			PowerState        string `json:"powerState"`
-			ProvisioningState string `json:"provisioningState"`
-			NetworkPlugin     string `json:"networkPlugin"`
+			Name              string                 `json:"name"`
+			ResourceGroup     string                 `json:"resourceGroup"`
+			Location          string                 `json:"location"`
+			ID                string                 `json:"id"`
+			K8sVersion        string                 `json:"k8sVersion"`
+			PowerState        string                 `json:"powerState"`
+			ProvisioningState string                 `json:"provisioningState"`
+			NetworkPlugin     string                 `json:"networkPlugin"`
 			CreatedDate       string                 `json:"createdDate"`
 			Tags              map[string]interface{} `json:"tags"`
 			Pools             []struct {

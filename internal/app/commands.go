@@ -1,3 +1,5 @@
+// Package app is the Bubble Tea TUI: model, views, key handling and the
+// commands that fetch data from the ssh, azure, k8s and probes backends.
 package app
 
 import (
@@ -381,7 +383,7 @@ func (m Model) fetchLogLevels() func() tea.Msg {
 		for i, n := range names {
 			count := 0
 			if i < len(lines) {
-				fmt.Sscanf(strings.TrimSpace(lines[i]), "%d", &count)
+				fmt.Sscanf(strings.TrimSpace(lines[i]), "%d", &count) //nolint:errcheck,gosec // TAE-82: a failed parse renders the log-level line count as 0
 			}
 			levels = append(levels, config.LogLevelEntry{
 				Level: n.level,
@@ -969,13 +971,13 @@ func (m Model) fetchNetworkInfo() func() tea.Msg {
 		lines := strings.Split(strings.TrimSpace(out), "\n")
 		msg := fetchNetworkInfoMsg{}
 		if len(lines) > 0 {
-			fmt.Sscanf(lines[0], "%d", &msg.routeCount)
+			fmt.Sscanf(lines[0], "%d", &msg.routeCount) //nolint:errcheck,gosec // TAE-82: a failed parse renders the route count as 0
 		}
 		if len(lines) > 1 {
 			msg.firewallType = strings.TrimSpace(lines[1])
 		}
 		if len(lines) > 2 {
-			fmt.Sscanf(strings.TrimSpace(lines[2]), "%d", &msg.firewallCount)
+			fmt.Sscanf(strings.TrimSpace(lines[2]), "%d", &msg.firewallCount) //nolint:errcheck,gosec // TAE-82: a failed parse renders the firewall rule count as 0
 		}
 		logger.Debug("fetch complete", "view", "network_info", "host_idx", idx, "elapsed", time.Since(start))
 		return msg
@@ -1254,8 +1256,8 @@ func (m Model) fetchDisk() func() tea.Msg {
 			pi := strings.TrimSuffix(disks[i].UsePercent, "%")
 			pj := strings.TrimSuffix(disks[j].UsePercent, "%")
 			var ii, jj int
-			fmt.Sscanf(pi, "%d", &ii)
-			fmt.Sscanf(pj, "%d", &jj)
+			_, _ = fmt.Sscanf(pi, "%d", &ii)
+			_, _ = fmt.Sscanf(pj, "%d", &jj)
 			return ii > jj
 		})
 
@@ -1454,9 +1456,7 @@ func (m Model) fetchUpdateDetail(pkg string) func() tea.Msg {
 			return fetchUpdateDetailMsg{err: fmt.Errorf("info %s: %w", pkg, err)}
 		}
 		var lines []string
-		for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-			lines = append(lines, line)
-		}
+		lines = append(lines, strings.Split(strings.TrimSpace(out), "\n")...)
 		logger.Debug("fetch complete", "view", "update_detail", "host_idx", idx, "pkg", pkg, "lines", len(lines), "elapsed", time.Since(start))
 		return fetchUpdateDetailMsg{lines: lines}
 	}
@@ -1489,9 +1489,7 @@ func (m Model) fetchDiskDetail(mount string) func() tea.Msg {
 			}
 		}
 		var lines []string
-		for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-			lines = append(lines, line)
-		}
+		lines = append(lines, strings.Split(strings.TrimSpace(out), "\n")...)
 		logger.Debug("fetch complete", "view", "disk_detail", "host_idx", idx, "mount", mount, "lines", len(lines), "elapsed", time.Since(start))
 		return fetchDiskDetailMsg{lines: lines}
 	}
@@ -1854,7 +1852,7 @@ func (m Model) fetchK8sPodLogs(namespace string, podNames []string) tea.Cmd {
 
 // streamK8sPodLogs starts kubectl logs -f for each pod, sending lines to a shared channel.
 func (m *Model) streamK8sPodLogs(namespace string, podNames []string) tea.Cmd {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is stored on Model.k8sPodLogCancel and called from six keys.go handlers
 	m.k8sPodLogCancel = cancel
 	m.k8sPodLogStreaming = true
 
@@ -1876,7 +1874,7 @@ func (m *Model) streamK8sPodLogs(namespace string, podNames []string) tea.Cmd {
 			if m.k8sPodLogAllContainers {
 				args = append(args, "--all-containers")
 			}
-			cmd := exec.CommandContext(ctx, "kubectl", args...)
+			cmd := exec.CommandContext(ctx, "kubectl", args...) //nolint:gosec // G204: kubectl, argv, no shell
 			stdout, err := cmd.StdoutPipe()
 			if err != nil {
 				return
@@ -1893,7 +1891,7 @@ func (m *Model) streamK8sPodLogs(namespace string, podNames []string) tea.Cmd {
 					return
 				}
 			}
-			cmd.Wait()
+			_ = cmd.Wait()
 		}(pod)
 	}
 
@@ -2157,4 +2155,3 @@ func (m Model) confirmProcessAction(processName, action string) (Model, tea.Cmd)
 }
 
 // Old streamProcessAction and listenForProcessActionLines removed — replaced by generic sshstream.go
-

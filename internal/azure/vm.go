@@ -76,10 +76,10 @@ func FetchVMs(m *Manager, subName, subID, tenantID string, logger *slog.Logger) 
 
 	wg.Wait()
 
-	if vms != nil && len(vms) == 1000 {
+	if len(vms) == 1000 {
 		logger.Warn("resource graph query returned 1000 results, results may be truncated", "query", "vms")
 	}
-	if nicMap != nil && len(nicMap) == 1000 {
+	if len(nicMap) == 1000 {
 		logger.Warn("resource graph query returned 1000 results, results may be truncated", "query", "nics")
 	}
 
@@ -259,9 +259,9 @@ func FetchVMDetail(m *Manager, vmName, rgName, subName, tenantID string, logger 
 // ParseVMDetail parses the JSON output of `az vm show`.
 func ParseVMDetail(data []byte) (VMDetail, error) {
 	var raw struct {
-		Name          string `json:"name"`
-		ResourceGroup string `json:"resourceGroup"`
-		Location      string `json:"location"`
+		Name            string `json:"name"`
+		ResourceGroup   string `json:"resourceGroup"`
+		Location        string `json:"location"`
 		HardwareProfile struct {
 			VMSize string `json:"vmSize"`
 		} `json:"hardwareProfile"`
@@ -277,11 +277,11 @@ func ParseVMDetail(data []byte) (VMDetail, error) {
 				Sku       string `json:"sku"`
 			} `json:"imageReference"`
 		} `json:"storageProfile"`
-		PowerState string            `json:"powerState"`
-		PrivateIps string            `json:"privateIps"`
-		PublicIps  string            `json:"publicIps"`
-		ID         string            `json:"id"`
-		Tags       map[string]string `json:"tags"`
+		PowerState     string            `json:"powerState"`
+		PrivateIps     string            `json:"privateIps"`
+		PublicIps      string            `json:"publicIps"`
+		ID             string            `json:"id"`
+		Tags           map[string]string `json:"tags"`
 		NetworkProfile struct {
 			NetworkInterfaces []struct {
 				ID string `json:"id"`

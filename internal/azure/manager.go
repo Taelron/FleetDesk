@@ -89,7 +89,7 @@ func (m *Manager) RunCommand(args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(m.ctx, 120*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "az", args...)
+	cmd := exec.CommandContext(ctx, "az", args...) //nolint:gosec // G204: az, argv, no shell
 	out, err := cmd.Output()
 	if err != nil {
 		var exitErr *exec.ExitError

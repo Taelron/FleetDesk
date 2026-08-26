@@ -5,6 +5,7 @@ import "time"
 // ProbeStatus represents the health state of a probed endpoint.
 type ProbeStatus int
 
+// ProbeStatus values, in health-state order.
 const (
 	ProbeStatusPending ProbeStatus = iota
 	ProbeStatusUp
@@ -29,6 +30,7 @@ func (s ProbeStatus) String() string {
 // Raw Go error strings must never leak to the UI.
 type ErrorClass string
 
+// ErrorClass values, the closed enum ErrorClass is restricted to.
 const (
 	ErrorClassNone       ErrorClass = "none"
 	ErrorClassDNS        ErrorClass = "dns"

@@ -1,3 +1,5 @@
+// Package ssh manages SSH connections to fleet hosts and fetches remote
+// data (accounts, services, disks, logs) over them.
 package ssh
 
 import (
@@ -151,7 +153,7 @@ func ParseAccountLine(line string) config.Account {
 	a := config.Account{
 		User: parts[0],
 	}
-	fmt.Sscanf(parts[1], "%d", &a.UID)
+	fmt.Sscanf(parts[1], "%d", &a.UID) //nolint:errcheck,gosec // TAE-82: a failed parse renders UID as 0, which sorts first
 
 	if len(parts) > 2 {
 		// filter out the primary group (same name as user)
@@ -256,14 +258,14 @@ func ParsePortLine(line string) config.ListeningPort {
 		bracket := strings.LastIndex(local, "]:")
 		if bracket > 0 {
 			bindAddr = local[1:bracket]
-			fmt.Sscanf(local[bracket+2:], "%d", &port)
+			fmt.Sscanf(local[bracket+2:], "%d", &port) //nolint:errcheck,gosec // TAE-82: a failed parse renders the listening port as 0
 		}
 	} else {
 		// IPv4: 0.0.0.0:22
 		lastColon := strings.LastIndex(local, ":")
 		if lastColon > 0 {
 			bindAddr = local[:lastColon]
-			fmt.Sscanf(local[lastColon+1:], "%d", &port)
+			fmt.Sscanf(local[lastColon+1:], "%d", &port) //nolint:errcheck,gosec // TAE-82: a failed parse renders the listening port as 0
 		}
 	}
 
@@ -375,14 +377,10 @@ func ParseFirewalldOutput(output string) []config.FirewallRule {
 
 		if strings.HasPrefix(trimmed, "services:") {
 			svcLine := strings.TrimPrefix(trimmed, "services:")
-			for _, s := range strings.Fields(svcLine) {
-				services = append(services, s)
-			}
+			services = append(services, strings.Fields(svcLine)...)
 		} else if strings.HasPrefix(trimmed, "ports:") {
 			portLine := strings.TrimPrefix(trimmed, "ports:")
-			for _, p := range strings.Fields(portLine) {
-				ports = append(ports, p)
-			}
+			ports = append(ports, strings.Fields(portLine)...)
 		}
 	}
 	flush()
@@ -650,7 +648,7 @@ func ParseSELinuxDenialLine(line string) config.SELinuxDenial {
 // ParseAuditEventLine parses an aureport --auth line.
 // Expected format (aureport -i):
 //
-//	42. 04/06/2026 14:32:01 user1 pts/0 192.168.1.1 /usr/sbin/sshd yes 12345
+//  42. 04/06/2026 14:32:01 user1 pts/0 192.168.1.1 /usr/sbin/sshd yes 12345
 func ParseAuditEventLine(line string) config.AuditEvent {
 	if line == "" {
 		return config.AuditEvent{}
@@ -708,14 +706,14 @@ func ParseMetricsOutput(output string) config.HostMetrics {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	m := config.HostMetrics{}
 	if len(lines) >= 1 {
-		fmt.Sscanf(strings.TrimSpace(lines[0]), "%d", &m.CPUPercent)
+		fmt.Sscanf(strings.TrimSpace(lines[0]), "%d", &m.CPUPercent) //nolint:errcheck,gosec // TAE-82: a failed parse renders CPU% as 0 and silently skips the ≥80/≥90 alert colouring
 	}
 	if len(lines) >= 2 {
-		fmt.Sscanf(strings.TrimSpace(lines[1]), "%d", &m.MemPercent)
+		fmt.Sscanf(strings.TrimSpace(lines[1]), "%d", &m.MemPercent) //nolint:errcheck,gosec // TAE-82: a failed parse renders MEM% as 0 and silently skips the ≥80/≥90 alert colouring
 	}
 	if len(lines) >= 3 {
 		pct := strings.TrimSuffix(strings.TrimSpace(lines[2]), "%")
-		fmt.Sscanf(pct, "%d", &m.DiskPercent)
+		fmt.Sscanf(pct, "%d", &m.DiskPercent) //nolint:errcheck,gosec // TAE-82: a failed parse renders DISK% as 0 and silently skips the ≥80/≥90 alert colouring
 	}
 	if len(lines) >= 4 {
 		m.Load = strings.TrimSpace(lines[3])
@@ -755,7 +753,7 @@ func ParseServiceStatus(output string) config.ServiceStatus {
 	// Memory: convert bytes to human-readable
 	if mem := props["MemoryCurrent"]; mem != "" && mem != "[not set]" {
 		var bytes uint64
-		fmt.Sscanf(mem, "%d", &bytes)
+		fmt.Sscanf(mem, "%d", &bytes) //nolint:errcheck,gosec // TAE-82: a failed parse renders service memory as "0B"
 		switch {
 		case bytes >= 1<<30:
 			s.Memory = fmt.Sprintf("%.1fG", float64(bytes)/float64(1<<30))
@@ -792,7 +790,7 @@ func ParseContainerInspect(output string) config.ContainerDetail {
 	}
 
 	var raw []struct {
-		Id        string `json:"Id"`
+		ID        string `json:"Id"`
 		Created   string `json:"Created"`
 		ImageName string `json:"ImageName"`
 		State     struct {
@@ -820,7 +818,7 @@ func ParseContainerInspect(output string) config.ContainerDetail {
 
 	c := raw[0]
 	detail := config.ContainerDetail{
-		ID:      c.Id,
+		ID:      c.ID,
 		Image:   c.ImageName,
 		Created: c.Created,
 		Status:  c.State.Status,

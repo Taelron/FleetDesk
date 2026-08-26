@@ -6,7 +6,7 @@ import (
 
 // isNoteableView reports whether the `n` key should open the Note List for
 // the currently displayed view. Only resource list views that carry a
-// well-defined selected resource are noteable.
+// well-defined selected resource support notes.
 func isNoteableView(v view) bool {
 	switch v {
 	case viewFleetPicker,
@@ -164,7 +164,7 @@ func (m Model) currentNoteRef() (notes.ResourceRef, bool) {
 
 // refsInView returns one ResourceRef per visible item in the current view.
 // Used by FLE-79 to batch-load note counts on view entry. Returns nil if the
-// view is not noteable.
+// view does not support notes.
 func (m Model) refsInView() []notes.ResourceRef {
 	if !isNoteableView(m.view) {
 		return nil
