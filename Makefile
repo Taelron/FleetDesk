@@ -1,4 +1,4 @@
-.PHONY: test test-report build lint check clean verify-fresh-clone verify-nolint verify-lint-baseline
+.PHONY: test test-report build lint check clean verify-fresh-clone verify-nolint verify-lint-baseline verify-baseline-shallow-abort
 
 # Single pin for golangci-lint, shared by `lint` and `check` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
@@ -119,14 +119,42 @@ verify-nolint: ## TAE-80: assert the //nolint suppression inventory matches the 
 verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## TAE-80: negative control — confirm the pre-fix tree lints to BASELINE_EXPECT findings under the current config
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
-	git clone --quiet . "$$tmp" >/dev/null 2>&1; \
-	git -C "$$tmp" checkout --quiet $(BASELINE_REF); \
+	if ! git clone --quiet . "$$tmp" >/dev/null 2>&1; then \
+		echo "verify-lint-baseline FAIL — could not clone this repository into $$tmp"; exit 1; \
+	fi; \
+	if ! git -C "$$tmp" checkout --quiet $(BASELINE_REF); then \
+		echo "verify-lint-baseline FAIL — BASELINE_REF $(BASELINE_REF) is not reachable in the clone. A shallow working copy (actions/checkout defaults to fetch-depth: 1) carries no history to clone, so the baseline ref is absent; fetch full history before running this target."; exit 1; \
+	fi; \
 	cp .golangci.yml "$$tmp/.golangci.yml"; \
 	out=$$(cd "$$tmp" && $(abspath $(GOLANGCI_LINT_BIN)) run 2>&1); \
 	n=$$(printf '%s\n' "$$out" | grep -oE '^[0-9]+ issues:' | grep -oE '^[0-9]+'); \
 	if [ -z "$$n" ]; then echo "verify-lint-baseline FAIL — could not parse an issue count from golangci-lint output:"; printf '%s\n' "$$out"; exit 1; fi; \
 	if [ "$$n" -ne "$(BASELINE_EXPECT)" ]; then echo "verify-lint-baseline FAIL — $(BASELINE_REF) lints to $$n findings under the current config, want $(BASELINE_EXPECT)"; exit 1; fi; \
 	echo "verify-lint-baseline OK — $(BASELINE_REF) lints to $$n findings under the current config"
+
+verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: regression — from a shallow working copy, verify-lint-baseline aborts naming BASELINE_REF instead of silently linting HEAD
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	mkdir -p "$$tmp/tmpdir"; \
+	if ! git clone --quiet --depth 1 "file://$$(pwd)" "$$tmp/shallow" >/dev/null 2>&1; then \
+		echo "verify-baseline-shallow-abort FAIL — could not make a depth-1 clone of this working copy"; exit 1; \
+	fi; \
+	depth=$$(git -C "$$tmp/shallow" rev-list --count HEAD); \
+	if [ "$$depth" -ne 1 ]; then \
+		echo "verify-baseline-shallow-abort FAIL — the clone is $$depth commits deep, not shallow; the case under test is not set up"; exit 1; \
+	fi; \
+	mkdir -p "$$tmp/shallow/$(GOLANGCI_LINT_DIR)"; \
+	cp "$(GOLANGCI_LINT_BIN)" "$$tmp/shallow/$(GOLANGCI_LINT_BIN)"; \
+	out=$$(cd "$$tmp/shallow" && TMPDIR="$$tmp/tmpdir" $(MAKE) --no-print-directory verify-lint-baseline 2>&1); rc=$$?; \
+	printf '%s\n' "$$out" | sed 's/^/    | /'; \
+	fail=0; \
+	if [ "$$rc" -eq 0 ]; then echo "FAIL — verify-lint-baseline succeeded from a shallow clone; it must abort"; fail=1; fi; \
+	if ! printf '%s\n' "$$out" | grep -q "BASELINE_REF $(BASELINE_REF) is not reachable"; then echo "FAIL — the failure does not name the unreachable ref $(BASELINE_REF)"; fail=1; fi; \
+	if printf '%s\n' "$$out" | grep -q 'could not parse an issue count'; then echo "FAIL — the recipe carried on past the failed checkout and died at the issue-count parser (TAE-91 regression)"; fail=1; fi; \
+	left=$$(ls -A "$$tmp/tmpdir" | wc -l); \
+	if [ "$$left" -ne 0 ]; then echo "FAIL — $$left temp directory/directories left behind on the failure path:"; ls -A "$$tmp/tmpdir"; fail=1; fi; \
+	if [ "$$fail" -ne 0 ]; then exit 1; fi; \
+	echo "verify-baseline-shallow-abort OK — aborted (rc $$rc) naming $(BASELINE_REF), no parser fallthrough, temp directory cleaned up"
 
 verify-fresh-clone: ## TAE-80 AC 8: clone the committed tree, strip golangci-lint from PATH, confirm `make check` bootstraps its own binary and passes
 	@tmp=$$(mktemp -d); \
