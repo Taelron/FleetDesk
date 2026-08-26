@@ -1,0 +1,1599 @@
+Commit: e11985eb4fc56bdfb0a8894aec6f6fbc81f8ae50
+Date: 2026-08-26T02:30:58Z
+Command: go test . -run 'TestGolangciConfig|TestMakeLint|TestMakeCheck|TestNoBlanketNolint|TestGosecG106' -v
+
+=== RUN   TestGolangciConfigExists
+    golangci_test.go:41: expected .golangci.yml at repo root (TAE-80 AC1): stat /home/gaetan/Projects/Taelron/FleetDesk/.golangci.yml: no such file or directory
+--- FAIL: TestGolangciConfigExists (0.00s)
+=== RUN   TestGolangciConfigDisablesOutputCaps
+    golangci_test.go:46: expected .golangci.yml at repo root (TAE-80 AC1): open /home/gaetan/Projects/Taelron/FleetDesk/.golangci.yml: no such file or directory
+--- FAIL: TestGolangciConfigDisablesOutputCaps (0.00s)
+=== RUN   TestGolangciConfigDocumentsDeviations
+    golangci_test.go:66: expected .golangci.yml at repo root (TAE-80 AC1): open /home/gaetan/Projects/Taelron/FleetDesk/.golangci.yml: no such file or directory
+--- FAIL: TestGolangciConfigDocumentsDeviations (0.00s)
+=== RUN   TestMakeLintUsesConfigAndFindsZeroIssues
+    golangci_test.go:132: expected `make lint` to run golangci-lint against .golangci.yml with zero findings (TAE-80 AC1/AC6): exit status 2
+        golangci-lint run
+        internal/app/commands.go:1896:12: Error return value of `cmd.Wait` is not checked (errcheck)
+        			cmd.Wait()
+        			        ^
+        internal/app/handover.go:62:37: Error return value of `(*bufio.Reader).ReadBytes` is not checked (errcheck)
+        	bufio.NewReader(os.Stdin).ReadBytes('\n')
+        	                                   ^
+        internal/app/handover.go:150:37: Error return value of `(*bufio.Reader).ReadBytes` is not checked (errcheck)
+        	bufio.NewReader(os.Stdin).ReadBytes('\n')
+        	                                   ^
+        internal/app/logwriter.go:25:13: Error return value of `os.MkdirAll` is not checked (errcheck)
+        	os.MkdirAll(dir, 0755)
+        	           ^
+        internal/app/logwriter.go:40:21: Error return value of `lw.file.WriteString` is not checked (errcheck)
+        	lw.file.WriteString(line + "\n")
+        	                   ^
+        internal/app/logwriter.go:49:22: Error return value of `lw.file.WriteString` is not checked (errcheck)
+        		lw.file.WriteString(line + "\n")
+        		                   ^
+        internal/app/logwriter.go:58:15: Error return value of `lw.file.Close` is not checked (errcheck)
+        	lw.file.Close()
+        	             ^
+        internal/app/sshstream.go:89:22: Error return value of `session.Close` is not checked (errcheck)
+        		defer session.Close()
+        		                   ^
+        internal/config/appconfig.go:136:9: Error return value of `f.Close` is not checked (errcheck)
+        	f.Close()
+        	       ^
+        internal/config/appconfig.go:137:11: Error return value of `os.Remove` is not checked (errcheck)
+        	os.Remove(f.Name())
+        	         ^
+        internal/logging/logger.go:17:10: Error return value of `f.Close` is not checked (errcheck)
+        		f.Close()
+        		       ^
+        internal/logging/logger.go:38:13: Error return value of `os.MkdirAll` is not checked (errcheck)
+        	os.MkdirAll(dir, 0755)
+        	           ^
+        internal/logging/logger.go:96:13: Error return value of `os.MkdirAll` is not checked (errcheck)
+        	os.MkdirAll(dir, 0755)
+        	           ^
+        internal/probes/manager.go:180:23: Error return value of `resp.Body.Close` is not checked (errcheck)
+        	defer resp.Body.Close()
+        	                     ^
+        internal/probes/manager_test.go:112:13: Error return value of `json.Indent` is not checked (errcheck)
+        	json.Indent(&buf, []byte(data), "", "  ")
+        	           ^
+        internal/probes/manager_test.go:171:14: Error return value of `fmt.Fprintf` is not checked (errcheck)
+        		fmt.Fprintf(w, `{"status":"ok"}`)
+        		           ^
+        internal/ssh/fetch.go:154:12: Error return value of `fmt.Sscanf` is not checked (errcheck)
+        	fmt.Sscanf(parts[1], "%d", &a.UID)
+        	          ^
+        internal/ssh/fetch.go:259:14: Error return value of `fmt.Sscanf` is not checked (errcheck)
+        			fmt.Sscanf(local[bracket+2:], "%d", &port)
+        			          ^
+        internal/ssh/fetch.go:266:14: Error return value of `fmt.Sscanf` is not checked (errcheck)
+        			fmt.Sscanf(local[lastColon+1:], "%d", &port)
+        			          ^
+        internal/ssh/manager.go:72:15: Error return value of `client.Close` is not checked (errcheck)
+        		client.Close()
+        		            ^
+        internal/ssh/manager.go:87:15: Error return value of `client.Close` is not checked (errcheck)
+        		client.Close()
+        		            ^
+        internal/ssh/manager.go:183:21: Error return value of `session.Close` is not checked (errcheck)
+        	defer session.Close()
+        	                   ^
+        internal/ssh/manager.go:316:11: Error return value of `c.Close` is not checked (errcheck)
+        			c.Close()
+        			       ^
+        internal/ssh/manager.go:330:21: Error return value of `session.Close` is not checked (errcheck)
+        	defer session.Close()
+        	                   ^
+        internal/ssh/manager.go:353:23: Error return value of `session2.Close` is not checked (errcheck)
+        		defer session2.Close()
+        		                    ^
+        internal/ssh/manager.go:458:20: Error return value of `agentConn.Close` is not checked (errcheck)
+        				agentConn.Close()
+        				               ^
+        internal/ssh/manager.go:468:18: Error return value of `agentConn.Close` is not checked (errcheck)
+        		agentConn.Close()
+        		               ^
+        internal/app/view_account.go:105:3: ineffectual assignment to shellCol (ineffassign)
+        		shellCol += 2
+        		^
+        internal/app/view_k8s_contexts.go:37:3: ineffectual assignment to userCol (ineffassign)
+        		userCol += 2
+        		^
+        internal/app/view_logfiles.go:44:3: ineffectual assignment to sizeCol (ineffassign)
+        		sizeCol := len("SIZE")
+        		^
+        internal/app/commands.go:1457:3: S1011: should replace loop with lines = append(lines, strings.Split(strings.TrimSpace(out), "\n")...) (staticcheck)
+        		for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+        		^
+        internal/app/commands.go:1492:3: S1011: should replace loop with lines = append(lines, strings.Split(strings.TrimSpace(out), "\n")...) (staticcheck)
+        		for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+        		^
+        internal/app/help.go:14:3: QF1012: Use fmt.Fprintf(...) instead of WriteString(fmt.Sprintf(...)) (staticcheck)
+        		b.WriteString(fmt.Sprintf("  %-12s %s\n", bind[0], bind[1]))
+        		^
+        internal/app/modal_about.go:70:2: QF1012: Use fmt.Fprintf(...) instead of WriteString(fmt.Sprintf(...)) (staticcheck)
+        	b.WriteString(fmt.Sprintf("  %-*s %s\n", labelW, "Version", a.version))
+        	^
+        internal/app/modal_about.go:71:2: QF1012: Use fmt.Fprintf(...) instead of WriteString(fmt.Sprintf(...)) (staticcheck)
+        	b.WriteString(fmt.Sprintf("  %-*s %s\n", labelW, "Repository", a.repo))
+        	^
+        internal/app/modal_options_confirm.go:42:2: S1011: should replace loop with parts = append(parts, flags...) (staticcheck)
+        	for _, f := range flags {
+        	^
+        internal/app/model.go:1282:7: QF1003: could use tagged switch on action (staticcheck)
+        						if action == "stopping" {
+        						^
+        internal/app/view_k8s_pod_logs.go:247:4: QF1002: could use tagged switch on lower (staticcheck)
+        			switch {
+        			^
+        internal/app/view_services.go:39:3: QF1002: could use tagged switch on m.serviceStatus.ActiveState (staticcheck)
+        		switch {
+        		^
+        internal/azure/vm.go:79:5: S1009: should omit nil check; len() for nil slices is defined as zero (staticcheck)
+        	if vms != nil && len(vms) == 1000 {
+        	   ^
+        internal/azure/vm.go:82:5: S1009: should omit nil check; len() for nil maps is defined as zero (staticcheck)
+        	if nicMap != nil && len(nicMap) == 1000 {
+        	   ^
+        internal/config/parser.go:180:41: S1016: should convert l (type logEntryFile) to LogEntry instead of using struct literal (staticcheck)
+        		defaults.Logs = append(defaults.Logs, LogEntry{Name: l.Name, Path: l.Path, Sudo: l.Sudo})
+        		                                      ^
+        internal/config/parser.go:185:9: S1016: should convert c (type commandEntryFile) to CommandEntry instead of using struct literal (staticcheck)
+        		ce := CommandEntry{Name: c.Name, Group: c.Group, Description: c.Description, Run: c.Run}
+        		      ^
+        internal/config/parser.go:326:29: S1016: should convert r (type logEntryFile) to LogEntry instead of using struct literal (staticcheck)
+        		entries = append(entries, LogEntry{Name: r.Name, Path: r.Path, Sudo: r.Sudo})
+        		                          ^
+        internal/config/parser.go:335:29: S1016: should convert r (type commandEntryFile) to CommandEntry instead of using struct literal (staticcheck)
+        		entries = append(entries, CommandEntry{Name: r.Name, Group: r.Group, Description: r.Description, Run: r.Run})
+        		                          ^
+        internal/ssh/fetch.go:378:4: S1011: should replace loop with services = append(services, strings.Fields(svcLine)...) (staticcheck)
+        			for _, s := range strings.Fields(svcLine) {
+        			^
+        internal/ssh/fetch.go:383:4: S1011: should replace loop with ports = append(ports, strings.Fields(portLine)...) (staticcheck)
+        			for _, p := range strings.Fields(portLine) {
+        			^
+        internal/app/helpers.go:44:16: func Model.findServiceIndex is unused (unused)
+        func (m Model) findServiceIndex(name string) int {
+                       ^
+        internal/app/model.go:307:2: field pendingTransition is unused (unused)
+        	pendingTransition *transition           // pending action for confirm dispatch
+        	^
+        49 issues:
+        * errcheck: 27
+        * ineffassign: 3
+        * staticcheck: 17
+        * unused: 2
+        make: *** [Makefile:15: lint] Error 1
+--- FAIL: TestMakeLintUsesConfigAndFindsZeroIssues (0.35s)
+=== RUN   TestMakeLintBootstrapsWithoutPreinstalledGolangciLint
+    golangci_test.go:144: expected `make lint` to bootstrap its own golangci-lint and succeed with PATH stripped of any pre-installed one (TAE-80 AC4/AC8): exit status 2
+        golangci-lint run
+        make: golangci-lint: No such file or directory
+        make: *** [Makefile:15: lint] Error 127
+--- FAIL: TestMakeLintBootstrapsWithoutPreinstalledGolangciLint (0.01s)
+=== RUN   TestMakeCheckGreenWithoutPreinstalledGolangciLint
+    golangci_test.go:167: expected `make check` to be green on a machine with no golangci-lint on PATH (TAE-80 AC8): exit status 2
+        make build
+        make[1]: Entering directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        go build -o fleetdesk .
+        make[1]: Leaving directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        make test
+        make[1]: Entering directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        go test ./... -race -v
+        === RUN   TestGolangciConfigExists
+            golangci_test.go:41: expected .golangci.yml at repo root (TAE-80 AC1): stat /home/gaetan/Projects/Taelron/FleetDesk/.golangci.yml: no such file or directory
+        --- FAIL: TestGolangciConfigExists (0.00s)
+        === RUN   TestGolangciConfigDisablesOutputCaps
+            golangci_test.go:46: expected .golangci.yml at repo root (TAE-80 AC1): open /home/gaetan/Projects/Taelron/FleetDesk/.golangci.yml: no such file or directory
+        --- FAIL: TestGolangciConfigDisablesOutputCaps (0.00s)
+        === RUN   TestGolangciConfigDocumentsDeviations
+            golangci_test.go:66: expected .golangci.yml at repo root (TAE-80 AC1): open /home/gaetan/Projects/Taelron/FleetDesk/.golangci.yml: no such file or directory
+        --- FAIL: TestGolangciConfigDocumentsDeviations (0.00s)
+        === RUN   TestMakeLintUsesConfigAndFindsZeroIssues
+            golangci_test.go:132: expected `make lint` to run golangci-lint against .golangci.yml with zero findings (TAE-80 AC1/AC6): exit status 2
+                make[2]: Entering directory '/home/gaetan/Projects/Taelron/FleetDesk'
+                golangci-lint run
+                make[2]: golangci-lint: No such file or directory
+                make[2]: *** [Makefile:15: lint] Error 127
+                make[2]: Leaving directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        --- FAIL: TestMakeLintUsesConfigAndFindsZeroIssues (0.00s)
+        === RUN   TestMakeLintBootstrapsWithoutPreinstalledGolangciLint
+            golangci_test.go:144: expected `make lint` to bootstrap its own golangci-lint and succeed with PATH stripped of any pre-installed one (TAE-80 AC4/AC8): exit status 2
+                make[2]: Entering directory '/home/gaetan/Projects/Taelron/FleetDesk'
+                golangci-lint run
+                make[2]: golangci-lint: No such file or directory
+                make[2]: *** [Makefile:15: lint] Error 127
+                make[2]: Leaving directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        --- FAIL: TestMakeLintBootstrapsWithoutPreinstalledGolangciLint (0.01s)
+        === RUN   TestMakeCheckGreenWithoutPreinstalledGolangciLint
+            golangci_test.go:159: nested invocation via `make check` -> `go test ./...`; skipping to avoid infinite recursion
+        --- SKIP: TestMakeCheckGreenWithoutPreinstalledGolangciLint (0.00s)
+        === RUN   TestNoBlanketNolintSuppressions
+        --- PASS: TestNoBlanketNolintSuppressions (0.27s)
+        === RUN   TestGosecG106SuppressionsReferenceTAE22
+            golangci_test.go:282: expected internal/ssh/manager.go:258 to carry a //nolint:gosec suppression naming TAE-22 as the reason (TAE-80 AC7); got:
+                		},
+                		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+                		Timeout:         entry.Timeout,
+            golangci_test.go:282: expected internal/ssh/manager.go:452 to carry a //nolint:gosec suppression naming TAE-22 as the reason (TAE-80 AC7); got:
+                			Auth:            []gossh.AuthMethod{auth},
+                			HostKeyCallback: gossh.InsecureIgnoreHostKey(), // trusted fleet network
+                			Timeout:         timeout,
+        --- FAIL: TestGosecG106SuppressionsReferenceTAE22 (0.00s)
+        FAIL
+        FAIL	github.com/Gaetan-Jaminon/fleetdesk	0.296s
+        === RUN   TestDeployKeyKeybind
+        === RUN   TestDeployKeyKeybind/K_on_online_host_shows_confirm_modal
+        === RUN   TestDeployKeyKeybind/K_confirm_yes_executes_handover
+        === RUN   TestDeployKeyKeybind/K_confirm_no_cancels
+        === RUN   TestDeployKeyKeybind/K_on_offline_host_shows_flash_error
+        --- PASS: TestDeployKeyKeybind (0.00s)
+            --- PASS: TestDeployKeyKeybind/K_on_online_host_shows_confirm_modal (0.00s)
+            --- PASS: TestDeployKeyKeybind/K_confirm_yes_executes_handover (0.00s)
+            --- PASS: TestDeployKeyKeybind/K_confirm_no_cancels (0.00s)
+            --- PASS: TestDeployKeyKeybind/K_on_offline_host_shows_flash_error (0.00s)
+        === RUN   TestHelpForView_AllViewsCovered
+        --- PASS: TestHelpForView_AllViewsCovered (0.00s)
+        === RUN   TestHelpForView_ContainsGlobalSection
+        --- PASS: TestHelpForView_ContainsGlobalSection (0.00s)
+        === RUN   TestHelpForView_ContainsNavigationSection
+        --- PASS: TestHelpForView_ContainsNavigationSection (0.00s)
+        === RUN   TestHelpForView_MultiModeViewsShowBothModes
+        --- PASS: TestHelpForView_MultiModeViewsShowBothModes (0.00s)
+        === RUN   TestHelpForView_FilterViewsShowFilter
+        --- PASS: TestHelpForView_FilterViewsShowFilter (0.00s)
+        === RUN   TestHintWithHelp
+        --- PASS: TestHintWithHelp (0.00s)
+        === RUN   TestStaticContent_QuestionMarkDismisses
+        --- PASS: TestStaticContent_QuestionMarkDismisses (0.00s)
+        === RUN   TestHelpOverlay_QuestionMarkOpensModal
+        --- PASS: TestHelpOverlay_QuestionMarkOpensModal (0.01s)
+        === RUN   TestHelpOverlay_QuestionMarkClosesModal
+        --- PASS: TestHelpOverlay_QuestionMarkClosesModal (0.00s)
+        === RUN   TestHelpOverlay_EscClosesModal
+        --- PASS: TestHelpOverlay_EscClosesModal (0.00s)
+        === RUN   TestFilteredContainers
+        === RUN   TestFilteredContainers/no_filter
+        === RUN   TestFilteredContainers/by_name
+        === RUN   TestFilteredContainers/by_image
+        === RUN   TestFilteredContainers/by_status
+        === RUN   TestFilteredContainers/partial_match
+        === RUN   TestFilteredContainers/no_match
+        === RUN   TestFilteredContainers/case_insensitive
+        --- PASS: TestFilteredContainers (0.00s)
+            --- PASS: TestFilteredContainers/no_filter (0.00s)
+            --- PASS: TestFilteredContainers/by_name (0.00s)
+            --- PASS: TestFilteredContainers/by_image (0.00s)
+            --- PASS: TestFilteredContainers/by_status (0.00s)
+            --- PASS: TestFilteredContainers/partial_match (0.00s)
+            --- PASS: TestFilteredContainers/no_match (0.00s)
+            --- PASS: TestFilteredContainers/case_insensitive (0.00s)
+        === RUN   TestFilteredUpdates
+        === RUN   TestFilteredUpdates/no_filter
+        === RUN   TestFilteredUpdates/by_package
+        === RUN   TestFilteredUpdates/by_type
+        === RUN   TestFilteredUpdates/by_version
+        === RUN   TestFilteredUpdates/no_match
+        --- PASS: TestFilteredUpdates (0.00s)
+            --- PASS: TestFilteredUpdates/no_filter (0.00s)
+            --- PASS: TestFilteredUpdates/by_package (0.00s)
+            --- PASS: TestFilteredUpdates/by_type (0.00s)
+            --- PASS: TestFilteredUpdates/by_version (0.00s)
+            --- PASS: TestFilteredUpdates/no_match (0.00s)
+        === RUN   TestFilteredCronJobs
+        === RUN   TestFilteredCronJobs/no_filter
+        === RUN   TestFilteredCronJobs/by_command
+        === RUN   TestFilteredCronJobs/by_source
+        === RUN   TestFilteredCronJobs/by_schedule
+        === RUN   TestFilteredCronJobs/no_match
+        --- PASS: TestFilteredCronJobs (0.00s)
+            --- PASS: TestFilteredCronJobs/no_filter (0.00s)
+            --- PASS: TestFilteredCronJobs/by_command (0.00s)
+            --- PASS: TestFilteredCronJobs/by_source (0.00s)
+            --- PASS: TestFilteredCronJobs/by_schedule (0.00s)
+            --- PASS: TestFilteredCronJobs/no_match (0.00s)
+        === RUN   TestFilteredDisks
+        === RUN   TestFilteredDisks/no_filter
+        === RUN   TestFilteredDisks/by_mount
+        === RUN   TestFilteredDisks/by_filesystem
+        === RUN   TestFilteredDisks/by_usage
+        === RUN   TestFilteredDisks/no_match
+        --- PASS: TestFilteredDisks (0.00s)
+            --- PASS: TestFilteredDisks/no_filter (0.00s)
+            --- PASS: TestFilteredDisks/by_mount (0.00s)
+            --- PASS: TestFilteredDisks/by_filesystem (0.00s)
+            --- PASS: TestFilteredDisks/by_usage (0.00s)
+            --- PASS: TestFilteredDisks/no_match (0.00s)
+        === RUN   TestFilteredInterfaces
+        === RUN   TestFilteredInterfaces/no_filter
+        === RUN   TestFilteredInterfaces/by_name
+        === RUN   TestFilteredInterfaces/by_state
+        === RUN   TestFilteredInterfaces/by_IP
+        === RUN   TestFilteredInterfaces/partial_name
+        === RUN   TestFilteredInterfaces/no_match
+        --- PASS: TestFilteredInterfaces (0.00s)
+            --- PASS: TestFilteredInterfaces/no_filter (0.00s)
+            --- PASS: TestFilteredInterfaces/by_name (0.00s)
+            --- PASS: TestFilteredInterfaces/by_state (0.00s)
+            --- PASS: TestFilteredInterfaces/by_IP (0.00s)
+            --- PASS: TestFilteredInterfaces/partial_name (0.00s)
+            --- PASS: TestFilteredInterfaces/no_match (0.00s)
+        === RUN   TestFilteredRoutes
+        === RUN   TestFilteredRoutes/no_filter
+        === RUN   TestFilteredRoutes/by_destination
+        === RUN   TestFilteredRoutes/by_gateway
+        === RUN   TestFilteredRoutes/by_interface
+        === RUN   TestFilteredRoutes/default_route
+        === RUN   TestFilteredRoutes/no_match
+        --- PASS: TestFilteredRoutes (0.00s)
+            --- PASS: TestFilteredRoutes/no_filter (0.00s)
+            --- PASS: TestFilteredRoutes/by_destination (0.00s)
+            --- PASS: TestFilteredRoutes/by_gateway (0.00s)
+            --- PASS: TestFilteredRoutes/by_interface (0.00s)
+            --- PASS: TestFilteredRoutes/default_route (0.00s)
+            --- PASS: TestFilteredRoutes/no_match (0.00s)
+        === RUN   TestSortIndicator
+        === RUN   TestSortIndicator/no_sort
+        === RUN   TestSortIndicator/different_column
+        === RUN   TestSortIndicator/ascending
+        === RUN   TestSortIndicator/descending
+        === RUN   TestSortIndicator/col_3_asc
+        --- PASS: TestSortIndicator (0.00s)
+            --- PASS: TestSortIndicator/no_sort (0.00s)
+            --- PASS: TestSortIndicator/different_column (0.00s)
+            --- PASS: TestSortIndicator/ascending (0.00s)
+            --- PASS: TestSortIndicator/descending (0.00s)
+            --- PASS: TestSortIndicator/col_3_asc (0.00s)
+        === RUN   TestSortServices
+        --- PASS: TestSortServices (0.00s)
+        === RUN   TestSortContainers
+        --- PASS: TestSortContainers (0.00s)
+        === RUN   TestSortPorts
+        --- PASS: TestSortPorts (0.00s)
+        === RUN   TestAboutContent_View_ShowsStaticFields
+        --- PASS: TestAboutContent_View_ShowsStaticFields (0.00s)
+        === RUN   TestAboutContent_View_ShowsLoadingInitially
+        --- PASS: TestAboutContent_View_ShowsLoadingInitially (0.00s)
+        === RUN   TestAboutContent_View_NoCommitSuffix
+        --- PASS: TestAboutContent_View_NoCommitSuffix (0.00s)
+        === RUN   TestAboutContent_UpdateField
+        --- PASS: TestAboutContent_UpdateField (0.00s)
+        === RUN   TestAboutContent_UpdateField_NotFound
+        --- PASS: TestAboutContent_UpdateField_NotFound (0.00s)
+        === RUN   TestAboutContent_HandleKey_EscDismisses
+        --- PASS: TestAboutContent_HandleKey_EscDismisses (0.00s)
+        === RUN   TestAboutContent_HandleKey_EnterDismisses
+        --- PASS: TestAboutContent_HandleKey_EnterDismisses (0.00s)
+        === RUN   TestAboutContent_HandleKey_OtherKeyNoOp
+        --- PASS: TestAboutContent_HandleKey_OtherKeyNoOp (0.00s)
+        === RUN   TestNewAboutModal
+        --- PASS: TestNewAboutModal (0.00s)
+        === RUN   TestNewAboutModal_View
+        --- PASS: TestNewAboutModal_View (0.00s)
+        === RUN   TestAboutFieldMsg_UpdatesModal
+        --- PASS: TestAboutFieldMsg_UpdatesModal (0.00s)
+        === RUN   TestCommandWizard_3Step_Confirm
+        --- PASS: TestCommandWizard_3Step_Confirm (0.00s)
+        === RUN   TestCommandWizard_3Step_SelectSecondGroup
+        --- PASS: TestCommandWizard_3Step_SelectSecondGroup (0.00s)
+        === RUN   TestCommandWizard_3Step_BackNavigation
+        --- PASS: TestCommandWizard_3Step_BackNavigation (0.00s)
+        === RUN   TestCommandWizard_3Step_EscFromConfirm
+        --- PASS: TestCommandWizard_3Step_EscFromConfirm (0.00s)
+        === RUN   TestCommandWizard_3Step_CancelFromGroupPicker
+        --- PASS: TestCommandWizard_3Step_CancelFromGroupPicker (0.00s)
+        === RUN   TestCommandWizard_2Step_Confirm
+        --- PASS: TestCommandWizard_2Step_Confirm (0.00s)
+        === RUN   TestCommandWizard_2Step_Cancel
+        --- PASS: TestCommandWizard_2Step_Cancel (0.00s)
+        === RUN   TestCommandWizard_2Step_EscFromConfirm
+        --- PASS: TestCommandWizard_2Step_EscFromConfirm (0.00s)
+        === RUN   TestCommandWizard_ConfirmShowsRunString
+        --- PASS: TestCommandWizard_ConfirmShowsRunString (0.00s)
+        === RUN   TestCommandWizard_ConfirmNRejectsAndCancels
+        --- PASS: TestCommandWizard_ConfirmNRejectsAndCancels (0.00s)
+        === RUN   TestDeriveGroups_Alphabetical
+        --- PASS: TestDeriveGroups_Alphabetical (0.00s)
+        === RUN   TestCommandWizard_3Step_GroupChangeResetsCommandList
+        --- PASS: TestCommandWizard_3Step_GroupChangeResetsCommandList (0.00s)
+        === RUN   TestLoadingContent_HandleKey_EscNotDismissable
+        --- PASS: TestLoadingContent_HandleKey_EscNotDismissable (0.00s)
+        === RUN   TestLoadingContent_HandleKey_EnterNotDismissable
+        --- PASS: TestLoadingContent_HandleKey_EnterNotDismissable (0.00s)
+        === RUN   TestLoadingContent_HandleKey_ArbitraryKeyNotDismissable
+        --- PASS: TestLoadingContent_HandleKey_ArbitraryKeyNotDismissable (0.00s)
+        === RUN   TestLoadingContent_View
+        --- PASS: TestLoadingContent_View (0.00s)
+        === RUN   TestLoadingContent_Result
+        --- PASS: TestLoadingContent_Result (0.00s)
+        === RUN   TestShowLoading
+        --- PASS: TestShowLoading (0.00s)
+        === RUN   TestDismissLoadingFor_MatchingTag
+        --- PASS: TestDismissLoadingFor_MatchingTag (0.00s)
+        === RUN   TestDismissLoadingFor_WrongTag
+        --- PASS: TestDismissLoadingFor_WrongTag (0.00s)
+        === RUN   TestDismissLoadingFor_DoesNotClearConfirmModal
+        --- PASS: TestDismissLoadingFor_DoesNotClearConfirmModal (0.00s)
+        === RUN   TestDismissLoadingFor_NilModalIsNoOp
+        --- PASS: TestDismissLoadingFor_NilModalIsNoOp (0.00s)
+        === RUN   TestLoadingModal_EscDoesNotDismissOverlay
+        --- PASS: TestLoadingModal_EscDoesNotDismissOverlay (0.00s)
+        === RUN   TestMultiSelectContent_InitialState
+        --- PASS: TestMultiSelectContent_InitialState (0.00s)
+        === RUN   TestMultiSelectContent_SpaceToggles
+        --- PASS: TestMultiSelectContent_SpaceToggles (0.00s)
+        === RUN   TestMultiSelectContent_SpaceUntoggles
+        --- PASS: TestMultiSelectContent_SpaceUntoggles (0.00s)
+        === RUN   TestMultiSelectContent_CursorDown
+        --- PASS: TestMultiSelectContent_CursorDown (0.00s)
+        === RUN   TestMultiSelectContent_CursorDownAtEnd
+        --- PASS: TestMultiSelectContent_CursorDownAtEnd (0.00s)
+        === RUN   TestMultiSelectContent_CursorUpWithK
+        --- PASS: TestMultiSelectContent_CursorUpWithK (0.00s)
+        === RUN   TestMultiSelectContent_CursorUpAtZero
+        --- PASS: TestMultiSelectContent_CursorUpAtZero (0.00s)
+        === RUN   TestMultiSelectContent_EnterDone
+        --- PASS: TestMultiSelectContent_EnterDone (0.00s)
+        === RUN   TestMultiSelectContent_EnterWithNoneSelected
+        --- PASS: TestMultiSelectContent_EnterWithNoneSelected (0.00s)
+        === RUN   TestMultiSelectContent_ResultOrder
+        --- PASS: TestMultiSelectContent_ResultOrder (0.00s)
+        === RUN   TestMultiSelectContent_MultipleSelected
+        --- PASS: TestMultiSelectContent_MultipleSelected (0.00s)
+        === RUN   TestMultiSelectContent_EscNotDone
+        --- PASS: TestMultiSelectContent_EscNotDone (0.00s)
+        === RUN   TestMultiSelectContent_ViewContainsLabels
+        --- PASS: TestMultiSelectContent_ViewContainsLabels (0.00s)
+        === RUN   TestMultiSelectContent_ViewCheckedMarker
+        --- PASS: TestMultiSelectContent_ViewCheckedMarker (0.00s)
+        === RUN   TestMultiSelectContent_ViewUncheckedMarker
+        --- PASS: TestMultiSelectContent_ViewUncheckedMarker (0.00s)
+        === RUN   TestMultiSelectContent_JKNavigation
+        --- PASS: TestMultiSelectContent_JKNavigation (0.00s)
+        === RUN   TestBuildDnfCommand_NoFlags
+        --- PASS: TestBuildDnfCommand_NoFlags (0.00s)
+        === RUN   TestBuildDnfCommand_OneFlag
+        --- PASS: TestBuildDnfCommand_OneFlag (0.00s)
+        === RUN   TestBuildDnfCommand_MultipleFlags
+        --- PASS: TestBuildDnfCommand_MultipleFlags (0.00s)
+        === RUN   TestBuildDnfCommand_SecurityBase
+        --- PASS: TestBuildDnfCommand_SecurityBase (0.00s)
+        === RUN   TestBuildDnfCommand_EmptyFlags
+        --- PASS: TestBuildDnfCommand_EmptyFlags (0.00s)
+        === RUN   TestNewOptionsConfirmModal_ConfirmPath
+        --- PASS: TestNewOptionsConfirmModal_ConfirmPath (0.00s)
+        === RUN   TestNewOptionsConfirmModal_NCancels
+        --- PASS: TestNewOptionsConfirmModal_NCancels (0.00s)
+        === RUN   TestNewOptionsConfirmModal_EscStep2GoesBack
+        --- PASS: TestNewOptionsConfirmModal_EscStep2GoesBack (0.00s)
+        === RUN   TestNewOptionsConfirmModal_SelectionPreservedOnBack
+        --- PASS: TestNewOptionsConfirmModal_SelectionPreservedOnBack (0.00s)
+        === RUN   TestNewOptionsConfirmModal_EscStep1Cancels
+        --- PASS: TestNewOptionsConfirmModal_EscStep1Cancels (0.00s)
+        === RUN   TestNewOptionsConfirmModal_Step2MessageContainsCmd
+        --- PASS: TestNewOptionsConfirmModal_Step2MessageContainsCmd (0.00s)
+        === RUN   TestNewOptionsConfirmModal_FooterStep1
+        --- PASS: TestNewOptionsConfirmModal_FooterStep1 (0.00s)
+        === RUN   TestNewOptionsConfirmModal_FooterStep2
+        --- PASS: TestNewOptionsConfirmModal_FooterStep2 (0.00s)
+        === RUN   TestTextInputContent_HandleKey
+        === RUN   TestTextInputContent_HandleKey/rune_accumulation
+        === RUN   TestTextInputContent_HandleKey/backspace
+        === RUN   TestTextInputContent_HandleKey/enter_with_valid_input
+        === RUN   TestTextInputContent_HandleKey/enter_with_validation_error
+        --- PASS: TestTextInputContent_HandleKey (0.00s)
+            --- PASS: TestTextInputContent_HandleKey/rune_accumulation (0.00s)
+            --- PASS: TestTextInputContent_HandleKey/backspace (0.00s)
+            --- PASS: TestTextInputContent_HandleKey/enter_with_valid_input (0.00s)
+            --- PASS: TestTextInputContent_HandleKey/enter_with_validation_error (0.00s)
+        === RUN   TestSelectContent_HandleKey
+        === RUN   TestSelectContent_HandleKey/down_moves_cursor
+        === RUN   TestSelectContent_HandleKey/up_at_0_stays
+        === RUN   TestSelectContent_HandleKey/enter_selects
+        --- PASS: TestSelectContent_HandleKey (0.00s)
+            --- PASS: TestSelectContent_HandleKey/down_moves_cursor (0.00s)
+            --- PASS: TestSelectContent_HandleKey/up_at_0_stays (0.00s)
+            --- PASS: TestSelectContent_HandleKey/enter_selects (0.00s)
+        === RUN   TestModalOverlay_EscCancels
+        --- PASS: TestModalOverlay_EscCancels (0.00s)
+        === RUN   TestModalOverlay_EscGoesBack
+        --- PASS: TestModalOverlay_EscGoesBack (0.00s)
+        === RUN   TestModalOverlay_MultiStepAdvance
+        --- PASS: TestModalOverlay_MultiStepAdvance (0.00s)
+        === RUN   TestConfirmContent_YConfirms
+        --- PASS: TestConfirmContent_YConfirms (0.00s)
+        === RUN   TestConfirmContent_EnterConfirms
+        --- PASS: TestConfirmContent_EnterConfirms (0.00s)
+        === RUN   TestConfirmContent_NRejects
+        --- PASS: TestConfirmContent_NRejects (0.00s)
+        === RUN   TestConfirmContent_OtherKeyNoOp
+        --- PASS: TestConfirmContent_OtherKeyNoOp (0.00s)
+        === RUN   TestNewConfirmModal_EscCallsOnCancel
+        --- PASS: TestNewConfirmModal_EscCallsOnCancel (0.00s)
+        === RUN   TestNewConfirmModal_NCallsOnCancel
+        --- PASS: TestNewConfirmModal_NCallsOnCancel (0.00s)
+        === RUN   TestTextInputContent_Masked
+        --- PASS: TestTextInputContent_Masked (0.00s)
+        === RUN   TestModalOverlay_SingleStepHidesCounter
+        --- PASS: TestModalOverlay_SingleStepHidesCounter (0.00s)
+        === RUN   TestModalOverlay_MultiStepShowsCounter
+        --- PASS: TestModalOverlay_MultiStepShowsCounter (0.00s)
+        === RUN   TestModalOverlay_FooterFn
+        --- PASS: TestModalOverlay_FooterFn (0.00s)
+        === RUN   TestNotes_N_OnHostList_OpensEmptyNoteList
+        --- PASS: TestNotes_N_OnHostList_OpensEmptyNoteList (0.06s)
+        === RUN   TestNotes_N_OnHostList_ShowsExistingNotes
+        --- PASS: TestNotes_N_OnHostList_ShowsExistingNotes (0.06s)
+        === RUN   TestNotes_NoteList_Esc_ReturnsToHostList
+        --- PASS: TestNotes_NoteList_Esc_ReturnsToHostList (0.11s)
+        === RUN   TestNotes_Indicator_AppearsOnHostWithNotes
+        --- PASS: TestNotes_Indicator_AppearsOnHostWithNotes (0.06s)
+        === RUN   TestNotes_NoteList_DeleteShowsConfirmModal
+        --- PASS: TestNotes_NoteList_DeleteShowsConfirmModal (0.11s)
+        === RUN   TestUnregisterAction
+        === RUN   TestUnregisterAction/u_on_unregistered_host_flashes_error,_no_modal
+        === RUN   TestUnregisterAction/u_on_empty_registration_flashes_error,_no_modal
+        === RUN   TestUnregisterAction/u_on_CDN_host_shows_confirm_modal
+        === RUN   TestUnregisterAction/u_on_Satellite_host_shows_confirm_modal
+        === RUN   TestUnregisterAction/u_confirm_yes_completes_modal
+        === RUN   TestUnregisterAction/u_confirm_no_cancels
+        --- PASS: TestUnregisterAction (0.00s)
+            --- PASS: TestUnregisterAction/u_on_unregistered_host_flashes_error,_no_modal (0.00s)
+            --- PASS: TestUnregisterAction/u_on_empty_registration_flashes_error,_no_modal (0.00s)
+            --- PASS: TestUnregisterAction/u_on_CDN_host_shows_confirm_modal (0.00s)
+            --- PASS: TestUnregisterAction/u_on_Satellite_host_shows_confirm_modal (0.00s)
+            --- PASS: TestUnregisterAction/u_confirm_yes_completes_modal (0.00s)
+            --- PASS: TestUnregisterAction/u_confirm_no_cancels (0.00s)
+        === RUN   TestRegisterCDNAction
+        === RUN   TestRegisterCDNAction/g_without_config_shows_flash_error
+        === RUN   TestRegisterCDNAction/g_with_CDN_config_shows_confirm_modal
+        === RUN   TestRegisterCDNAction/g_with_satellite_url_shows_confirm_modal
+        === RUN   TestRegisterCDNAction/g_is_always_available_regardless_of_registration_state
+        === RUN   TestRegisterCDNAction/g_confirm_yes_completes_modal
+        === RUN   TestRegisterCDNAction/g_confirm_no_cancels
+        --- PASS: TestRegisterCDNAction (0.00s)
+            --- PASS: TestRegisterCDNAction/g_without_config_shows_flash_error (0.00s)
+            --- PASS: TestRegisterCDNAction/g_with_CDN_config_shows_confirm_modal (0.00s)
+            --- PASS: TestRegisterCDNAction/g_with_satellite_url_shows_confirm_modal (0.00s)
+            --- PASS: TestRegisterCDNAction/g_is_always_available_regardless_of_registration_state (0.00s)
+            --- PASS: TestRegisterCDNAction/g_confirm_yes_completes_modal (0.00s)
+            --- PASS: TestRegisterCDNAction/g_confirm_no_cancels (0.00s)
+        === RUN   TestSubscriptionHintBar
+        === RUN   TestSubscriptionHintBar/CDN_host_shows_Register_CDN
+        === RUN   TestSubscriptionHintBar/Satellite_host_shows_Register_Satellite
+        === RUN   TestSubscriptionHintBar/hint_bar_advertises_Check_Repo
+        --- PASS: TestSubscriptionHintBar (0.00s)
+            --- PASS: TestSubscriptionHintBar/CDN_host_shows_Register_CDN (0.00s)
+            --- PASS: TestSubscriptionHintBar/Satellite_host_shows_Register_Satellite (0.00s)
+            --- PASS: TestSubscriptionHintBar/hint_bar_advertises_Check_Repo (0.00s)
+        === RUN   TestCheckRepoAction
+        === RUN   TestCheckRepoAction/c_on_a_Repo_entry_switches_to_ssh_stream_view
+        === RUN   TestCheckRepoAction/c_on_non-Repo_entry_is_a_no-op
+        --- PASS: TestCheckRepoAction (0.00s)
+            --- PASS: TestCheckRepoAction/c_on_a_Repo_entry_switches_to_ssh_stream_view (0.00s)
+            --- PASS: TestCheckRepoAction/c_on_non-Repo_entry_is_a_no-op (0.00s)
+        === RUN   TestDetectRegistrationType
+        === RUN   TestDetectRegistrationType/CDN_with_plain_value
+        === RUN   TestDetectRegistrationType/CDN_with_subdomain
+        === RUN   TestDetectRegistrationType/CDN_with_bracketed_value
+        === RUN   TestDetectRegistrationType/Satellite_with_custom_hostname
+        === RUN   TestDetectRegistrationType/Satellite_with_satellite_in_hostname
+        === RUN   TestDetectRegistrationType/empty_section
+        === RUN   TestDetectRegistrationType/no_hostname_line
+        === RUN   TestDetectRegistrationType/hostname_with_empty_value
+        --- PASS: TestDetectRegistrationType (0.00s)
+            --- PASS: TestDetectRegistrationType/CDN_with_plain_value (0.00s)
+            --- PASS: TestDetectRegistrationType/CDN_with_subdomain (0.00s)
+            --- PASS: TestDetectRegistrationType/CDN_with_bracketed_value (0.00s)
+            --- PASS: TestDetectRegistrationType/Satellite_with_custom_hostname (0.00s)
+            --- PASS: TestDetectRegistrationType/Satellite_with_satellite_in_hostname (0.00s)
+            --- PASS: TestDetectRegistrationType/empty_section (0.00s)
+            --- PASS: TestDetectRegistrationType/no_hostname_line (0.00s)
+            --- PASS: TestDetectRegistrationType/hostname_with_empty_value (0.00s)
+        === RUN   TestSudoModalKeyCapture
+        === RUN   TestSudoModalKeyCapture/rune_accumulates_in_masked_input
+        === RUN   TestSudoModalKeyCapture/backspace_removes_last_rune
+        === RUN   TestSudoModalKeyCapture/backspace_multi-byte_rune
+        === RUN   TestSudoModalKeyCapture/enter_with_empty_input_is_rejected
+        === RUN   TestSudoModalKeyCapture/enter_with_password_completes_modal
+        === RUN   TestSudoModalKeyCapture/esc_cancels_modal
+        --- PASS: TestSudoModalKeyCapture (0.00s)
+            --- PASS: TestSudoModalKeyCapture/rune_accumulates_in_masked_input (0.00s)
+            --- PASS: TestSudoModalKeyCapture/backspace_removes_last_rune (0.00s)
+            --- PASS: TestSudoModalKeyCapture/backspace_multi-byte_rune (0.00s)
+            --- PASS: TestSudoModalKeyCapture/enter_with_empty_input_is_rejected (0.00s)
+            --- PASS: TestSudoModalKeyCapture/enter_with_password_completes_modal (0.00s)
+            --- PASS: TestSudoModalKeyCapture/esc_cancels_modal (0.00s)
+        === RUN   TestHandleSudoOrFlash
+        === RUN   TestHandleSudoOrFlash/non-sudo_error_returns_false
+        === RUN   TestHandleSudoOrFlash/sudo_error_with_no_cached_passwords_shows_modal
+        === RUN   TestHandleSudoOrFlash/sudo_error_with_cached_SSH_password_returns_test_cmd
+        === RUN   TestHandleSudoOrFlash/sudo_error_with_wrong_cached_sudo_password_clears_and_shows_modal
+        --- PASS: TestHandleSudoOrFlash (0.00s)
+            --- PASS: TestHandleSudoOrFlash/non-sudo_error_returns_false (0.00s)
+            --- PASS: TestHandleSudoOrFlash/sudo_error_with_no_cached_passwords_shows_modal (0.00s)
+            --- PASS: TestHandleSudoOrFlash/sudo_error_with_cached_SSH_password_returns_test_cmd (0.00s)
+            --- PASS: TestHandleSudoOrFlash/sudo_error_with_wrong_cached_sudo_password_clears_and_shows_modal (0.00s)
+        === RUN   TestTeatestBaseline_FleetPickerEmptyState
+        --- PASS: TestTeatestBaseline_FleetPickerEmptyState (0.05s)
+        === RUN   TestTeatestBaseline_FleetPickerRendersFleets
+        --- PASS: TestTeatestBaseline_FleetPickerRendersFleets (0.05s)
+        === RUN   TestTransitionKeyFormat
+        === RUN   TestTransitionKeyFormat/azure_vm
+        === RUN   TestTransitionKeyFormat/azure_aks
+        === RUN   TestTransitionKeyFormat/k8s_pod
+        === RUN   TestTransitionKeyFormat/k8s_context
+        --- PASS: TestTransitionKeyFormat (0.00s)
+            --- PASS: TestTransitionKeyFormat/azure_vm (0.00s)
+            --- PASS: TestTransitionKeyFormat/azure_aks (0.00s)
+            --- PASS: TestTransitionKeyFormat/k8s_pod (0.00s)
+            --- PASS: TestTransitionKeyFormat/k8s_context (0.00s)
+        === RUN   TestTransitionStrategy
+        === RUN   TestTransitionStrategy/poll_strategy_triggers_polling
+        === RUN   TestTransitionStrategy/oneshot_strategy_skips_polling
+        --- PASS: TestTransitionStrategy (0.00s)
+            --- PASS: TestTransitionStrategy/poll_strategy_triggers_polling (0.00s)
+            --- PASS: TestTransitionStrategy/oneshot_strategy_skips_polling (0.00s)
+        === RUN   TestIsAzureTransitioningStateUnchanged
+        === RUN   TestIsAzureTransitioningStateUnchanged/starting
+        === RUN   TestIsAzureTransitioningStateUnchanged/stopping
+        === RUN   TestIsAzureTransitioningStateUnchanged/deallocating
+        === RUN   TestIsAzureTransitioningStateUnchanged/restarting
+        === RUN   TestIsAzureTransitioningStateUnchanged/deleting
+        === RUN   TestIsAzureTransitioningStateUnchanged/running
+        === RUN   TestIsAzureTransitioningStateUnchanged/deallocated
+        === RUN   TestIsAzureTransitioningStateUnchanged/succeeded
+        === RUN   TestIsAzureTransitioningStateUnchanged/#00
+        --- PASS: TestIsAzureTransitioningStateUnchanged (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/starting (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/stopping (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/deallocating (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/restarting (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/deleting (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/running (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/deallocated (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/succeeded (0.00s)
+            --- PASS: TestIsAzureTransitioningStateUnchanged/#00 (0.00s)
+        === RUN   TestRenderList_Parity_HostList
+        --- PASS: TestRenderList_Parity_HostList (0.05s)
+        === RUN   TestRenderList_Parity_ServiceList_WithFailedPrefix
+        --- PASS: TestRenderList_Parity_ServiceList_WithFailedPrefix (0.05s)
+        === RUN   TestRenderList_Parity_K8sPodList
+        --- PASS: TestRenderList_Parity_K8sPodList (0.05s)
+        === RUN   TestRenderList_EmptyRows_DefaultMessage
+        --- PASS: TestRenderList_EmptyRows_DefaultMessage (0.00s)
+        === RUN   TestRenderList_EmptyRows_CustomMessage
+        --- PASS: TestRenderList_EmptyRows_CustomMessage (0.00s)
+        === RUN   TestRenderList_SingleRow
+        --- PASS: TestRenderList_SingleRow (0.00s)
+        === RUN   TestRenderList_CursorMarker
+        --- PASS: TestRenderList_CursorMarker (0.00s)
+        === RUN   TestRenderList_RowPrefix
+        --- PASS: TestRenderList_RowPrefix (0.00s)
+        === RUN   TestRenderList_GroupHeader
+        --- PASS: TestRenderList_GroupHeader (0.00s)
+        === RUN   TestRenderList_SortIndicator
+        --- PASS: TestRenderList_SortIndicator (0.00s)
+        === RUN   TestRenderList_RightAlign
+        --- PASS: TestRenderList_RightAlign (0.00s)
+        === RUN   TestRenderList_Viewport_ScrollsWithCursor
+        --- PASS: TestRenderList_Viewport_ScrollsWithCursor (0.00s)
+        === RUN   TestRenderList_ComputedWidth_IncludesTrailingPadding
+        --- PASS: TestRenderList_ComputedWidth_IncludesTrailingPadding (0.00s)
+        === RUN   TestRenderList_RowOverride_ReplacesCells
+        --- PASS: TestRenderList_RowOverride_ReplacesCells (0.00s)
+        === RUN   TestRenderList_FixedWidth_UsedDirectly
+        --- PASS: TestRenderList_FixedWidth_UsedDirectly (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/app	(cached)
+        === RUN   TestParseAKSPowerStates
+        === RUN   TestParseAKSPowerStates/multiple_clusters_with_different_states
+        === RUN   TestParseAKSPowerStates/empty_result
+        === RUN   TestParseAKSPowerStates/malformed_JSON
+        --- PASS: TestParseAKSPowerStates (0.00s)
+            --- PASS: TestParseAKSPowerStates/multiple_clusters_with_different_states (0.00s)
+            --- PASS: TestParseAKSPowerStates/empty_result (0.00s)
+            --- PASS: TestParseAKSPowerStates/malformed_JSON (0.00s)
+        === RUN   TestParseGraphAKSWithTags
+        === RUN   TestParseGraphAKSWithTags/tags_parsed_correctly
+        === RUN   TestParseGraphAKSWithTags/null_tag_value_is_skipped
+        === RUN   TestParseGraphAKSWithTags/missing_tags_field_results_in_empty_map
+        --- PASS: TestParseGraphAKSWithTags (0.00s)
+            --- PASS: TestParseGraphAKSWithTags/tags_parsed_correctly (0.00s)
+            --- PASS: TestParseGraphAKSWithTags/null_tag_value_is_skipped (0.00s)
+            --- PASS: TestParseGraphAKSWithTags/missing_tags_field_results_in_empty_map (0.00s)
+        === RUN   TestIsNotLoggedIn
+        === RUN   TestIsNotLoggedIn/sentinel_error
+        === RUN   TestIsNotLoggedIn/wrapped_sentinel
+        === RUN   TestIsNotLoggedIn/cli_error_with_az_login
+        === RUN   TestIsNotLoggedIn/cli_error_with_AADSTS
+        === RUN   TestIsNotLoggedIn/unrelated_cli_error
+        === RUN   TestIsNotLoggedIn/unrelated_error
+        === RUN   TestIsNotLoggedIn/nil_error
+        --- PASS: TestIsNotLoggedIn (0.00s)
+            --- PASS: TestIsNotLoggedIn/sentinel_error (0.00s)
+            --- PASS: TestIsNotLoggedIn/wrapped_sentinel (0.00s)
+            --- PASS: TestIsNotLoggedIn/cli_error_with_az_login (0.00s)
+            --- PASS: TestIsNotLoggedIn/cli_error_with_AADSTS (0.00s)
+            --- PASS: TestIsNotLoggedIn/unrelated_cli_error (0.00s)
+            --- PASS: TestIsNotLoggedIn/unrelated_error (0.00s)
+            --- PASS: TestIsNotLoggedIn/nil_error (0.00s)
+        === RUN   TestIsNotInstalled
+        === RUN   TestIsNotInstalled/sentinel_error
+        === RUN   TestIsNotInstalled/wrapped_sentinel
+        === RUN   TestIsNotInstalled/unrelated_error
+        === RUN   TestIsNotInstalled/nil_error
+        --- PASS: TestIsNotInstalled (0.00s)
+            --- PASS: TestIsNotInstalled/sentinel_error (0.00s)
+            --- PASS: TestIsNotInstalled/wrapped_sentinel (0.00s)
+            --- PASS: TestIsNotInstalled/unrelated_error (0.00s)
+            --- PASS: TestIsNotInstalled/nil_error (0.00s)
+        === RUN   TestCLIErrorMessage
+        --- PASS: TestCLIErrorMessage (0.00s)
+        === RUN   TestParseJSONCount
+        === RUN   TestParseJSONCount/positive_number
+        === RUN   TestParseJSONCount/zero
+        === RUN   TestParseJSONCount/large_number
+        === RUN   TestParseJSONCount/with_newline
+        === RUN   TestParseJSONCount/with_whitespace
+        === RUN   TestParseJSONCount/empty
+        === RUN   TestParseJSONCount/nil
+        === RUN   TestParseJSONCount/invalid
+        === RUN   TestParseJSONCount/json_null
+        --- PASS: TestParseJSONCount (0.00s)
+            --- PASS: TestParseJSONCount/positive_number (0.00s)
+            --- PASS: TestParseJSONCount/zero (0.00s)
+            --- PASS: TestParseJSONCount/large_number (0.00s)
+            --- PASS: TestParseJSONCount/with_newline (0.00s)
+            --- PASS: TestParseJSONCount/with_whitespace (0.00s)
+            --- PASS: TestParseJSONCount/empty (0.00s)
+            --- PASS: TestParseJSONCount/nil (0.00s)
+            --- PASS: TestParseJSONCount/invalid (0.00s)
+            --- PASS: TestParseJSONCount/json_null (0.00s)
+        === RUN   TestParseVMList
+        === RUN   TestParseVMList/nil_input
+        === RUN   TestParseVMList/empty_array
+        === RUN   TestParseVMList/single_Linux_VM_with_all_fields
+        === RUN   TestParseVMList/single_Windows_VM
+        === RUN   TestParseVMList/multiple_VMs_with_mixed_OS_and_power_states
+        === RUN   TestParseVMList/VM_with_missing_optional_fields
+        === RUN   TestParseVMList/invalid_JSON
+        --- PASS: TestParseVMList (0.00s)
+            --- PASS: TestParseVMList/nil_input (0.00s)
+            --- PASS: TestParseVMList/empty_array (0.00s)
+            --- PASS: TestParseVMList/single_Linux_VM_with_all_fields (0.00s)
+            --- PASS: TestParseVMList/single_Windows_VM (0.00s)
+            --- PASS: TestParseVMList/multiple_VMs_with_mixed_OS_and_power_states (0.00s)
+            --- PASS: TestParseVMList/VM_with_missing_optional_fields (0.00s)
+            --- PASS: TestParseVMList/invalid_JSON (0.00s)
+        === RUN   TestParseResourceGroupList
+        === RUN   TestParseResourceGroupList/nil_input
+        === RUN   TestParseResourceGroupList/empty_array
+        === RUN   TestParseResourceGroupList/single_resource_group
+        === RUN   TestParseResourceGroupList/multiple_resource_groups
+        === RUN   TestParseResourceGroupList/invalid_JSON
+        --- PASS: TestParseResourceGroupList (0.00s)
+            --- PASS: TestParseResourceGroupList/nil_input (0.00s)
+            --- PASS: TestParseResourceGroupList/empty_array (0.00s)
+            --- PASS: TestParseResourceGroupList/single_resource_group (0.00s)
+            --- PASS: TestParseResourceGroupList/multiple_resource_groups (0.00s)
+            --- PASS: TestParseResourceGroupList/invalid_JSON (0.00s)
+        === RUN   TestParseAKSList
+        === RUN   TestParseAKSList/nil_input
+        === RUN   TestParseAKSList/single_cluster_with_one_agent_pool
+        === RUN   TestParseAKSList/cluster_with_multiple_agent_pools_sums_node_count
+        === RUN   TestParseAKSList/invalid_JSON
+        --- PASS: TestParseAKSList (0.00s)
+            --- PASS: TestParseAKSList/nil_input (0.00s)
+            --- PASS: TestParseAKSList/single_cluster_with_one_agent_pool (0.00s)
+            --- PASS: TestParseAKSList/cluster_with_multiple_agent_pools_sums_node_count (0.00s)
+            --- PASS: TestParseAKSList/invalid_JSON (0.00s)
+        === RUN   TestParseSubscriptionList
+        === RUN   TestParseSubscriptionList/nil_input
+        === RUN   TestParseSubscriptionList/single_subscription
+        === RUN   TestParseSubscriptionList/multiple_subscriptions_with_different_states
+        === RUN   TestParseSubscriptionList/invalid_JSON
+        --- PASS: TestParseSubscriptionList (0.00s)
+            --- PASS: TestParseSubscriptionList/nil_input (0.00s)
+            --- PASS: TestParseSubscriptionList/single_subscription (0.00s)
+            --- PASS: TestParseSubscriptionList/multiple_subscriptions_with_different_states (0.00s)
+            --- PASS: TestParseSubscriptionList/invalid_JSON (0.00s)
+        === RUN   TestParseCLIVersion
+        === RUN   TestParseCLIVersion/valid_version
+        === RUN   TestParseCLIVersion/missing_field_returns_empty
+        === RUN   TestParseCLIVersion/invalid_JSON
+        --- PASS: TestParseCLIVersion (0.00s)
+            --- PASS: TestParseCLIVersion/valid_version (0.00s)
+            --- PASS: TestParseCLIVersion/missing_field_returns_empty (0.00s)
+            --- PASS: TestParseCLIVersion/invalid_JSON (0.00s)
+        === RUN   TestNormalizePowerState
+        === RUN   TestNormalizePowerState/VM_running
+        === RUN   TestNormalizePowerState/VM_deallocated
+        === RUN   TestNormalizePowerState/VM_stopped
+        === RUN   TestNormalizePowerState/PowerState/running
+        === RUN   TestNormalizePowerState/PowerState/deallocated
+        === RUN   TestNormalizePowerState/running
+        === RUN   TestNormalizePowerState/#00
+        --- PASS: TestNormalizePowerState (0.00s)
+            --- PASS: TestNormalizePowerState/VM_running (0.00s)
+            --- PASS: TestNormalizePowerState/VM_deallocated (0.00s)
+            --- PASS: TestNormalizePowerState/VM_stopped (0.00s)
+            --- PASS: TestNormalizePowerState/PowerState/running (0.00s)
+            --- PASS: TestNormalizePowerState/PowerState/deallocated (0.00s)
+            --- PASS: TestNormalizePowerState/running (0.00s)
+            --- PASS: TestNormalizePowerState/#00 (0.00s)
+        === RUN   TestParseAccountShow
+        === RUN   TestParseAccountShow/full_output
+        === RUN   TestParseAccountShow/minimal_fields
+        === RUN   TestParseAccountShow/invalid_JSON
+        --- PASS: TestParseAccountShow (0.00s)
+            --- PASS: TestParseAccountShow/full_output (0.00s)
+            --- PASS: TestParseAccountShow/minimal_fields (0.00s)
+            --- PASS: TestParseAccountShow/invalid_JSON (0.00s)
+        === RUN   TestParseVMListHostname
+        --- PASS: TestParseVMListHostname (0.00s)
+        === RUN   TestParseActivityLog
+        === RUN   TestParseActivityLog/nil_input
+        === RUN   TestParseActivityLog/empty_array
+        === RUN   TestParseActivityLog/multiple_entries
+        === RUN   TestParseActivityLog/invalid_JSON
+        --- PASS: TestParseActivityLog (0.00s)
+            --- PASS: TestParseActivityLog/nil_input (0.00s)
+            --- PASS: TestParseActivityLog/empty_array (0.00s)
+            --- PASS: TestParseActivityLog/multiple_entries (0.00s)
+            --- PASS: TestParseActivityLog/invalid_JSON (0.00s)
+        === RUN   TestCountVMStates
+        === RUN   TestCountVMStates/nil
+        === RUN   TestCountVMStates/mixed_states
+        === RUN   TestCountVMStates/all_running
+        === RUN   TestCountVMStates/unknown_state_ignored
+        --- PASS: TestCountVMStates (0.00s)
+            --- PASS: TestCountVMStates/nil (0.00s)
+            --- PASS: TestCountVMStates/mixed_states (0.00s)
+            --- PASS: TestCountVMStates/all_running (0.00s)
+            --- PASS: TestCountVMStates/unknown_state_ignored (0.00s)
+        === RUN   TestSumAKSNodes
+        === RUN   TestSumAKSNodes/nil
+        === RUN   TestSumAKSNodes/multiple_clusters
+        --- PASS: TestSumAKSNodes (0.00s)
+            --- PASS: TestSumAKSNodes/nil (0.00s)
+            --- PASS: TestSumAKSNodes/multiple_clusters (0.00s)
+        === RUN   TestParseVMDetail
+        === RUN   TestParseVMDetail/full_VM_detail
+        === RUN   TestParseVMDetail/minimal_fields
+        === RUN   TestParseVMDetail/invalid_JSON
+        --- PASS: TestParseVMDetail (0.00s)
+            --- PASS: TestParseVMDetail/full_VM_detail (0.00s)
+            --- PASS: TestParseVMDetail/minimal_fields (0.00s)
+            --- PASS: TestParseVMDetail/invalid_JSON (0.00s)
+        === RUN   TestSplitLast
+        --- PASS: TestSplitLast (0.00s)
+        === RUN   TestParseGraphVMs
+        --- PASS: TestParseGraphVMs (0.00s)
+        === RUN   TestParseGraphNICs
+        --- PASS: TestParseGraphNICs (0.00s)
+        === RUN   TestParseSubnetID
+        --- PASS: TestParseSubnetID (0.00s)
+        === RUN   TestParseVMPowerStates
+        --- PASS: TestParseVMPowerStates (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/azure	(cached)
+        === RUN   TestLoadAppConfig_FileNotFound
+        --- PASS: TestLoadAppConfig_FileNotFound (0.00s)
+        === RUN   TestLoadAppConfig_InvalidYAML
+        --- PASS: TestLoadAppConfig_InvalidYAML (0.00s)
+        === RUN   TestLoadAppConfig_MissingFleetDir
+        --- PASS: TestLoadAppConfig_MissingFleetDir (0.00s)
+        === RUN   TestLoadAppConfig_DirNotExist
+        --- PASS: TestLoadAppConfig_DirNotExist (0.00s)
+        === RUN   TestLoadAppConfig_Valid
+        --- PASS: TestLoadAppConfig_Valid (0.00s)
+        === RUN   TestAppConfig_Editor_ConfigWins
+        --- PASS: TestAppConfig_Editor_ConfigWins (0.00s)
+        === RUN   TestAppConfig_Editor_EnvFallback
+        --- PASS: TestAppConfig_Editor_EnvFallback (0.00s)
+        === RUN   TestAppConfig_Editor_VisualFallback
+        --- PASS: TestAppConfig_Editor_VisualFallback (0.00s)
+        === RUN   TestAppConfig_Editor_Default
+        --- PASS: TestAppConfig_Editor_Default (0.00s)
+        === RUN   TestWriteDefaultAppConfig
+        --- PASS: TestWriteDefaultAppConfig (0.00s)
+        === RUN   TestValidateAppConfig_TildeExpansion
+        --- PASS: TestValidateAppConfig_TildeExpansion (0.00s)
+        === RUN   TestMergeCommands_DefaultsOnly
+        --- PASS: TestMergeCommands_DefaultsOnly (0.00s)
+        === RUN   TestMergeCommands_GroupAdds
+        --- PASS: TestMergeCommands_GroupAdds (0.00s)
+        === RUN   TestMergeCommands_HostOverridesSameNameAndGroup
+        --- PASS: TestMergeCommands_HostOverridesSameNameAndGroup (0.00s)
+        === RUN   TestMergeCommands_SameNameDifferentGroup
+        --- PASS: TestMergeCommands_SameNameDifferentGroup (0.00s)
+        === RUN   TestMergeCommands_Empty
+        --- PASS: TestMergeCommands_Empty (0.00s)
+        === RUN   TestMergeCommands_ThreeLevelCascade
+        --- PASS: TestMergeCommands_ThreeLevelCascade (0.00s)
+        === RUN   TestValidateCommand_Valid
+        --- PASS: TestValidateCommand_Valid (0.00s)
+        === RUN   TestValidateCommand_MissingName
+        --- PASS: TestValidateCommand_MissingName (0.00s)
+        === RUN   TestValidateCommand_MissingGroup
+        --- PASS: TestValidateCommand_MissingGroup (0.00s)
+        === RUN   TestValidateCommand_MissingRun
+        --- PASS: TestValidateCommand_MissingRun (0.00s)
+        === RUN   TestParseFleetFile_CommandsCascade
+        --- PASS: TestParseFleetFile_CommandsCascade (0.00s)
+        === RUN   TestMergeLogEntries_DefaultsOnly
+        --- PASS: TestMergeLogEntries_DefaultsOnly (0.00s)
+        === RUN   TestMergeLogEntries_GroupAdds
+        --- PASS: TestMergeLogEntries_GroupAdds (0.00s)
+        === RUN   TestMergeLogEntries_HostAdds
+        --- PASS: TestMergeLogEntries_HostAdds (0.00s)
+        === RUN   TestMergeLogEntries_HostOverridesSameName
+        --- PASS: TestMergeLogEntries_HostOverridesSameName (0.00s)
+        === RUN   TestMergeLogEntries_GroupOverridesDefaults
+        --- PASS: TestMergeLogEntries_GroupOverridesDefaults (0.00s)
+        === RUN   TestMergeLogEntries_AllThreeLevels
+        --- PASS: TestMergeLogEntries_AllThreeLevels (0.00s)
+        === RUN   TestMergeLogEntries_Empty
+        --- PASS: TestMergeLogEntries_Empty (0.00s)
+        === RUN   TestValidateLogPath_Valid
+        --- PASS: TestValidateLogPath_Valid (0.00s)
+        === RUN   TestValidateLogPath_ValidWithSpaces
+        --- PASS: TestValidateLogPath_ValidWithSpaces (0.00s)
+        === RUN   TestValidateLogPath_RelativePath
+        --- PASS: TestValidateLogPath_RelativePath (0.00s)
+        === RUN   TestValidateLogPath_Empty
+        --- PASS: TestValidateLogPath_Empty (0.00s)
+        === RUN   TestValidateLogPath_ShellMetacharacters
+        --- PASS: TestValidateLogPath_ShellMetacharacters (0.00s)
+        === RUN   TestValidateLogPath_TooLong
+        --- PASS: TestValidateLogPath_TooLong (0.00s)
+        === RUN   TestParseProbeFleet_Valid
+        --- PASS: TestParseProbeFleet_Valid (0.00s)
+        === RUN   TestParseProbeFleet_DefaultExpectedCode
+        --- PASS: TestParseProbeFleet_DefaultExpectedCode (0.00s)
+        === RUN   TestParseProbeFleet_DefaultInterval
+        --- PASS: TestParseProbeFleet_DefaultInterval (0.00s)
+        === RUN   TestParseProbeFleet_MissingURL
+        --- PASS: TestParseProbeFleet_MissingURL (0.00s)
+        === RUN   TestParseProbeFleet_MissingName
+        --- PASS: TestParseProbeFleet_MissingName (0.00s)
+        === RUN   TestParseProbeFleet_InvalidURLScheme
+        --- PASS: TestParseProbeFleet_InvalidURLScheme (0.00s)
+        === RUN   TestParseProbeFleet_IntervalTooShort
+        --- PASS: TestParseProbeFleet_IntervalTooShort (0.00s)
+        === RUN   TestParseProbeFleet_DefaultIntervalTooShort
+        --- PASS: TestParseProbeFleet_DefaultIntervalTooShort (0.00s)
+        === RUN   TestParseProbeFleet_UnsupportedProtocol
+        --- PASS: TestParseProbeFleet_UnsupportedProtocol (0.00s)
+        === RUN   TestParseProbeFleet_NameFromFilename
+        --- PASS: TestParseProbeFleet_NameFromFilename (0.00s)
+        === RUN   TestParseProbeFleet_GroupMissingName
+        --- PASS: TestParseProbeFleet_GroupMissingName (0.00s)
+        === RUN   TestParseFleetFile_Valid
+        --- PASS: TestParseFleetFile_Valid (0.00s)
+        === RUN   TestParseFleetFile_MissingType
+        --- PASS: TestParseFleetFile_MissingType (0.00s)
+        === RUN   TestParseFleetFile_InvalidType
+        --- PASS: TestParseFleetFile_InvalidType (0.00s)
+        === RUN   TestParseFleetFile_AzureType
+        --- PASS: TestParseFleetFile_AzureType (0.00s)
+        === RUN   TestParseFleetFile_KubernetesType
+        --- PASS: TestParseFleetFile_KubernetesType (0.00s)
+        === RUN   TestParseFleetFile_Defaults
+        --- PASS: TestParseFleetFile_Defaults (0.00s)
+        === RUN   TestParseFleetFile_NameFromFilename
+        --- PASS: TestParseFleetFile_NameFromFilename (0.00s)
+        === RUN   TestParseFleetFile_InvalidTimeout
+        --- PASS: TestParseFleetFile_InvalidTimeout (0.00s)
+        === RUN   TestParseFleetFile_MalformedYAML
+        --- PASS: TestParseFleetFile_MalformedYAML (0.00s)
+        === RUN   TestParseFleetFile_MissingFile
+        --- PASS: TestParseFleetFile_MissingFile (0.00s)
+        === RUN   TestParseHosts_MissingName
+        --- PASS: TestParseHosts_MissingName (0.00s)
+        === RUN   TestParseHosts_MissingHostname
+        --- PASS: TestParseHosts_MissingHostname (0.00s)
+        === RUN   TestParseHosts_ServiceFilterInheritance
+        === RUN   TestParseHosts_ServiceFilterInheritance/host_filter_wins
+        === RUN   TestParseHosts_ServiceFilterInheritance/group_filter_used_when_host_has_none
+        === RUN   TestParseHosts_ServiceFilterInheritance/defaults_used_when_group_and_host_have_none
+        --- PASS: TestParseHosts_ServiceFilterInheritance (0.00s)
+            --- PASS: TestParseHosts_ServiceFilterInheritance/host_filter_wins (0.00s)
+            --- PASS: TestParseHosts_ServiceFilterInheritance/group_filter_used_when_host_has_none (0.00s)
+            --- PASS: TestParseHosts_ServiceFilterInheritance/defaults_used_when_group_and_host_have_none (0.00s)
+        === RUN   TestParseHosts_DefaultsApplied
+        --- PASS: TestParseHosts_DefaultsApplied (0.00s)
+        === RUN   TestConfigPath
+        --- PASS: TestConfigPath (0.00s)
+        === RUN   TestParseFleetFile_DisplayTags
+        --- PASS: TestParseFleetFile_DisplayTags (0.00s)
+        === RUN   TestParseFleetFile_NoDisplayTags
+        --- PASS: TestParseFleetFile_NoDisplayTags (0.00s)
+        === RUN   TestFleetTypeOrder
+        === RUN   TestFleetTypeOrder/vm
+        === RUN   TestFleetTypeOrder/azure
+        === RUN   TestFleetTypeOrder/kubernetes
+        === RUN   TestFleetTypeOrder/probes
+        === RUN   TestFleetTypeOrder/unknown
+        === RUN   TestFleetTypeOrder/#00
+        --- PASS: TestFleetTypeOrder (0.00s)
+            --- PASS: TestFleetTypeOrder/vm (0.00s)
+            --- PASS: TestFleetTypeOrder/azure (0.00s)
+            --- PASS: TestFleetTypeOrder/kubernetes (0.00s)
+            --- PASS: TestFleetTypeOrder/probes (0.00s)
+            --- PASS: TestFleetTypeOrder/unknown (0.00s)
+            --- PASS: TestFleetTypeOrder/#00 (0.00s)
+        === RUN   TestScanFleets_AcceptsDir
+        --- PASS: TestScanFleets_AcceptsDir (0.00s)
+        === RUN   TestScanFleets_SkipsConfigYaml
+        --- PASS: TestScanFleets_SkipsConfigYaml (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/config	(cached)
+        === RUN   TestSanitize
+        === RUN   TestSanitize/plain
+        === RUN   TestSanitize/slash
+        === RUN   TestSanitize/backslash
+        === RUN   TestSanitize/space
+        === RUN   TestSanitize/colon
+        === RUN   TestSanitize/multiple
+        === RUN   TestSanitize/empty
+        === RUN   TestSanitize/no-op_ascii
+        --- PASS: TestSanitize (0.00s)
+            --- PASS: TestSanitize/plain (0.00s)
+            --- PASS: TestSanitize/slash (0.00s)
+            --- PASS: TestSanitize/backslash (0.00s)
+            --- PASS: TestSanitize/space (0.00s)
+            --- PASS: TestSanitize/colon (0.00s)
+            --- PASS: TestSanitize/multiple (0.00s)
+            --- PASS: TestSanitize/empty (0.00s)
+            --- PASS: TestSanitize/no-op_ascii (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/fspath	(cached)
+        === RUN   TestParseContextLine
+        === RUN   TestParseContextLine/regular_context
+        === RUN   TestParseContextLine/current_context_with_namespace
+        === RUN   TestParseContextLine/empty_line
+        --- PASS: TestParseContextLine (0.00s)
+            --- PASS: TestParseContextLine/regular_context (0.00s)
+            --- PASS: TestParseContextLine/current_context_with_namespace (0.00s)
+            --- PASS: TestParseContextLine/empty_line (0.00s)
+        === RUN   TestParseK8sListCount
+        === RUN   TestParseK8sListCount/3_items
+        === RUN   TestParseK8sListCount/empty_list
+        === RUN   TestParseK8sListCount/nil
+        === RUN   TestParseK8sListCount/invalid
+        --- PASS: TestParseK8sListCount (0.00s)
+            --- PASS: TestParseK8sListCount/3_items (0.00s)
+            --- PASS: TestParseK8sListCount/empty_list (0.00s)
+            --- PASS: TestParseK8sListCount/nil (0.00s)
+            --- PASS: TestParseK8sListCount/invalid (0.00s)
+        === RUN   TestParseNodes
+        --- PASS: TestParseNodes (0.00s)
+        === RUN   TestParseNodeDetail
+        --- PASS: TestParseNodeDetail (0.00s)
+        === RUN   TestParseTopNodes
+        --- PASS: TestParseTopNodes (0.00s)
+        === RUN   TestFormatMemory
+        --- PASS: TestFormatMemory (0.00s)
+        === RUN   TestFormatAge
+        === RUN   TestFormatAge/2_hours_ago
+        === RUN   TestFormatAge/3_days_ago
+        === RUN   TestFormatAge/invalid_input
+        === RUN   TestFormatAge/very_recent
+        --- PASS: TestFormatAge (0.00s)
+            --- PASS: TestFormatAge/2_hours_ago (0.00s)
+            --- PASS: TestFormatAge/3_days_ago (0.00s)
+            --- PASS: TestFormatAge/invalid_input (0.00s)
+            --- PASS: TestFormatAge/very_recent (0.00s)
+        === RUN   TestParseNamespaces
+        --- PASS: TestParseNamespaces (0.00s)
+        === RUN   TestParseWorkloads
+        --- PASS: TestParseWorkloads (0.00s)
+        === RUN   TestParsePods
+        --- PASS: TestParsePods (0.00s)
+        === RUN   TestParsePodDetail
+        --- PASS: TestParsePodDetail (0.00s)
+        === RUN   TestParseLogLine
+        === RUN   TestParseLogLine/standard_timestamp_line
+        === RUN   TestParseLogLine/no_timestamp
+        === RUN   TestParseLogLine/empty_line
+        === RUN   TestParseLogLine/timestamp_with_timezone_offset
+        === RUN   TestParseLogLine/message_with_spaces
+        --- PASS: TestParseLogLine (0.00s)
+            --- PASS: TestParseLogLine/standard_timestamp_line (0.00s)
+            --- PASS: TestParseLogLine/no_timestamp (0.00s)
+            --- PASS: TestParseLogLine/empty_line (0.00s)
+            --- PASS: TestParseLogLine/timestamp_with_timezone_offset (0.00s)
+            --- PASS: TestParseLogLine/message_with_spaces (0.00s)
+        === RUN   TestParseLogLineFormats
+        === RUN   TestParseLogLineFormats/JSON_with_level_and_message
+        === RUN   TestParseLogLineFormats/JSON_with_msg_field
+        === RUN   TestParseLogLineFormats/logfmt_with_quoted_msg_and_context
+        === RUN   TestParseLogLineFormats/logfmt_with_trailing_context
+        === RUN   TestParseLogLineFormats/klog_info
+        === RUN   TestParseLogLineFormats/klog_warning
+        === RUN   TestParseLogLineFormats/klog_error
+        === RUN   TestParseLogLineFormats/plain_text_no_format
+        --- PASS: TestParseLogLineFormats (0.00s)
+            --- PASS: TestParseLogLineFormats/JSON_with_level_and_message (0.00s)
+            --- PASS: TestParseLogLineFormats/JSON_with_msg_field (0.00s)
+            --- PASS: TestParseLogLineFormats/logfmt_with_quoted_msg_and_context (0.00s)
+            --- PASS: TestParseLogLineFormats/logfmt_with_trailing_context (0.00s)
+            --- PASS: TestParseLogLineFormats/klog_info (0.00s)
+            --- PASS: TestParseLogLineFormats/klog_warning (0.00s)
+            --- PASS: TestParseLogLineFormats/klog_error (0.00s)
+            --- PASS: TestParseLogLineFormats/plain_text_no_format (0.00s)
+        === RUN   TestParseResourceCounts
+        --- PASS: TestParseResourceCounts (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/k8s	(cached)
+        === RUN   TestInitLogger_Disabled
+        --- PASS: TestInitLogger_Disabled (0.00s)
+        === RUN   TestInitLogger_Enabled
+        --- PASS: TestInitLogger_Enabled (0.00s)
+        === RUN   TestNewTargetLogger_Disabled
+        --- PASS: TestNewTargetLogger_Disabled (0.00s)
+        === RUN   TestNewTargetLogger_Enabled
+        --- PASS: TestNewTargetLogger_Enabled (0.00s)
+        === RUN   TestLogDir
+        --- PASS: TestLogDir (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/logging	(cached)
+        === RUN   TestResourceRef_Dir_AllFleetTypes
+        === RUN   TestResourceRef_Dir_AllFleetTypes/fleet-level
+        === RUN   TestResourceRef_Dir_AllFleetTypes/vm-host
+        === RUN   TestResourceRef_Dir_AllFleetTypes/vm-service
+        === RUN   TestResourceRef_Dir_AllFleetTypes/azure-sub
+        === RUN   TestResourceRef_Dir_AllFleetTypes/azure-vm
+        === RUN   TestResourceRef_Dir_AllFleetTypes/k8s-namespace
+        === RUN   TestResourceRef_Dir_AllFleetTypes/sanitizes-unsafe-chars
+        --- PASS: TestResourceRef_Dir_AllFleetTypes (0.00s)
+            --- PASS: TestResourceRef_Dir_AllFleetTypes/fleet-level (0.00s)
+            --- PASS: TestResourceRef_Dir_AllFleetTypes/vm-host (0.00s)
+            --- PASS: TestResourceRef_Dir_AllFleetTypes/vm-service (0.00s)
+            --- PASS: TestResourceRef_Dir_AllFleetTypes/azure-sub (0.00s)
+            --- PASS: TestResourceRef_Dir_AllFleetTypes/azure-vm (0.00s)
+            --- PASS: TestResourceRef_Dir_AllFleetTypes/k8s-namespace (0.00s)
+            --- PASS: TestResourceRef_Dir_AllFleetTypes/sanitizes-unsafe-chars (0.00s)
+        === RUN   TestResourceRef_Key_StableAcrossEqualRefs
+        --- PASS: TestResourceRef_Key_StableAcrossEqualRefs (0.00s)
+        === RUN   TestEngine_Create_WritesEmptyFile
+        --- PASS: TestEngine_Create_WritesEmptyFile (0.00s)
+        === RUN   TestEngine_Create_FilenameFormat
+        --- PASS: TestEngine_Create_FilenameFormat (0.00s)
+        === RUN   TestEngine_Create_MillisecondResolution_NoCollision
+        --- PASS: TestEngine_Create_MillisecondResolution_NoCollision (0.05s)
+        === RUN   TestEngine_List_SortedNewestFirst
+        --- PASS: TestEngine_List_SortedNewestFirst (0.01s)
+        === RUN   TestEngine_List_MissingDir_ReturnsEmpty
+        --- PASS: TestEngine_List_MissingDir_ReturnsEmpty (0.00s)
+        === RUN   TestEngine_Count_MissingDir_ReturnsZero
+        --- PASS: TestEngine_Count_MissingDir_ReturnsZero (0.00s)
+        === RUN   TestEngine_Count_MatchesListLength
+        --- PASS: TestEngine_Count_MatchesListLength (0.01s)
+        === RUN   TestEngine_Delete_RemovesFile
+        --- PASS: TestEngine_Delete_RemovesFile (0.00s)
+        === RUN   TestEngine_Delete_MissingFile_IsNoOp
+        --- PASS: TestEngine_Delete_MissingFile_IsNoOp (0.00s)
+        === RUN   TestEngine_List_ReadsPreview
+        --- PASS: TestEngine_List_ReadsPreview (0.00s)
+        === RUN   TestEngine_List_PreviewTruncates
+        --- PASS: TestEngine_List_PreviewTruncates (0.00s)
+        === RUN   TestEngine_List_EmptyFile_EmptyPreview
+        --- PASS: TestEngine_List_EmptyFile_EmptyPreview (0.00s)
+        === RUN   TestEngine_List_IgnoresNonNoteFiles
+        --- PASS: TestEngine_List_IgnoresNonNoteFiles (0.00s)
+        === RUN   TestParseTimestamp_RoundTrip
+        --- PASS: TestParseTimestamp_RoundTrip (0.00s)
+        === RUN   TestParseTimestamp_InvalidInputs
+        --- PASS: TestParseTimestamp_InvalidInputs (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/notes	(cached)
+        === RUN   TestClassifyError_DNS
+        --- PASS: TestClassifyError_DNS (0.00s)
+        === RUN   TestClassifyError_Connect
+        --- PASS: TestClassifyError_Connect (0.00s)
+        === RUN   TestClassifyError_Timeout
+        --- PASS: TestClassifyError_Timeout (0.00s)
+        === RUN   TestClassifyError_TLS_UnknownAuthority
+        --- PASS: TestClassifyError_TLS_UnknownAuthority (0.00s)
+        === RUN   TestClassifyError_TLS_HostnameError
+        --- PASS: TestClassifyError_TLS_HostnameError (0.00s)
+        === RUN   TestClassifyError_TLS_CertificateInvalid
+        --- PASS: TestClassifyError_TLS_CertificateInvalid (0.00s)
+        === RUN   TestClassifyError_Nil
+        --- PASS: TestClassifyError_Nil (0.00s)
+        === RUN   TestDeriveStatus
+        === RUN   TestDeriveStatus/code_match_no_TLS
+        === RUN   TestDeriveStatus/code_match_cert_OK
+        === RUN   TestDeriveStatus/code_match_cert_expiring
+        === RUN   TestDeriveStatus/code_match_cert_at_boundary
+        === RUN   TestDeriveStatus/code_mismatch
+        === RUN   TestDeriveStatus/code_mismatch_with_TLS
+        --- PASS: TestDeriveStatus (0.00s)
+            --- PASS: TestDeriveStatus/code_match_no_TLS (0.00s)
+            --- PASS: TestDeriveStatus/code_match_cert_OK (0.00s)
+            --- PASS: TestDeriveStatus/code_match_cert_expiring (0.00s)
+            --- PASS: TestDeriveStatus/code_match_cert_at_boundary (0.00s)
+            --- PASS: TestDeriveStatus/code_mismatch (0.00s)
+            --- PASS: TestDeriveStatus/code_mismatch_with_TLS (0.00s)
+        === RUN   TestReadBodyPreview_JSON
+        --- PASS: TestReadBodyPreview_JSON (0.00s)
+        === RUN   TestReadBodyPreview_Text
+        --- PASS: TestReadBodyPreview_Text (0.00s)
+        === RUN   TestReadBodyPreview_Binary
+        --- PASS: TestReadBodyPreview_Binary (0.00s)
+        === RUN   TestReadBodyPreview_InvalidJSON
+        --- PASS: TestReadBodyPreview_InvalidJSON (0.00s)
+        === RUN   TestReadBodyPreview_Truncation
+        --- PASS: TestReadBodyPreview_Truncation (0.00s)
+        === RUN   TestManagerStartStop
+        --- PASS: TestManagerStartStop (0.00s)
+        === RUN   TestManagerHTTPStatusMismatch
+        --- PASS: TestManagerHTTPStatusMismatch (0.00s)
+        === RUN   TestManagerDNSError
+        --- PASS: TestManagerDNSError (0.01s)
+        === RUN   TestProbeStatusString
+        --- PASS: TestProbeStatusString (0.00s)
+        === RUN   TestClassifyError_WrappedTimeout
+        --- PASS: TestClassifyError_WrappedTimeout (0.00s)
+        === RUN   TestRedactProxyURL
+        === RUN   TestRedactProxyURL/with_credentials
+        === RUN   TestRedactProxyURL/user_only_no_password
+        === RUN   TestRedactProxyURL/no_userinfo
+        === RUN   TestRedactProxyURL/empty_string
+        === RUN   TestRedactProxyURL/https_with_credentials
+        === RUN   TestRedactProxyURL/special_chars_in_password
+        --- PASS: TestRedactProxyURL (0.00s)
+            --- PASS: TestRedactProxyURL/with_credentials (0.00s)
+            --- PASS: TestRedactProxyURL/user_only_no_password (0.00s)
+            --- PASS: TestRedactProxyURL/no_userinfo (0.00s)
+            --- PASS: TestRedactProxyURL/empty_string (0.00s)
+            --- PASS: TestRedactProxyURL/https_with_credentials (0.00s)
+            --- PASS: TestRedactProxyURL/special_chars_in_password (0.00s)
+        === RUN   TestRedactError
+        === RUN   TestRedactError/error_with_proxy_password
+        === RUN   TestRedactError/error_without_password
+        === RUN   TestRedactError/empty_proxy_URL
+        === RUN   TestRedactError/nil_error
+        --- PASS: TestRedactError (0.00s)
+            --- PASS: TestRedactError/error_with_proxy_password (0.00s)
+            --- PASS: TestRedactError/error_without_password (0.00s)
+            --- PASS: TestRedactError/empty_proxy_URL (0.00s)
+            --- PASS: TestRedactError/nil_error (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/probes	(cached)
+        === RUN   TestServiceStateOrder
+        === RUN   TestServiceStateOrder/failed
+        === RUN   TestServiceStateOrder/running
+        === RUN   TestServiceStateOrder/exited
+        === RUN   TestServiceStateOrder/waiting
+        === RUN   TestServiceStateOrder/inactive
+        === RUN   TestServiceStateOrder/unknown
+        === RUN   TestServiceStateOrder/#00
+        --- PASS: TestServiceStateOrder (0.00s)
+            --- PASS: TestServiceStateOrder/failed (0.00s)
+            --- PASS: TestServiceStateOrder/running (0.00s)
+            --- PASS: TestServiceStateOrder/exited (0.00s)
+            --- PASS: TestServiceStateOrder/waiting (0.00s)
+            --- PASS: TestServiceStateOrder/inactive (0.00s)
+            --- PASS: TestServiceStateOrder/unknown (0.00s)
+            --- PASS: TestServiceStateOrder/#00 (0.00s)
+        === RUN   TestContainerStateOrder
+        === RUN   TestContainerStateOrder/Up_3_hours
+        === RUN   TestContainerStateOrder/Up_5_minutes
+        === RUN   TestContainerStateOrder/Exited_(0)_2_hours_ago
+        === RUN   TestContainerStateOrder/Exited_(1)_5_minutes_ago
+        === RUN   TestContainerStateOrder/Created
+        === RUN   TestContainerStateOrder/#00
+        --- PASS: TestContainerStateOrder (0.00s)
+            --- PASS: TestContainerStateOrder/Up_3_hours (0.00s)
+            --- PASS: TestContainerStateOrder/Up_5_minutes (0.00s)
+            --- PASS: TestContainerStateOrder/Exited_(0)_2_hours_ago (0.00s)
+            --- PASS: TestContainerStateOrder/Exited_(1)_5_minutes_ago (0.00s)
+            --- PASS: TestContainerStateOrder/Created (0.00s)
+            --- PASS: TestContainerStateOrder/#00 (0.00s)
+        === RUN   TestParseServiceLine
+        === RUN   TestParseServiceLine/running_service
+        === RUN   TestParseServiceLine/failed_service
+        === RUN   TestParseServiceLine/inactive_service
+        === RUN   TestParseServiceLine/too_few_fields
+        === RUN   TestParseServiceLine/no_description
+        --- PASS: TestParseServiceLine (0.00s)
+            --- PASS: TestParseServiceLine/running_service (0.00s)
+            --- PASS: TestParseServiceLine/failed_service (0.00s)
+            --- PASS: TestParseServiceLine/inactive_service (0.00s)
+            --- PASS: TestParseServiceLine/too_few_fields (0.00s)
+            --- PASS: TestParseServiceLine/no_description (0.00s)
+        === RUN   TestMatchesFilter
+        === RUN   TestMatchesFilter/empty_filter_matches_all
+        === RUN   TestMatchesFilter/empty_filter_slice_matches_all
+        === RUN   TestMatchesFilter/exact_glob_match
+        === RUN   TestMatchesFilter/wildcard_match
+        === RUN   TestMatchesFilter/no_match
+        === RUN   TestMatchesFilter/multiple_filters,_one_matches
+        === RUN   TestMatchesFilter/multiple_filters,_none_match
+        === RUN   TestMatchesFilter/star_matches_all
+        --- PASS: TestMatchesFilter (0.00s)
+            --- PASS: TestMatchesFilter/empty_filter_matches_all (0.00s)
+            --- PASS: TestMatchesFilter/empty_filter_slice_matches_all (0.00s)
+            --- PASS: TestMatchesFilter/exact_glob_match (0.00s)
+            --- PASS: TestMatchesFilter/wildcard_match (0.00s)
+            --- PASS: TestMatchesFilter/no_match (0.00s)
+            --- PASS: TestMatchesFilter/multiple_filters,_one_matches (0.00s)
+            --- PASS: TestMatchesFilter/multiple_filters,_none_match (0.00s)
+            --- PASS: TestMatchesFilter/star_matches_all (0.00s)
+        === RUN   TestIsAuthError
+        === RUN   TestIsAuthError/nil_error
+        === RUN   TestIsAuthError/auth_error
+        === RUN   TestIsAuthError/no_methods
+        === RUN   TestIsAuthError/handshake
+        === RUN   TestIsAuthError/connection_refused
+        === RUN   TestIsAuthError/timeout
+        --- PASS: TestIsAuthError (0.00s)
+            --- PASS: TestIsAuthError/nil_error (0.00s)
+            --- PASS: TestIsAuthError/auth_error (0.00s)
+            --- PASS: TestIsAuthError/no_methods (0.00s)
+            --- PASS: TestIsAuthError/handshake (0.00s)
+            --- PASS: TestIsAuthError/connection_refused (0.00s)
+            --- PASS: TestIsAuthError/timeout (0.00s)
+        === RUN   TestExpandPath
+        === RUN   TestExpandPath/tilde_path
+        === RUN   TestExpandPath/absolute_path
+        --- PASS: TestExpandPath (0.00s)
+            --- PASS: TestExpandPath/tilde_path (0.00s)
+            --- PASS: TestExpandPath/absolute_path (0.00s)
+        === RUN   TestExtractPkgName
+        === RUN   TestExtractPkgName/simple
+        === RUN   TestExtractPkgName/with_epoch
+        === RUN   TestExtractPkgName/complex_name
+        === RUN   TestExtractPkgName/no_arch_suffix
+        --- PASS: TestExtractPkgName (0.00s)
+            --- PASS: TestExtractPkgName/simple (0.00s)
+            --- PASS: TestExtractPkgName/with_epoch (0.00s)
+            --- PASS: TestExtractPkgName/complex_name (0.00s)
+            --- PASS: TestExtractPkgName/no_arch_suffix (0.00s)
+        === RUN   TestParseAccountLine
+        === RUN   TestParseAccountLine/normal_user
+        === RUN   TestParseAccountLine/locked_user
+        === RUN   TestParseAccountLine/sudo_group_member
+        === RUN   TestParseAccountLine/L_status_(locked_alternate)
+        === RUN   TestParseAccountLine/missing_fields
+        === RUN   TestParseAccountLine/empty_line
+        --- PASS: TestParseAccountLine (0.00s)
+            --- PASS: TestParseAccountLine/normal_user (0.00s)
+            --- PASS: TestParseAccountLine/locked_user (0.00s)
+            --- PASS: TestParseAccountLine/sudo_group_member (0.00s)
+            --- PASS: TestParseAccountLine/L_status_(locked_alternate) (0.00s)
+            --- PASS: TestParseAccountLine/missing_fields (0.00s)
+            --- PASS: TestParseAccountLine/empty_line (0.00s)
+        === RUN   TestAccountStateOrder
+        --- PASS: TestAccountStateOrder (0.00s)
+        === RUN   TestParseInterfaceLine
+        === RUN   TestParseInterfaceLine/UP_with_single_IP
+        === RUN   TestParseInterfaceLine/UNKNOWN_with_multiple_IPs
+        === RUN   TestParseInterfaceLine/DOWN_no_IPs
+        === RUN   TestParseInterfaceLine/UP_with_IPv6
+        === RUN   TestParseInterfaceLine/empty_line
+        --- PASS: TestParseInterfaceLine (0.00s)
+            --- PASS: TestParseInterfaceLine/UP_with_single_IP (0.00s)
+            --- PASS: TestParseInterfaceLine/UNKNOWN_with_multiple_IPs (0.00s)
+            --- PASS: TestParseInterfaceLine/DOWN_no_IPs (0.00s)
+            --- PASS: TestParseInterfaceLine/UP_with_IPv6 (0.00s)
+            --- PASS: TestParseInterfaceLine/empty_line (0.00s)
+        === RUN   TestInterfaceStateOrder
+        --- PASS: TestInterfaceStateOrder (0.00s)
+        === RUN   TestParsePortLine
+        === RUN   TestParsePortLine/sshd_with_process
+        === RUN   TestParsePortLine/postgres_no_process
+        === RUN   TestParsePortLine/IPv6_with_process
+        === RUN   TestParsePortLine/IPv6_localhost
+        === RUN   TestParsePortLine/empty_line
+        --- PASS: TestParsePortLine (0.00s)
+            --- PASS: TestParsePortLine/sshd_with_process (0.00s)
+            --- PASS: TestParsePortLine/postgres_no_process (0.00s)
+            --- PASS: TestParsePortLine/IPv6_with_process (0.00s)
+            --- PASS: TestParsePortLine/IPv6_localhost (0.00s)
+            --- PASS: TestParsePortLine/empty_line (0.00s)
+        === RUN   TestParseRouteLine
+        === RUN   TestParseRouteLine/default_route
+        === RUN   TestParseRouteLine/connected_route
+        === RUN   TestParseRouteLine/route_with_metric
+        === RUN   TestParseRouteLine/empty_line
+        --- PASS: TestParseRouteLine (0.00s)
+            --- PASS: TestParseRouteLine/default_route (0.00s)
+            --- PASS: TestParseRouteLine/connected_route (0.00s)
+            --- PASS: TestParseRouteLine/route_with_metric (0.00s)
+            --- PASS: TestParseRouteLine/empty_line (0.00s)
+        === RUN   TestDetectFirewallBackend
+        === RUN   TestDetectFirewallBackend/firewalld
+        === RUN   TestDetectFirewallBackend/nftables
+        === RUN   TestDetectFirewallBackend/iptables
+        === RUN   TestDetectFirewallBackend/empty
+        === RUN   TestDetectFirewallBackend/no_marker
+        --- PASS: TestDetectFirewallBackend (0.00s)
+            --- PASS: TestDetectFirewallBackend/firewalld (0.00s)
+            --- PASS: TestDetectFirewallBackend/nftables (0.00s)
+            --- PASS: TestDetectFirewallBackend/iptables (0.00s)
+            --- PASS: TestDetectFirewallBackend/empty (0.00s)
+            --- PASS: TestDetectFirewallBackend/no_marker (0.00s)
+        === RUN   TestParseFirewalldOutput
+        --- PASS: TestParseFirewalldOutput (0.00s)
+        === RUN   TestParseFirewalldOutput_Empty
+        --- PASS: TestParseFirewalldOutput_Empty (0.00s)
+        === RUN   TestParseIptablesOutput
+        --- PASS: TestParseIptablesOutput (0.00s)
+        === RUN   TestParseNftablesOutput
+        --- PASS: TestParseNftablesOutput (0.00s)
+        === RUN   TestParseServiceStatus
+        === RUN   TestParseServiceStatus/active_running
+        === RUN   TestParseServiceStatus/inactive_dead
+        === RUN   TestParseServiceStatus/failed
+        --- PASS: TestParseServiceStatus (0.00s)
+            --- PASS: TestParseServiceStatus/active_running (0.00s)
+            --- PASS: TestParseServiceStatus/inactive_dead (0.00s)
+            --- PASS: TestParseServiceStatus/failed (0.00s)
+        === RUN   TestParseFailedLoginLine
+        === RUN   TestParseFailedLoginLine/failed_password
+        === RUN   TestParseFailedLoginLine/invalid_user
+        === RUN   TestParseFailedLoginLine/failed_publickey
+        === RUN   TestParseFailedLoginLine/empty_line
+        --- PASS: TestParseFailedLoginLine (0.00s)
+            --- PASS: TestParseFailedLoginLine/failed_password (0.00s)
+            --- PASS: TestParseFailedLoginLine/invalid_user (0.00s)
+            --- PASS: TestParseFailedLoginLine/failed_publickey (0.00s)
+            --- PASS: TestParseFailedLoginLine/empty_line (0.00s)
+        === RUN   TestParseSudoLine
+        === RUN   TestParseSudoLine/successful_sudo
+        === RUN   TestParseSudoLine/failed_sudo
+        === RUN   TestParseSudoLine/not_in_sudoers
+        === RUN   TestParseSudoLine/empty_line
+        --- PASS: TestParseSudoLine (0.00s)
+            --- PASS: TestParseSudoLine/successful_sudo (0.00s)
+            --- PASS: TestParseSudoLine/failed_sudo (0.00s)
+            --- PASS: TestParseSudoLine/not_in_sudoers (0.00s)
+            --- PASS: TestParseSudoLine/empty_line (0.00s)
+        === RUN   TestParseSELinuxDenialLine
+        === RUN   TestParseSELinuxDenialLine/avc_denial
+        === RUN   TestParseSELinuxDenialLine/read_denial
+        === RUN   TestParseSELinuxDenialLine/empty_line
+        --- PASS: TestParseSELinuxDenialLine (0.00s)
+            --- PASS: TestParseSELinuxDenialLine/avc_denial (0.00s)
+            --- PASS: TestParseSELinuxDenialLine/read_denial (0.00s)
+            --- PASS: TestParseSELinuxDenialLine/empty_line (0.00s)
+        === RUN   TestParseAuditEventLine
+        === RUN   TestParseAuditEventLine/success_with_line_number
+        === RUN   TestParseAuditEventLine/failure
+        === RUN   TestParseAuditEventLine/empty_line
+        === RUN   TestParseAuditEventLine/too_few_fields
+        --- PASS: TestParseAuditEventLine (0.00s)
+            --- PASS: TestParseAuditEventLine/success_with_line_number (0.00s)
+            --- PASS: TestParseAuditEventLine/failure (0.00s)
+            --- PASS: TestParseAuditEventLine/empty_line (0.00s)
+            --- PASS: TestParseAuditEventLine/too_few_fields (0.00s)
+        === RUN   TestParseContainerInspect
+        --- PASS: TestParseContainerInspect (0.00s)
+        === RUN   TestParseContainerInspect_Empty
+        --- PASS: TestParseContainerInspect_Empty (0.00s)
+        === RUN   TestParseContainerInspect_InvalidJSON
+        --- PASS: TestParseContainerInspect_InvalidJSON (0.00s)
+        === RUN   TestParseContainerInspect_NoPorts
+        --- PASS: TestParseContainerInspect_NoPorts (0.00s)
+        === RUN   TestParseMetricsOutput
+        === RUN   TestParseMetricsOutput/full_output
+        === RUN   TestParseMetricsOutput/high_values
+        === RUN   TestParseMetricsOutput/no_percent_sign_on_disk
+        === RUN   TestParseMetricsOutput/empty_output
+        === RUN   TestParseMetricsOutput/partial_output
+        --- PASS: TestParseMetricsOutput (0.00s)
+            --- PASS: TestParseMetricsOutput/full_output (0.00s)
+            --- PASS: TestParseMetricsOutput/high_values (0.00s)
+            --- PASS: TestParseMetricsOutput/no_percent_sign_on_disk (0.00s)
+            --- PASS: TestParseMetricsOutput/empty_output (0.00s)
+            --- PASS: TestParseMetricsOutput/partial_output (0.00s)
+        === RUN   TestIsSudoOutput
+        === RUN   TestIsSudoOutput/sudo:_a_password_is_required
+        === RUN   TestIsSudoOutput/sudo:_no_tty_present_and_no_askpass_program_specified
+        === RUN   TestIsSudoOutput/[sudo]_password_for_gaetan:
+        === RUN   TestIsSudoOutput/sudo:_no_password_supplied
+        === RUN   TestIsSudoOutput/#00
+        === RUN   TestIsSudoOutput/permission_denied
+        === RUN   TestIsSudoOutput/exit_status_1
+        === RUN   TestIsSudoOutput/some_output_sudo:_a_password_is_required_more_output
+        --- PASS: TestIsSudoOutput (0.00s)
+            --- PASS: TestIsSudoOutput/sudo:_a_password_is_required (0.00s)
+            --- PASS: TestIsSudoOutput/sudo:_no_tty_present_and_no_askpass_program_specified (0.00s)
+            --- PASS: TestIsSudoOutput/[sudo]_password_for_gaetan: (0.00s)
+            --- PASS: TestIsSudoOutput/sudo:_no_password_supplied (0.00s)
+            --- PASS: TestIsSudoOutput/#00 (0.00s)
+            --- PASS: TestIsSudoOutput/permission_denied (0.00s)
+            --- PASS: TestIsSudoOutput/exit_status_1 (0.00s)
+            --- PASS: TestIsSudoOutput/some_output_sudo:_a_password_is_required_more_output (0.00s)
+        === RUN   TestIsSudoError
+        --- PASS: TestIsSudoError (0.00s)
+        === RUN   TestSudoPasswordCache
+        --- PASS: TestSudoPasswordCache (0.00s)
+        === RUN   TestGetCachedPassword
+        --- PASS: TestGetCachedPassword (0.00s)
+        === RUN   TestRewriteSudoCmd
+        === RUN   TestRewriteSudoCmd/simple_sudo
+        === RUN   TestRewriteSudoCmd/multiple_sudo
+        === RUN   TestRewriteSudoCmd/password_with_single_quote
+        === RUN   TestRewriteSudoCmd/no_sudo_in_command
+        --- PASS: TestRewriteSudoCmd (0.00s)
+            --- PASS: TestRewriteSudoCmd/simple_sudo (0.00s)
+            --- PASS: TestRewriteSudoCmd/multiple_sudo (0.00s)
+            --- PASS: TestRewriteSudoCmd/password_with_single_quote (0.00s)
+            --- PASS: TestRewriteSudoCmd/no_sudo_in_command (0.00s)
+        === RUN   TestFormatDateEU
+        === RUN   TestFormatDateEU/datetime_with_seconds
+        === RUN   TestFormatDateEU/datetime_without_seconds
+        === RUN   TestFormatDateEU/date_only
+        === RUN   TestFormatDateEU/empty_string
+        === RUN   TestFormatDateEU/dash
+        === RUN   TestFormatDateEU/unknown
+        === RUN   TestFormatDateEU/unparseable
+        === RUN   TestFormatDateEU/whitespace
+        --- PASS: TestFormatDateEU (0.00s)
+            --- PASS: TestFormatDateEU/datetime_with_seconds (0.00s)
+            --- PASS: TestFormatDateEU/datetime_without_seconds (0.00s)
+            --- PASS: TestFormatDateEU/date_only (0.00s)
+            --- PASS: TestFormatDateEU/empty_string (0.00s)
+            --- PASS: TestFormatDateEU/dash (0.00s)
+            --- PASS: TestFormatDateEU/unknown (0.00s)
+            --- PASS: TestFormatDateEU/unparseable (0.00s)
+            --- PASS: TestFormatDateEU/whitespace (0.00s)
+        === RUN   TestParseProbeOutput_Full
+        --- PASS: TestParseProbeOutput_Full (0.00s)
+        === RUN   TestParseProbeOutput_MinimalLines
+        --- PASS: TestParseProbeOutput_MinimalLines (0.00s)
+        === RUN   TestParseProbeOutput_TooFewLines
+        --- PASS: TestParseProbeOutput_TooFewLines (0.00s)
+        === RUN   TestParseProbeOutput_EmptyOutput
+        --- PASS: TestParseProbeOutput_EmptyOutput (0.00s)
+        === RUN   TestParseProbeOutput_WithSentinel
+        --- PASS: TestParseProbeOutput_WithSentinel (0.00s)
+        === RUN   TestParseProbeOutput_ShellWarningBeforeSentinel
+        --- PASS: TestParseProbeOutput_ShellWarningBeforeSentinel (0.00s)
+        === RUN   TestParseSupervisordStatus_Running
+        --- PASS: TestParseSupervisordStatus_Running (0.00s)
+        === RUN   TestParseSupervisordStatus_Fatal
+        --- PASS: TestParseSupervisordStatus_Fatal (0.00s)
+        === RUN   TestParseSupervisordStatus_Stopped
+        --- PASS: TestParseSupervisordStatus_Stopped (0.00s)
+        === RUN   TestParseSupervisordStatus_Backoff
+        --- PASS: TestParseSupervisordStatus_Backoff (0.00s)
+        === RUN   TestParseSupervisordStatus_MultipleProcesses
+        --- PASS: TestParseSupervisordStatus_MultipleProcesses (0.00s)
+        === RUN   TestParseSupervisordStatus_Empty
+        --- PASS: TestParseSupervisordStatus_Empty (0.00s)
+        === RUN   TestParseSupervisordStatus_UngroupedName
+        --- PASS: TestParseSupervisordStatus_UngroupedName (0.00s)
+        === RUN   TestProcessStateOrder
+        --- PASS: TestProcessStateOrder (0.00s)
+        PASS
+        ok  	github.com/Gaetan-Jaminon/fleetdesk/internal/ssh	(cached)
+        FAIL
+        make[1]: *** [Makefile:4: test] Error 1
+        make[1]: Leaving directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        make: *** [Makefile:19: check] Error 2
+--- FAIL: TestMakeCheckGreenWithoutPreinstalledGolangciLint (1.00s)
+=== RUN   TestNoBlanketNolintSuppressions
+--- PASS: TestNoBlanketNolintSuppressions (0.04s)
+=== RUN   TestGosecG106SuppressionsReferenceTAE22
+    golangci_test.go:282: expected internal/ssh/manager.go:258 to carry a //nolint:gosec suppression naming TAE-22 as the reason (TAE-80 AC7); got:
+        		},
+        		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+        		Timeout:         entry.Timeout,
+    golangci_test.go:282: expected internal/ssh/manager.go:452 to carry a //nolint:gosec suppression naming TAE-22 as the reason (TAE-80 AC7); got:
+        			Auth:            []gossh.AuthMethod{auth},
+        			HostKeyCallback: gossh.InsecureIgnoreHostKey(), // trusted fleet network
+        			Timeout:         timeout,
+--- FAIL: TestGosecG106SuppressionsReferenceTAE22 (0.00s)
+FAIL
+FAIL	github.com/Gaetan-Jaminon/fleetdesk	1.397s
+FAIL
