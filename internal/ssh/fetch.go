@@ -153,7 +153,7 @@ func ParseAccountLine(line string) config.Account {
 	a := config.Account{
 		User: parts[0],
 	}
-	fmt.Sscanf(parts[1], "%d", &a.UID) //nolint:errcheck,gosec // TAE-82: a failed parse renders UID as 0, which sorts first
+	fmt.Sscanf(parts[1], "%d", &a.UID) //nolint:errcheck // TAE-82: a failed parse renders UID as 0, which sorts first
 
 	if len(parts) > 2 {
 		// filter out the primary group (same name as user)
@@ -258,14 +258,14 @@ func ParsePortLine(line string) config.ListeningPort {
 		bracket := strings.LastIndex(local, "]:")
 		if bracket > 0 {
 			bindAddr = local[1:bracket]
-			fmt.Sscanf(local[bracket+2:], "%d", &port) //nolint:errcheck,gosec // TAE-82: a failed parse renders the listening port as 0
+			fmt.Sscanf(local[bracket+2:], "%d", &port) //nolint:errcheck // TAE-82: a failed parse renders the listening port as 0
 		}
 	} else {
 		// IPv4: 0.0.0.0:22
 		lastColon := strings.LastIndex(local, ":")
 		if lastColon > 0 {
 			bindAddr = local[:lastColon]
-			fmt.Sscanf(local[lastColon+1:], "%d", &port) //nolint:errcheck,gosec // TAE-82: a failed parse renders the listening port as 0
+			fmt.Sscanf(local[lastColon+1:], "%d", &port) //nolint:errcheck // TAE-82: a failed parse renders the listening port as 0
 		}
 	}
 
@@ -706,14 +706,14 @@ func ParseMetricsOutput(output string) config.HostMetrics {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	m := config.HostMetrics{}
 	if len(lines) >= 1 {
-		fmt.Sscanf(strings.TrimSpace(lines[0]), "%d", &m.CPUPercent) //nolint:errcheck,gosec // TAE-82: a failed parse renders CPU% as 0 and silently skips the ≥80/≥90 alert colouring
+		fmt.Sscanf(strings.TrimSpace(lines[0]), "%d", &m.CPUPercent) //nolint:errcheck // TAE-82: a failed parse renders CPU% as 0 and silently skips the ≥80/≥90 alert colouring
 	}
 	if len(lines) >= 2 {
-		fmt.Sscanf(strings.TrimSpace(lines[1]), "%d", &m.MemPercent) //nolint:errcheck,gosec // TAE-82: a failed parse renders MEM% as 0 and silently skips the ≥80/≥90 alert colouring
+		fmt.Sscanf(strings.TrimSpace(lines[1]), "%d", &m.MemPercent) //nolint:errcheck // TAE-82: a failed parse renders MEM% as 0 and silently skips the ≥80/≥90 alert colouring
 	}
 	if len(lines) >= 3 {
 		pct := strings.TrimSuffix(strings.TrimSpace(lines[2]), "%")
-		fmt.Sscanf(pct, "%d", &m.DiskPercent) //nolint:errcheck,gosec // TAE-82: a failed parse renders DISK% as 0 and silently skips the ≥80/≥90 alert colouring
+		fmt.Sscanf(pct, "%d", &m.DiskPercent) //nolint:errcheck // TAE-82: a failed parse renders DISK% as 0 and silently skips the ≥80/≥90 alert colouring
 	}
 	if len(lines) >= 4 {
 		m.Load = strings.TrimSpace(lines[3])
@@ -753,7 +753,7 @@ func ParseServiceStatus(output string) config.ServiceStatus {
 	// Memory: convert bytes to human-readable
 	if mem := props["MemoryCurrent"]; mem != "" && mem != "[not set]" {
 		var bytes uint64
-		fmt.Sscanf(mem, "%d", &bytes) //nolint:errcheck,gosec // TAE-82: a failed parse renders service memory as "0B"
+		fmt.Sscanf(mem, "%d", &bytes) //nolint:errcheck // TAE-82: a failed parse renders service memory as "0B"
 		switch {
 		case bytes >= 1<<30:
 			s.Memory = fmt.Sprintf("%.1fG", float64(bytes)/float64(1<<30))

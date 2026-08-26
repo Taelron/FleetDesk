@@ -26,11 +26,12 @@ import (
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
 )
 
-// CertWarnDays is how many days before TLS certificate expiry a probe
-// starts warning.
 const (
+	// CertWarnDays is how many days before TLS certificate expiry a probe
+	// starts warning.
+	CertWarnDays = 7
+
 	maxBodyPreview   = 2048
-	CertWarnDays     = 7
 	defaultUserAgent = "fleetdesk-probe/1.0"
 )
 

@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/fspath"
 )
 
 // openFiles tracks log file handles for cleanup.
@@ -95,8 +97,8 @@ func NewTargetLogger(global *slog.Logger, debug bool, dir string, prefix, name s
 		return global
 	}
 	_ = os.MkdirAll(dir, 0755) //nolint:gosec // G301: log dir 0755, known permission defect — TAE-42
-	filename := prefix + "-" + name + ".log"
-	f, err := os.Create(filepath.Join(dir, filename)) //nolint:gosec // G304: constant dir; name built from a fixed prefix + caller-supplied target name
+	filename := prefix + "-" + fspath.Sanitize(name) + ".log"
+	f, err := os.Create(filepath.Join(dir, filename)) //nolint:gosec // G304: constant dir, sanitised filename
 	if err != nil {
 		return global
 	}

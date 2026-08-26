@@ -37,7 +37,7 @@ func (lw *logWriter) WriteLine(line string) {
 	if lw == nil || lw.file == nil {
 		return
 	}
-	lw.file.WriteString(line + "\n") //nolint:errcheck,gosec // TAE-82: a failed write still flashes "Saved N lines" as success
+	lw.file.WriteString(line + "\n") //nolint:errcheck // TAE-82: a failed write still flashes "Saved N lines" as success
 }
 
 // WriteLines writes multiple lines to the log file.
@@ -46,7 +46,7 @@ func (lw *logWriter) WriteLines(lines []string) {
 		return
 	}
 	for _, line := range lines {
-		lw.file.WriteString(line + "\n") //nolint:errcheck,gosec // TAE-82: a failed write still flashes "Saved N lines" as success
+		lw.file.WriteString(line + "\n") //nolint:errcheck // TAE-82: a failed write still flashes "Saved N lines" as success
 	}
 }
 

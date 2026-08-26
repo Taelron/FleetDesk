@@ -383,7 +383,7 @@ func (m Model) fetchLogLevels() func() tea.Msg {
 		for i, n := range names {
 			count := 0
 			if i < len(lines) {
-				fmt.Sscanf(strings.TrimSpace(lines[i]), "%d", &count) //nolint:errcheck,gosec // TAE-82: a failed parse renders the log-level line count as 0
+				fmt.Sscanf(strings.TrimSpace(lines[i]), "%d", &count) //nolint:errcheck // TAE-82: a failed parse renders the log-level line count as 0
 			}
 			levels = append(levels, config.LogLevelEntry{
 				Level: n.level,
@@ -971,13 +971,13 @@ func (m Model) fetchNetworkInfo() func() tea.Msg {
 		lines := strings.Split(strings.TrimSpace(out), "\n")
 		msg := fetchNetworkInfoMsg{}
 		if len(lines) > 0 {
-			fmt.Sscanf(lines[0], "%d", &msg.routeCount) //nolint:errcheck,gosec // TAE-82: a failed parse renders the route count as 0
+			fmt.Sscanf(lines[0], "%d", &msg.routeCount) //nolint:errcheck // TAE-82: a failed parse renders the route count as 0
 		}
 		if len(lines) > 1 {
 			msg.firewallType = strings.TrimSpace(lines[1])
 		}
 		if len(lines) > 2 {
-			fmt.Sscanf(strings.TrimSpace(lines[2]), "%d", &msg.firewallCount) //nolint:errcheck,gosec // TAE-82: a failed parse renders the firewall rule count as 0
+			fmt.Sscanf(strings.TrimSpace(lines[2]), "%d", &msg.firewallCount) //nolint:errcheck // TAE-82: a failed parse renders the firewall rule count as 0
 		}
 		logger.Debug("fetch complete", "view", "network_info", "host_idx", idx, "elapsed", time.Since(start))
 		return msg

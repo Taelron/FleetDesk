@@ -28,6 +28,16 @@ linters:
     # errcheck's default exclusions are kept deliberately: no
     # disable-default-exclusions. See @Go Conventions' Linting section.
     errcheck: {}
+    gosec:
+      excludes:
+        # Addition: gosec's G104 duplicates errcheck's "unchecked error"
+        # check. Without this, golangci-lint's issues.uniq-by-line hides the
+        # duplicate G104 behind errcheck's finding on the same line — until a
+        # //nolint:errcheck suppression removes errcheck's finding and G104
+        # surfaces underneath, unsuppressed. Excluding G104 here keeps a
+        # single //nolint:errcheck // TAE-82 sufficient at each site instead
+        # of forcing every site to also name gosec.
+        - G104
     revive:
       rules:
         - name: var-naming
@@ -45,11 +55,20 @@ linters:
       require-specific: true
   exclusions:
     rules:
-      # gosec's path-traversal checks are false-positive-heavy on tests that
-      # legitimately read fixtures and write under t.TempDir().
+      # False-positive-heavy in test code specifically, named by rule ID
+      # rather than the whole gosec linter so a real finding in test code
+      # (a subprocess launch, say) still surfaces: G304 (file inclusion) and
+      # G703 (path traversal) on paths built from t.TempDir() plus a literal
+      # name; G301/G306 (permissive dir/file modes) on throwaway test
+      # fixtures nothing else reads; G115 (int->rune overflow) on a small,
+      # bounded loop index used to generate readable test data. None of
+      # these touch production code — the equivalent findings there are
+      # fixed or suppressed per-site with a narrow, issue-citing reason
+      # (AC 7), which this class-level exclusion deliberately does not cover.
       - path: "_test\\.go"
         linters:
           - gosec
+        text: "G304:|G703:|G301:|G306:|G115:"
   # Deviation: depguard is omitted. The canonical rules encode the
   # four-layer hexagonal split (domain/app/storage/ui); Design Notes D-1
   # records that FleetDesk does not have that split — its layering is

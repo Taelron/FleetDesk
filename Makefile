@@ -10,6 +10,17 @@ GOLANGCI_LINT_VERSION := v2.11.4
 GOLANGCI_LINT_DIR     := bin/tools
 GOLANGCI_LINT_BIN     := $(GOLANGCI_LINT_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 
+# Expected sha256 of each release tarball, pinned here rather than fetched
+# from the release's own checksums.txt at bootstrap time — that file is
+# served from the same unauthenticated release as the binary, so comparing
+# against it only catches transit corruption, not a substituted release.
+# Regenerate when bumping GOLANGCI_LINT_VERSION:
+#   curl -sSfL https://github.com/golangci/golangci-lint/releases/download/<ver>/golangci-lint-<vernum>-checksums.txt
+GOLANGCI_LINT_SHA256_linux_amd64   := 200c5b7503f67b59a6743ccf32133026c174e272b930ee79aa2aa6f37aca7ef1
+GOLANGCI_LINT_SHA256_linux_arm64   := 3bcfa2e6f3d32b2bf5cd75eaa876447507025e0303698633f722a05331988db4
+GOLANGCI_LINT_SHA256_darwin_amd64  := c900d4048db75d1edfd550fd11cf6a9b3008e7caa8e119fcddbc700412d63e60
+GOLANGCI_LINT_SHA256_darwin_arm64  := 02db2a2dae8b26812e53b0688a6f617e3ef1f489790e829ea22862cf76945675
+
 # verify-nolint's exact suppression inventory (TAE-80's own record). Any
 # issue that removes a suppression decrements the matching count here in the
 # same change — a mismatch is the point, not a bug.
@@ -47,14 +58,17 @@ $(GOLANGCI_LINT_BIN):
 	asset="golangci-lint-$${vernum}-$${os}-$${arch}"; \
 	tarball="$${asset}.tar.gz"; \
 	url="https://github.com/golangci/golangci-lint/releases/download/$${ver}/$${tarball}"; \
-	sums_url="https://github.com/golangci/golangci-lint/releases/download/$${ver}/golangci-lint-$${vernum}-checksums.txt"; \
+	case "$${os}-$${arch}" in \
+		linux-amd64)  want="$(GOLANGCI_LINT_SHA256_linux_amd64)" ;; \
+		linux-arm64)  want="$(GOLANGCI_LINT_SHA256_linux_arm64)" ;; \
+		darwin-amd64) want="$(GOLANGCI_LINT_SHA256_darwin_amd64)" ;; \
+		darwin-arm64) want="$(GOLANGCI_LINT_SHA256_darwin_arm64)" ;; \
+		*) echo "no pinned checksum for $${os}/$${arch} — add one to the Makefile"; exit 1 ;; \
+	esac; \
 	tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	echo "bootstrapping golangci-lint $$ver ($$os/$$arch)..."; \
 	curl -sSfL -o "$$tmp/$$tarball" "$$url" || { echo "download failed: $$url"; exit 1; }; \
-	curl -sSfL -o "$$tmp/checksums.txt" "$$sums_url" || { echo "download failed: $$sums_url"; exit 1; }; \
-	want=$$(grep " $$tarball\$$" "$$tmp/checksums.txt" | awk '{print $$1}'); \
-	if [ -z "$$want" ]; then echo "no checksum entry for $$tarball in $$sums_url"; exit 1; fi; \
 	if command -v sha256sum >/dev/null 2>&1; then \
 		got=$$(sha256sum "$$tmp/$$tarball" | awk '{print $$1}'); \
 	elif command -v shasum >/dev/null 2>&1; then \
@@ -67,8 +81,9 @@ $(GOLANGCI_LINT_BIN):
 	fi; \
 	tar -xzf "$$tmp/$$tarball" -C "$$tmp"; \
 	mkdir -p $(GOLANGCI_LINT_DIR); \
-	cp "$$tmp/$$asset/golangci-lint" "$(GOLANGCI_LINT_BIN)"; \
-	chmod +x "$(GOLANGCI_LINT_BIN)"; \
+	cp "$$tmp/$$asset/golangci-lint" "$(GOLANGCI_LINT_BIN).tmp"; \
+	chmod +x "$(GOLANGCI_LINT_BIN).tmp"; \
+	mv "$(GOLANGCI_LINT_BIN).tmp" "$(GOLANGCI_LINT_BIN)"; \
 	echo "bootstrap OK — $(GOLANGCI_LINT_BIN), checksum verified"
 
 lint: $(GOLANGCI_LINT_BIN) ## Verify .golangci.yml, then run golangci-lint across the module
