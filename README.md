@@ -1,7 +1,6 @@
 # FleetDesk
 
 [![CI](https://github.com/Gaetan-Jaminon/fleetdesk/actions/workflows/ci.yml/badge.svg)](https://github.com/Gaetan-Jaminon/fleetdesk/actions/workflows/ci.yml)
-[![Claude Review](https://github.com/Gaetan-Jaminon/fleetdesk/actions/workflows/claude-review.yml/badge.svg)](https://github.com/Gaetan-Jaminon/fleetdesk/actions/workflows/claude-review.yml)
 [![Release](https://img.shields.io/github/v/release/Gaetan-Jaminon/fleetdesk)](https://github.com/Gaetan-Jaminon/fleetdesk/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Gaetan-Jaminon/fleetdesk)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
