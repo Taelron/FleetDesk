@@ -335,60 +335,60 @@ func (m Model) renderK8sNodeDetail() string {
 		if len(filteredPods) == 0 {
 			s += borderedRow("  No pods.", iw, normalRowStyle) + "\n"
 		} else {
-		nsCol := len("NAMESPACE")
-		nameCol := len("NAME")
-		for _, p := range filteredPods {
-			if len(p.Namespace) > nsCol {
-				nsCol = len(p.Namespace)
+			nsCol := len("NAMESPACE")
+			nameCol := len("NAME")
+			for _, p := range filteredPods {
+				if len(p.Namespace) > nsCol {
+					nsCol = len(p.Namespace)
+				}
+				if len(p.Name) > nameCol {
+					nameCol = len(p.Name)
+				}
 			}
-			if len(p.Name) > nameCol {
-				nameCol = len(p.Name)
+			nsCol += 2
+			nameCol += 2
+
+			podHdr := fmt.Sprintf("     %-*s  %-*s  %-10s  %-7s  %-10s  %-10s  %-10s  %-10s  %s",
+				nsCol, "NAMESPACE"+m.sortIndicator(1), nameCol, "NAME"+m.sortIndicator(2),
+				"STATUS"+m.sortIndicator(3), "READY"+m.sortIndicator(4),
+				"CPU REQ"+m.sortIndicator(5), "CPU LIM"+m.sortIndicator(6),
+				"MEM REQ"+m.sortIndicator(7), "MEM LIM"+m.sortIndicator(8),
+				"AGE"+m.sortIndicator(9))
+			s += borderedRow(podHdr, iw, colHeaderStyle) + "\n"
+
+			linesUsed := strings.Count(s, "\n")
+			maxVisible := m.height - linesUsed - 4 // 4 = bottom border + hint bar + padding
+			if maxVisible < 3 {
+				maxVisible = 3
 			}
-		}
-		nsCol += 2
-		nameCol += 2
-
-		podHdr := fmt.Sprintf("     %-*s  %-*s  %-10s  %-7s  %-10s  %-10s  %-10s  %-10s  %s",
-			nsCol, "NAMESPACE"+m.sortIndicator(1), nameCol, "NAME"+m.sortIndicator(2),
-			"STATUS"+m.sortIndicator(3), "READY"+m.sortIndicator(4),
-			"CPU REQ"+m.sortIndicator(5), "CPU LIM"+m.sortIndicator(6),
-			"MEM REQ"+m.sortIndicator(7), "MEM LIM"+m.sortIndicator(8),
-			"AGE"+m.sortIndicator(9))
-		s += borderedRow(podHdr, iw, colHeaderStyle) + "\n"
-
-		linesUsed := strings.Count(s, "\n")
-		maxVisible := m.height - linesUsed - 4 // 4 = bottom border + hint bar + padding
-		if maxVisible < 3 {
-			maxVisible = 3
-		}
-		offset := 0
-		if m.k8sNodePodCursor >= offset+maxVisible {
-			offset = m.k8sNodePodCursor - maxVisible + 1
-		}
-		end := offset + maxVisible
-		if end > len(filteredPods) {
-			end = len(filteredPods)
-		}
-
-		for i := offset; i < end; i++ {
-			p := filteredPods[i]
-			cur := "  "
-			if i == m.k8sNodePodCursor {
-				cur = " ▸"
+			offset := 0
+			if m.k8sNodePodCursor >= offset+maxVisible {
+				offset = m.k8sNodePodCursor - maxVisible + 1
 			}
-			podLine := fmt.Sprintf("%s   %-*s  %-*s  %-10s  %-7s  %-10s  %-10s  %-10s  %-10s  %s",
-				cur, nsCol, p.Namespace, nameCol, p.Name, p.Status, p.Ready, p.CPUReq, p.CPULim, p.MemReq, p.MemLim, p.Age)
-
-			var style lipgloss.Style
-			if i == m.k8sNodePodCursor {
-				style = selectedRowStyle
-			} else if i%2 == 0 {
-				style = altRowStyle
-			} else {
-				style = normalRowStyle
+			end := offset + maxVisible
+			if end > len(filteredPods) {
+				end = len(filteredPods)
 			}
-			s += borderedRow(podLine, iw, style) + "\n"
-		}
+
+			for i := offset; i < end; i++ {
+				p := filteredPods[i]
+				cur := "  "
+				if i == m.k8sNodePodCursor {
+					cur = " ▸"
+				}
+				podLine := fmt.Sprintf("%s   %-*s  %-*s  %-10s  %-7s  %-10s  %-10s  %-10s  %-10s  %s",
+					cur, nsCol, p.Namespace, nameCol, p.Name, p.Status, p.Ready, p.CPUReq, p.CPULim, p.MemReq, p.MemLim, p.Age)
+
+				var style lipgloss.Style
+				if i == m.k8sNodePodCursor {
+					style = selectedRowStyle
+				} else if i%2 == 0 {
+					style = altRowStyle
+				} else {
+					style = normalRowStyle
+				}
+				s += borderedRow(podLine, iw, style) + "\n"
+			}
 		}
 	}
 

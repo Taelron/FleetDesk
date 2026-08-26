@@ -92,5 +92,4 @@ var (
 	modalErrorStyle = lipgloss.NewStyle().
 			Foreground(colorRed).
 			Bold(true)
-
 )

@@ -30,7 +30,7 @@ func (s *commandGroupStep) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool
 }
 
 func (s *commandGroupStep) View(width int) string { return s.inner.View(width) }
-func (s *commandGroupStep) Result() any            { return s.inner.Result() }
+func (s *commandGroupStep) Result() any           { return s.inner.Result() }
 
 // commandPickStep wraps a SelectContent for command picking.
 // On done, it sets the confirm message to the resolved run: string.
@@ -75,7 +75,7 @@ func (s *commandPickStep) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool)
 }
 
 func (s *commandPickStep) View(width int) string { return s.inner.View(width) }
-func (s *commandPickStep) Result() any            { return s.inner.Result() }
+func (s *commandPickStep) Result() any           { return s.inner.Result() }
 
 // NewCommandWizard builds a 2-step or 3-step modal for user-defined commands.
 // 1 group  → 2-step: command picker → confirm

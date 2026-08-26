@@ -642,7 +642,7 @@ func TestParseAccountShow(t *testing.T) {
 			},
 		},
 		{
-			name: "minimal fields",
+			name:  "minimal fields",
 			input: []byte(`{"id": "xxx", "state": "Enabled"}`),
 			want: SubscriptionProbeInfo{
 				ID:    "xxx",

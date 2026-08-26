@@ -4,9 +4,9 @@ import "testing"
 
 func TestParseContextLine(t *testing.T) {
 	tests := []struct {
-		name    string
-		line    string
-		want    K8sContext
+		name string
+		line string
+		want K8sContext
 	}{
 		{
 			name: "regular context",

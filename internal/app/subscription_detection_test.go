@@ -4,10 +4,10 @@ import "testing"
 
 func TestDetectRegistrationType(t *testing.T) {
 	tests := []struct {
-		name       string
-		section    string
-		wantType   string
-		wantHost   string
+		name     string
+		section  string
+		wantType string
+		wantHost string
 	}{
 		{
 			name:     "CDN with plain value",

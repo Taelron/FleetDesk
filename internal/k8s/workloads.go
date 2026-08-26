@@ -248,7 +248,7 @@ func ParsePods(data []byte) ([]K8sPod, error) {
 				CreationTimestamp string `json:"creationTimestamp"`
 			} `json:"metadata"`
 			Spec struct {
-				NodeName   string   `json:"nodeName"`
+				NodeName   string     `json:"nodeName"`
 				Containers []struct{} `json:"containers"`
 			} `json:"spec"`
 			Status struct {

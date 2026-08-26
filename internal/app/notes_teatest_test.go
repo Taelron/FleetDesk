@@ -201,4 +201,3 @@ func TestNotes_NoteList_DeleteShowsConfirmModal(t *testing.T) {
 	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
-
