@@ -119,8 +119,12 @@ verify-nolint: ## TAE-80: assert the //nolint suppression inventory matches the 
 verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## TAE-80: negative control — confirm the pre-fix tree lints to BASELINE_EXPECT findings under the current config
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
-	git clone --quiet . "$$tmp" >/dev/null 2>&1; \
-	git -C "$$tmp" checkout --quiet $(BASELINE_REF); \
+	if ! git clone --quiet . "$$tmp" >/dev/null 2>&1; then \
+		echo "verify-lint-baseline FAIL — could not clone this repository into $$tmp"; exit 1; \
+	fi; \
+	if ! git -C "$$tmp" checkout --quiet $(BASELINE_REF); then \
+		echo "verify-lint-baseline FAIL — BASELINE_REF $(BASELINE_REF) is not reachable in the clone. A shallow working copy (actions/checkout defaults to fetch-depth: 1) carries no history to clone, so the baseline ref is absent; fetch full history before running this target."; exit 1; \
+	fi; \
 	cp .golangci.yml "$$tmp/.golangci.yml"; \
 	out=$$(cd "$$tmp" && $(abspath $(GOLANGCI_LINT_BIN)) run 2>&1); \
 	n=$$(printf '%s\n' "$$out" | grep -oE '^[0-9]+ issues:' | grep -oE '^[0-9]+'); \
