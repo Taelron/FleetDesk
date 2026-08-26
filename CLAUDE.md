@@ -109,9 +109,6 @@ make test
 make lint
 ```
 
-`.claude/settings.json` gates every `git push` on `make check` via a `PreToolUse`
-hook. Keep it.
-
 The verification handoff in a PR description is an ordered list of **Make targets**,
 each with its purpose and expected result, runnable top to bottom without inference.
 Where no target exists for what needs verifying, create one as part of the
