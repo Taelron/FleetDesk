@@ -69,7 +69,7 @@ func (sm *Manager) ConnectAndProbe(idx int, h config.Host) HostProbeResult {
 		}
 		// connection is stale, remove and reconnect
 		sm.logger.Debug("probe stale connection", "host", h.Entry.Name, "err", err)
-		client.Close()
+		_ = client.Close()
 		sm.mu.Lock()
 		delete(sm.conns, idx)
 		sm.mu.Unlock()
@@ -84,7 +84,7 @@ func (sm *Manager) ConnectAndProbe(idx int, h config.Host) HostProbeResult {
 
 	info, err := Probe(client, h.Entry.SystemdMode, h.ErrorLogSince)
 	if err != nil {
-		client.Close()
+		_ = client.Close()
 		sm.logger.Error("probe failed", "host", h.Entry.Name, "err", err)
 		return HostProbeResult{Index: idx, Err: fmt.Errorf("probe: %w", err)}
 	}
@@ -180,7 +180,7 @@ func (sm *Manager) RunCommand(idx int, cmd string) (string, error) {
 		sm.logger.Error("runCommand failed", "idx", idx, "err", err)
 		return "", fmt.Errorf("new session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	out, err := session.CombinedOutput(cmd)
 	result := stripShellWarnings(string(out))
@@ -255,7 +255,7 @@ func (sm *Manager) ConnectWithPassword(idx int, h config.Host, password string) 
 				return answers, nil
 			}),
 		},
-		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // G106: no host-key verification yet — TAE-22
 		Timeout:         entry.Timeout,
 	}
 
@@ -313,7 +313,7 @@ func (sm *Manager) Close() {
 	defer sm.mu.Unlock()
 	for _, c := range sm.conns {
 		if c != nil {
-			c.Close()
+			_ = c.Close()
 		}
 	}
 	sm.conns = make(map[int]*gossh.Client)
@@ -327,7 +327,7 @@ func Probe(client *gossh.Client, systemdMode string, errorLogSince string) (Prob
 	if err != nil {
 		return ProbeInfo{}, fmt.Errorf("new session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	cmd := `echo '---PROBE---' && ` +
 		`(hostname -f 2>/dev/null || hostname) | head -1 && ` +
@@ -350,7 +350,7 @@ func Probe(client *gossh.Client, systemdMode string, errorLogSince string) (Prob
 		if err2 != nil {
 			return ProbeInfo{}, fmt.Errorf("probe failed: %w", err)
 		}
-		defer session2.Close()
+		defer func() { _ = session2.Close() }()
 
 		if systemdMode == "user" {
 			systemdMode = "system"
@@ -389,7 +389,7 @@ func (sm *Manager) dial(h config.Host) (*gossh.Client, error) {
 
 	configPort := ssh_config.Get(hostname, "Port")
 	if port == 0 && configPort != "" {
-		fmt.Sscanf(configPort, "%d", &port)
+		_, _ = fmt.Sscanf(configPort, "%d", &port)
 	}
 	if port == 0 {
 		port = 22
@@ -449,13 +449,13 @@ func (sm *Manager) dial(h config.Host) (*gossh.Client, error) {
 		sshConfig := &gossh.ClientConfig{
 			User:            user,
 			Auth:            []gossh.AuthMethod{auth},
-			HostKeyCallback: gossh.InsecureIgnoreHostKey(), // trusted fleet network
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // G106: trusted fleet network, no host-key verification yet — TAE-22
 			Timeout:         timeout,
 		}
 		client, err := gossh.Dial("tcp", addr, sshConfig)
 		if err == nil {
 			if agentConn != nil {
-				agentConn.Close()
+				_ = agentConn.Close()
 			}
 			sm.logger.Debug("dial success", "addr", addr, "elapsed", time.Since(start))
 			return client, nil
@@ -465,7 +465,7 @@ func (sm *Manager) dial(h config.Host) (*gossh.Client, error) {
 
 	// close agent socket on failure — no SSH client to use it
 	if agentConn != nil {
-		agentConn.Close()
+		_ = agentConn.Close()
 	}
 
 	sm.logger.Error("dial failed", "addr", addr, "err", lastErr, "elapsed", time.Since(start))
@@ -480,7 +480,7 @@ func sshAgentAuth() (gossh.AuthMethod, net.Conn) {
 	if sock == "" {
 		return nil, nil
 	}
-	conn, err := net.Dial("unix", sock)
+	conn, err := net.Dial("unix", sock) //nolint:gosec // G704: Unix-socket dial to $SSH_AUTH_SOCK, not a network dial
 	if err != nil {
 		return nil, nil
 	}
@@ -489,7 +489,7 @@ func sshAgentAuth() (gossh.AuthMethod, net.Conn) {
 
 // publicKeyFile returns an auth method from a private key file, or nil.
 func publicKeyFile(path string) gossh.AuthMethod {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: the user's own ~/.ssh/config IdentityFile or a stat-gated default key
 	if err != nil {
 		return nil
 	}

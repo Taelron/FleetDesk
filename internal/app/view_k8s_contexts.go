@@ -24,17 +24,12 @@ func (m Model) renderK8sContextList() string {
 		s += borderedRow("  No contexts found.", iw, normalRowStyle) + "\n"
 	} else {
 		nameCol := len("CONTEXT")
-		userCol := len("USER")
 		for _, ctx := range filtered {
 			if len(ctx.Name) > nameCol {
 				nameCol = len(ctx.Name)
 			}
-			if len(ctx.User) > userCol {
-				userCol = len(ctx.User)
-			}
 		}
 		nameCol += 2
-		userCol += 2
 
 		hdr := fmt.Sprintf("     %-*s  %s",
 			nameCol, "CONTEXT"+m.sortIndicator(1),

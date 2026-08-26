@@ -1,3 +1,5 @@
+// Package k8s fetches Kubernetes resources (contexts, nodes, pods, workloads)
+// through kubectl.
 package k8s
 
 import (

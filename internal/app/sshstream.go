@@ -13,14 +13,14 @@ import (
 
 // SSHStreamConfig configures a generic SSH command stream rendered in-TUI.
 type SSHStreamConfig struct {
-	Command    string // shell command to run (sudo will be rewritten automatically)
-	Title      string // display title in breadcrumb
-	SourceName string // clean name for file save (no special chars)
-	ReturnView view   // view to return to on Esc
-	HostIdx    int    // host index for SSH connection
-	Sudo       bool   // whether to use sudo rewrite
-	NewestFirst bool  // true = prepend lines (log tail), false = append (command output)
-	AutoDone   bool   // true = show "Done" message when command finishes (for one-shot commands)
+	Command     string // shell command to run (sudo will be rewritten automatically)
+	Title       string // display title in breadcrumb
+	SourceName  string // clean name for file save (no special chars)
+	ReturnView  view   // view to return to on Esc
+	HostIdx     int    // host index for SSH connection
+	Sudo        bool   // whether to use sudo rewrite
+	NewestFirst bool   // true = prepend lines (log tail), false = append (command output)
+	AutoDone    bool   // true = show "Done" message when command finishes (for one-shot commands)
 }
 
 // sshStream holds the runtime state for a generic SSH stream view.
@@ -86,7 +86,7 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 			ch <- fmt.Sprintf("ERROR: SSH session: %v", err)
 			return
 		}
-		defer session.Close()
+		defer func() { _ = session.Close() }()
 
 		// Rewrite sudo if password is cached
 		finalCmd := sm.RewriteSudoInCmd(idx, cmd)
@@ -113,7 +113,7 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 		// This unblocks scanner.Scan() which is blocking I/O on the SSH pipe.
 		go func() {
 			<-ctx.Done()
-			session.Close()
+			_ = session.Close()
 		}()
 
 		scanner := bufio.NewScanner(stdout)

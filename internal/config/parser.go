@@ -76,11 +76,11 @@ type hostEntryFile struct {
 
 // probeFleetFile is the raw YAML structure for a probes fleet file.
 type probeFleetFile struct {
-	Name     string              `yaml:"name"`
-	Type     string              `yaml:"type"`
-	Defaults probeDefaultsFile   `yaml:"defaults"`
-	Groups   []probeGroupFile    `yaml:"groups"`
-	Probes   []probeEntryFile    `yaml:"probes"`
+	Name     string            `yaml:"name"`
+	Type     string            `yaml:"type"`
+	Defaults probeDefaultsFile `yaml:"defaults"`
+	Groups   []probeGroupFile  `yaml:"groups"`
+	Probes   []probeEntryFile  `yaml:"probes"`
 }
 
 type probeDefaultsFile struct {
@@ -106,7 +106,7 @@ type probeEntryFile struct {
 
 // ParseFleetFile reads and parses a single fleet YAML file.
 func ParseFleetFile(path string) (Fleet, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: the user's fleet directory listing
 	if err != nil {
 		return Fleet{}, fmt.Errorf("reading file: %w", err)
 	}
@@ -177,12 +177,12 @@ func ParseFleetFile(path string) (Fleet, error) {
 		if err := ValidateLogPath(l.Name, l.Path); err != nil {
 			return Fleet{}, err
 		}
-		defaults.Logs = append(defaults.Logs, LogEntry{Name: l.Name, Path: l.Path, Sudo: l.Sudo})
+		defaults.Logs = append(defaults.Logs, LogEntry(l))
 	}
 
 	// parse default commands
 	for _, c := range raw.Defaults.Commands {
-		ce := CommandEntry{Name: c.Name, Group: c.Group, Description: c.Description, Run: c.Run}
+		ce := CommandEntry(c)
 		if err := ValidateCommand(ce); err != nil {
 			return Fleet{}, err
 		}
@@ -323,7 +323,7 @@ func parseHosts(raw []hostEntryFile, defaults HostDefaults, groupFilter []string
 func convertLogEntries(raw []logEntryFile) []LogEntry {
 	var entries []LogEntry
 	for _, r := range raw {
-		entries = append(entries, LogEntry{Name: r.Name, Path: r.Path, Sudo: r.Sudo})
+		entries = append(entries, LogEntry(r))
 	}
 	return entries
 }
@@ -332,7 +332,7 @@ func convertLogEntries(raw []logEntryFile) []LogEntry {
 func convertCommandEntries(raw []commandEntryFile) []CommandEntry {
 	var entries []CommandEntry
 	for _, r := range raw {
-		entries = append(entries, CommandEntry{Name: r.Name, Group: r.Group, Description: r.Description, Run: r.Run})
+		entries = append(entries, CommandEntry(r))
 	}
 	return entries
 }

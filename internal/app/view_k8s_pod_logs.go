@@ -244,14 +244,14 @@ func (m Model) renderK8sLogDetail(e k8s.K8sLogEntry, fleetName, clusterName, nsN
 		// Color the Level value
 		if item.key == "Level" || item.key == "level" {
 			lower := strings.ToLower(val)
-			switch {
-			case lower == "error" || lower == "fatal" || lower == "critical":
+			switch lower {
+			case "error", "fatal", "critical":
 				val = ansiColor(val, "31")
-			case lower == "warning" || lower == "warn":
+			case "warning", "warn":
 				val = ansiColor(val, "33")
-			case lower == "debug":
+			case "debug":
 				val = ansiColor(val, "36")
-			case lower == "information" || lower == "info":
+			case "information", "info":
 				val = ansiColor(val, "32")
 			}
 		}

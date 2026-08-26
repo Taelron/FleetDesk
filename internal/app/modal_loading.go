@@ -11,16 +11,19 @@ type LoadingContent struct {
 	tag     string // identifies which fetch set this loading modal
 }
 
+// HandleKey implements StepContent for LoadingContent.
 func (l *LoadingContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	// Return a no-op cmd to signal that we consumed the key event.
 	// This prevents ModalOverlay from falling through to its own Esc handling.
 	return l, func() tea.Msg { return nil }, false
 }
 
+// View implements StepContent for LoadingContent.
 func (l *LoadingContent) View(width int) string {
 	return "  " + l.message
 }
 
+// Result implements StepContent for LoadingContent.
 func (l *LoadingContent) Result() any {
 	return nil
 }

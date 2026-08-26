@@ -188,6 +188,7 @@ func NewMaskedTextInputContent(prompt string) StepContent {
 	return &TextInputContent{prompt: prompt, masked: true}
 }
 
+// HandleKey implements StepContent for TextInputContent.
 func (t *TextInputContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	switch msg.Type {
 	case tea.KeyEnter:
@@ -218,6 +219,7 @@ func (t *TextInputContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool
 	return t, nil, false
 }
 
+// View implements StepContent for TextInputContent.
 func (t *TextInputContent) View(width int) string {
 	cursor := "█"
 	display := t.value
@@ -232,6 +234,7 @@ func (t *TextInputContent) View(width int) string {
 	return line
 }
 
+// Result implements StepContent for TextInputContent.
 func (t *TextInputContent) Result() any {
 	return t.value
 }
@@ -260,6 +263,7 @@ func NewSelectContent(prompt string, options []string) StepContent {
 	return &SelectContent{prompt: prompt, options: options}
 }
 
+// HandleKey implements StepContent for SelectContent.
 func (s *SelectContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	switch msg.String() {
 	case "up", "k":
@@ -276,6 +280,7 @@ func (s *SelectContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	return s, nil, false
 }
 
+// View implements StepContent for SelectContent.
 func (s *SelectContent) View(width int) string {
 	var lines []string
 	for i, opt := range s.options {
@@ -292,6 +297,7 @@ func (s *SelectContent) View(width int) string {
 	return strings.Join(lines, "\n")
 }
 
+// Result implements StepContent for SelectContent.
 func (s *SelectContent) Result() any {
 	if s.cursor < len(s.options) {
 		return s.options[s.cursor]
@@ -312,6 +318,7 @@ func NewStaticContent(text string) StepContent {
 	return &StaticContent{text: text}
 }
 
+// HandleKey implements StepContent for StaticContent.
 func (s *StaticContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	switch msg.String() {
 	case "up", "k":
@@ -326,6 +333,7 @@ func (s *StaticContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	return s, nil, false
 }
 
+// View implements StepContent for StaticContent.
 func (s *StaticContent) View(width int) string {
 	lines := strings.Split(s.text, "\n")
 	if s.scroll >= len(lines) {
@@ -341,6 +349,7 @@ func (s *StaticContent) View(width int) string {
 	return strings.Join(visible, "\n")
 }
 
+// Result implements StepContent for StaticContent.
 func (s *StaticContent) Result() any {
 	return nil
 }
@@ -358,6 +367,7 @@ func NewConfirmContent(message string) StepContent {
 	return &ConfirmContent{message: message}
 }
 
+// HandleKey implements StepContent for ConfirmContent.
 func (c *ConfirmContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	switch msg.String() {
 	case "y", "Y", "enter":
@@ -370,10 +380,12 @@ func (c *ConfirmContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) 
 	return c, nil, false
 }
 
+// View implements StepContent for ConfirmContent.
 func (c *ConfirmContent) View(width int) string {
 	return flashErrorStyle.Render(c.message)
 }
 
+// Result implements StepContent for ConfirmContent.
 func (c *ConfirmContent) Result() any {
 	return c.confirmed
 }

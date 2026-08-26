@@ -51,6 +51,7 @@ type AzureSubscription struct {
 // SubscriptionStatus represents the probe state of an Azure subscription.
 type SubscriptionStatus int
 
+// SubscriptionStatus values, in probe-state order.
 const (
 	SubConnecting SubscriptionStatus = iota
 	SubOnline
@@ -86,7 +87,7 @@ type AzureResourceCounts struct {
 
 // VMDetail holds extended VM properties from `az vm show -d`.
 type VMDetail struct {
-	VM                          // embedded, all list fields
+	VM           // embedded, all list fields
 	Tags         map[string]string
 	OSDiskName   string
 	OSDiskSizeGB int
@@ -118,7 +119,7 @@ type AKSNodePool struct {
 
 // AKSDetail holds extended AKS cluster properties including node pools.
 type AKSDetail struct {
-	AKSCluster              // embedded
+	AKSCluster    // embedded
 	NetworkPlugin string
 	Pools         []AKSNodePool
 }

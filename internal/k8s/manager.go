@@ -10,9 +10,8 @@ import (
 	"time"
 )
 
-var (
-	ErrKubectlNotInstalled = errors.New("kubectl not found in PATH")
-)
+// ErrKubectlNotInstalled indicates kubectl was not found on PATH.
+var ErrKubectlNotInstalled = errors.New("kubectl not found in PATH")
 
 // Manager wraps kubectl execution for Kubernetes fleet operations.
 type Manager struct {
@@ -41,7 +40,7 @@ func (m *Manager) RunCommand(args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	cmd := exec.CommandContext(ctx, "kubectl", args...) //nolint:gosec // G204: kubectl, argv, no shell
 	out, err := cmd.Output()
 	if err != nil {
 		var exitErr *exec.ExitError

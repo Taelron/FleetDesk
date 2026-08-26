@@ -21,7 +21,7 @@ func (m Model) notePrefix(ref notes.ResourceRef) string {
 
 // refreshNoteCountsCmd returns a Cmd that batch-loads note counts for the
 // currently visible refs in the current view. Returns nil if the engine
-// is not initialized or the view is not noteable.
+// is not initialized or the view does not support notes.
 func (m Model) refreshNoteCountsCmd() tea.Cmd {
 	if m.noteEngine == nil {
 		return nil

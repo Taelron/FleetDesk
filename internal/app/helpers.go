@@ -15,9 +15,11 @@ import (
 )
 
 // parseNumericPrefix extracts the leading integer from a string like "200G" or "90%".
+// Used only as a sort key — a failed parse degrades sort order, never the
+// displayed value, which is always the untouched raw field.
 func parseNumericPrefix(s string) int {
 	var n int
-	fmt.Sscanf(s, "%d", &n)
+	_, _ = fmt.Sscanf(s, "%d", &n)
 	return n
 }
 
@@ -39,15 +41,6 @@ func (m Model) filteredServices() []config.Service {
 		}
 	}
 	return filtered
-}
-
-func (m Model) findServiceIndex(name string) int {
-	for i, s := range m.services {
-		if s.Name == name {
-			return i
-		}
-	}
-	return 0
 }
 
 // filteredErrorLogs returns the error logs matching the current filter.
@@ -371,8 +364,8 @@ func (m *Model) sortMetricsIdx() {
 			less = ma.DiskPercent < mb.DiskPercent
 		case 5: // LOAD
 			var la, lb float64
-			fmt.Sscanf(ma.Load, "%f", &la)
-			fmt.Sscanf(mb.Load, "%f", &lb)
+			_, _ = fmt.Sscanf(ma.Load, "%f", &la)
+			_, _ = fmt.Sscanf(mb.Load, "%f", &lb)
 			less = la < lb
 		default:
 			return false
@@ -388,13 +381,20 @@ func (m *Model) sortServices() {
 	sort.Slice(m.services, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.services[i].Name, m.services[j].Name
-		case 2: vi, vj = m.services[i].State, m.services[j].State
-		case 3: vi, vj = m.services[i].Enabled, m.services[j].Enabled
-		case 4: vi, vj = m.services[i].Description, m.services[j].Description
-		default: return false
+		case 1:
+			vi, vj = m.services[i].Name, m.services[j].Name
+		case 2:
+			vi, vj = m.services[i].State, m.services[j].State
+		case 3:
+			vi, vj = m.services[i].Enabled, m.services[j].Enabled
+		case 4:
+			vi, vj = m.services[i].Description, m.services[j].Description
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -403,12 +403,18 @@ func (m *Model) sortContainers() {
 	sort.Slice(m.containers, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.containers[i].Name, m.containers[j].Name
-		case 2: vi, vj = m.containers[i].Image, m.containers[j].Image
-		case 3: vi, vj = m.containers[i].Status, m.containers[j].Status
-		default: return false
+		case 1:
+			vi, vj = m.containers[i].Name, m.containers[j].Name
+		case 2:
+			vi, vj = m.containers[i].Image, m.containers[j].Image
+		case 3:
+			vi, vj = m.containers[i].Status, m.containers[j].Status
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -417,12 +423,18 @@ func (m *Model) sortCronJobs() {
 	sort.Slice(m.cronJobs, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.cronJobs[i].Schedule, m.cronJobs[j].Schedule
-		case 2: vi, vj = m.cronJobs[i].Source, m.cronJobs[j].Source
-		case 3: vi, vj = m.cronJobs[i].Command, m.cronJobs[j].Command
-		default: return false
+		case 1:
+			vi, vj = m.cronJobs[i].Schedule, m.cronJobs[j].Schedule
+		case 2:
+			vi, vj = m.cronJobs[i].Source, m.cronJobs[j].Source
+		case 3:
+			vi, vj = m.cronJobs[i].Command, m.cronJobs[j].Command
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -431,12 +443,18 @@ func (m *Model) sortErrorLogs() {
 	sort.Slice(m.errorLogs, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.errorLogs[i].Time, m.errorLogs[j].Time
-		case 2: vi, vj = m.errorLogs[i].Unit, m.errorLogs[j].Unit
-		case 3: vi, vj = m.errorLogs[i].Message, m.errorLogs[j].Message
-		default: return false
+		case 1:
+			vi, vj = m.errorLogs[i].Time, m.errorLogs[j].Time
+		case 2:
+			vi, vj = m.errorLogs[i].Unit, m.errorLogs[j].Unit
+		case 3:
+			vi, vj = m.errorLogs[i].Message, m.errorLogs[j].Message
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -445,12 +463,18 @@ func (m *Model) sortUpdates() {
 	sort.Slice(m.updates, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.updates[i].Package, m.updates[j].Package
-		case 2: vi, vj = m.updates[i].Version, m.updates[j].Version
-		case 3: vi, vj = m.updates[i].Type, m.updates[j].Type
-		default: return false
+		case 1:
+			vi, vj = m.updates[i].Package, m.updates[j].Package
+		case 2:
+			vi, vj = m.updates[i].Version, m.updates[j].Version
+		case 3:
+			vi, vj = m.updates[i].Type, m.updates[j].Type
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -460,27 +484,39 @@ func (m *Model) sortDisks() {
 		switch m.sortColumn {
 		case 1:
 			vi, vj := m.disks[i].Filesystem, m.disks[j].Filesystem
-			if m.sortAsc { return vi < vj }
+			if m.sortAsc {
+				return vi < vj
+			}
 			return vi > vj
 		case 2:
 			ni, nj := parseNumericPrefix(m.disks[i].Size), parseNumericPrefix(m.disks[j].Size)
-			if m.sortAsc { return ni < nj }
+			if m.sortAsc {
+				return ni < nj
+			}
 			return ni > nj
 		case 3:
 			ni, nj := parseNumericPrefix(m.disks[i].Used), parseNumericPrefix(m.disks[j].Used)
-			if m.sortAsc { return ni < nj }
+			if m.sortAsc {
+				return ni < nj
+			}
 			return ni > nj
 		case 4:
 			ni, nj := parseNumericPrefix(m.disks[i].Avail), parseNumericPrefix(m.disks[j].Avail)
-			if m.sortAsc { return ni < nj }
+			if m.sortAsc {
+				return ni < nj
+			}
 			return ni > nj
 		case 5:
 			ni, nj := parseNumericPrefix(m.disks[i].UsePercent), parseNumericPrefix(m.disks[j].UsePercent)
-			if m.sortAsc { return ni < nj }
+			if m.sortAsc {
+				return ni < nj
+			}
 			return ni > nj
 		case 6:
 			vi, vj := m.disks[i].Mount, m.disks[j].Mount
-			if m.sortAsc { return vi < vj }
+			if m.sortAsc {
+				return vi < vj
+			}
 			return vi > vj
 		}
 		return false
@@ -491,14 +527,22 @@ func (m *Model) sortAccounts() {
 	sort.Slice(m.accounts, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.accounts[i].User, m.accounts[j].User
-		case 2: vi, vj = m.accounts[i].Groups, m.accounts[j].Groups
-		case 3: vi, vj = m.accounts[i].Shell, m.accounts[j].Shell
-		case 4: vi, vj = m.accounts[i].LastLogin, m.accounts[j].LastLogin
-		case 5: vi, vj = m.accounts[i].PasswordStatus, m.accounts[j].PasswordStatus
-		default: return false
+		case 1:
+			vi, vj = m.accounts[i].User, m.accounts[j].User
+		case 2:
+			vi, vj = m.accounts[i].Groups, m.accounts[j].Groups
+		case 3:
+			vi, vj = m.accounts[i].Shell, m.accounts[j].Shell
+		case 4:
+			vi, vj = m.accounts[i].LastLogin, m.accounts[j].LastLogin
+		case 5:
+			vi, vj = m.accounts[i].PasswordStatus, m.accounts[j].PasswordStatus
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -507,13 +551,20 @@ func (m *Model) sortInterfaces() {
 	sort.Slice(m.interfaces, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.interfaces[i].Name, m.interfaces[j].Name
-		case 2: vi, vj = m.interfaces[i].State, m.interfaces[j].State
-		case 3: vi, vj = m.interfaces[i].IPs, m.interfaces[j].IPs
-		case 4: vi, vj = m.interfaces[i].MTU, m.interfaces[j].MTU
-		default: return false
+		case 1:
+			vi, vj = m.interfaces[i].Name, m.interfaces[j].Name
+		case 2:
+			vi, vj = m.interfaces[i].State, m.interfaces[j].State
+		case 3:
+			vi, vj = m.interfaces[i].IPs, m.interfaces[j].IPs
+		case 4:
+			vi, vj = m.interfaces[i].MTU, m.interfaces[j].MTU
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -522,19 +573,27 @@ func (m *Model) sortPorts() {
 	sort.Slice(m.ports, func(i, j int) bool {
 		switch m.sortColumn {
 		case 1:
-			if m.sortAsc { return m.ports[i].Port < m.ports[j].Port }
+			if m.sortAsc {
+				return m.ports[i].Port < m.ports[j].Port
+			}
 			return m.ports[i].Port > m.ports[j].Port
 		case 2:
 			vi, vj := m.ports[i].Protocol, m.ports[j].Protocol
-			if m.sortAsc { return vi < vj }
+			if m.sortAsc {
+				return vi < vj
+			}
 			return vi > vj
 		case 3:
 			vi, vj := m.ports[i].Process, m.ports[j].Process
-			if m.sortAsc { return vi < vj }
+			if m.sortAsc {
+				return vi < vj
+			}
 			return vi > vj
 		case 4:
 			vi, vj := m.ports[i].BindAddress, m.ports[j].BindAddress
-			if m.sortAsc { return vi < vj }
+			if m.sortAsc {
+				return vi < vj
+			}
 			return vi > vj
 		}
 		return false
@@ -546,19 +605,27 @@ func (m *Model) sortRoutes() {
 		switch m.sortColumn {
 		case 1:
 			vi, vj := m.routes[i].Destination, m.routes[j].Destination
-			if m.sortAsc { return vi < vj }
+			if m.sortAsc {
+				return vi < vj
+			}
 			return vi > vj
 		case 2:
 			vi, vj := m.routes[i].Gateway, m.routes[j].Gateway
-			if m.sortAsc { return vi < vj }
+			if m.sortAsc {
+				return vi < vj
+			}
 			return vi > vj
 		case 3:
 			vi, vj := m.routes[i].Interface, m.routes[j].Interface
-			if m.sortAsc { return vi < vj }
+			if m.sortAsc {
+				return vi < vj
+			}
 			return vi > vj
 		case 4:
 			ni, nj := parseNumericPrefix(m.routes[i].Metric), parseNumericPrefix(m.routes[j].Metric)
-			if m.sortAsc { return ni < nj }
+			if m.sortAsc {
+				return ni < nj
+			}
 			return ni > nj
 		}
 		return false
@@ -569,14 +636,22 @@ func (m *Model) sortFirewallRules() {
 	sort.Slice(m.firewallRules, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.firewallRules[i].Zone, m.firewallRules[j].Zone
-		case 2: vi, vj = m.firewallRules[i].Service, m.firewallRules[j].Service
-		case 3: vi, vj = m.firewallRules[i].Protocol, m.firewallRules[j].Protocol
-		case 4: vi, vj = m.firewallRules[i].Source, m.firewallRules[j].Source
-		case 5: vi, vj = m.firewallRules[i].Action, m.firewallRules[j].Action
-		default: return false
+		case 1:
+			vi, vj = m.firewallRules[i].Zone, m.firewallRules[j].Zone
+		case 2:
+			vi, vj = m.firewallRules[i].Service, m.firewallRules[j].Service
+		case 3:
+			vi, vj = m.firewallRules[i].Protocol, m.firewallRules[j].Protocol
+		case 4:
+			vi, vj = m.firewallRules[i].Source, m.firewallRules[j].Source
+		case 5:
+			vi, vj = m.firewallRules[i].Action, m.firewallRules[j].Action
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -585,13 +660,20 @@ func (m *Model) sortFailedLogins() {
 	sort.Slice(m.failedLogins, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.failedLogins[i].Time, m.failedLogins[j].Time
-		case 2: vi, vj = m.failedLogins[i].User, m.failedLogins[j].User
-		case 3: vi, vj = m.failedLogins[i].Source, m.failedLogins[j].Source
-		case 4: vi, vj = m.failedLogins[i].Method, m.failedLogins[j].Method
-		default: return false
+		case 1:
+			vi, vj = m.failedLogins[i].Time, m.failedLogins[j].Time
+		case 2:
+			vi, vj = m.failedLogins[i].User, m.failedLogins[j].User
+		case 3:
+			vi, vj = m.failedLogins[i].Source, m.failedLogins[j].Source
+		case 4:
+			vi, vj = m.failedLogins[i].Method, m.failedLogins[j].Method
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -600,13 +682,20 @@ func (m *Model) sortSudoEntries() {
 	sort.Slice(m.sudoEntries, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.sudoEntries[i].Time, m.sudoEntries[j].Time
-		case 2: vi, vj = m.sudoEntries[i].User, m.sudoEntries[j].User
-		case 3: vi, vj = m.sudoEntries[i].Result, m.sudoEntries[j].Result
-		case 4: vi, vj = m.sudoEntries[i].Command, m.sudoEntries[j].Command
-		default: return false
+		case 1:
+			vi, vj = m.sudoEntries[i].Time, m.sudoEntries[j].Time
+		case 2:
+			vi, vj = m.sudoEntries[i].User, m.sudoEntries[j].User
+		case 3:
+			vi, vj = m.sudoEntries[i].Result, m.sudoEntries[j].Result
+		case 4:
+			vi, vj = m.sudoEntries[i].Command, m.sudoEntries[j].Command
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -615,14 +704,22 @@ func (m *Model) sortSELinuxDenials() {
 	sort.Slice(m.selinuxDenials, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.selinuxDenials[i].Time, m.selinuxDenials[j].Time
-		case 2: vi, vj = m.selinuxDenials[i].Action, m.selinuxDenials[j].Action
-		case 3: vi, vj = m.selinuxDenials[i].Source, m.selinuxDenials[j].Source
-		case 4: vi, vj = m.selinuxDenials[i].Target, m.selinuxDenials[j].Target
-		case 5: vi, vj = m.selinuxDenials[i].Class, m.selinuxDenials[j].Class
-		default: return false
+		case 1:
+			vi, vj = m.selinuxDenials[i].Time, m.selinuxDenials[j].Time
+		case 2:
+			vi, vj = m.selinuxDenials[i].Action, m.selinuxDenials[j].Action
+		case 3:
+			vi, vj = m.selinuxDenials[i].Source, m.selinuxDenials[j].Source
+		case 4:
+			vi, vj = m.selinuxDenials[i].Target, m.selinuxDenials[j].Target
+		case 5:
+			vi, vj = m.selinuxDenials[i].Class, m.selinuxDenials[j].Class
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -631,14 +728,22 @@ func (m *Model) sortAuditEvents() {
 	sort.Slice(m.auditEvents, func(i, j int) bool {
 		var vi, vj string
 		switch m.sortColumn {
-		case 1: vi, vj = m.auditEvents[i].Time, m.auditEvents[j].Time
-		case 2: vi, vj = m.auditEvents[i].Type, m.auditEvents[j].Type
-		case 3: vi, vj = m.auditEvents[i].User, m.auditEvents[j].User
-		case 4: vi, vj = m.auditEvents[i].Result, m.auditEvents[j].Result
-		case 5: vi, vj = m.auditEvents[i].Message, m.auditEvents[j].Message
-		default: return false
+		case 1:
+			vi, vj = m.auditEvents[i].Time, m.auditEvents[j].Time
+		case 2:
+			vi, vj = m.auditEvents[i].Type, m.auditEvents[j].Type
+		case 3:
+			vi, vj = m.auditEvents[i].User, m.auditEvents[j].User
+		case 4:
+			vi, vj = m.auditEvents[i].Result, m.auditEvents[j].Result
+		case 5:
+			vi, vj = m.auditEvents[i].Message, m.auditEvents[j].Message
+		default:
+			return false
 		}
-		if m.sortAsc { return vi < vj }
+		if m.sortAsc {
+			return vi < vj
+		}
 		return vi > vj
 	})
 }
@@ -1167,12 +1272,18 @@ func (m Model) filteredK8sContexts() []k8s.K8sContext {
 
 // filteredK8sNamespaces returns namespaces matching the current filter.
 func (m Model) filteredK8sNamespaces() []k8s.K8sNamespace {
-	if m.k8sNamespaces == nil { return nil }
-	if m.filterText == "" { return m.k8sNamespaces }
+	if m.k8sNamespaces == nil {
+		return nil
+	}
+	if m.filterText == "" {
+		return m.k8sNamespaces
+	}
 	filter := strings.ToLower(m.filterText)
 	var filtered []k8s.K8sNamespace
 	for _, ns := range m.k8sNamespaces {
-		if strings.Contains(strings.ToLower(ns.Name+" "+ns.Status), filter) { filtered = append(filtered, ns) }
+		if strings.Contains(strings.ToLower(ns.Name+" "+ns.Status), filter) {
+			filtered = append(filtered, ns)
+		}
 	}
 	return filtered
 }
@@ -1181,28 +1292,44 @@ func (m *Model) sortK8sNamespaces() {
 	sort.Slice(m.k8sNamespaces, func(i, j int) bool {
 		var less bool
 		switch m.sortColumn {
-		case 1: less = m.k8sNamespaces[i].Name < m.k8sNamespaces[j].Name
-		case 2: less = m.k8sNamespaces[i].Status < m.k8sNamespaces[j].Status
-		case 3: less = m.k8sNamespaces[i].PodCount < m.k8sNamespaces[j].PodCount
-		case 4: less = m.k8sNamespaces[i].DeployCount < m.k8sNamespaces[j].DeployCount
-		case 5: less = m.k8sNamespaces[i].STSCount < m.k8sNamespaces[j].STSCount
-		case 6: less = m.k8sNamespaces[i].DSCount < m.k8sNamespaces[j].DSCount
-		case 7: less = m.k8sNamespaces[i].Age < m.k8sNamespaces[j].Age
-		default: return false
+		case 1:
+			less = m.k8sNamespaces[i].Name < m.k8sNamespaces[j].Name
+		case 2:
+			less = m.k8sNamespaces[i].Status < m.k8sNamespaces[j].Status
+		case 3:
+			less = m.k8sNamespaces[i].PodCount < m.k8sNamespaces[j].PodCount
+		case 4:
+			less = m.k8sNamespaces[i].DeployCount < m.k8sNamespaces[j].DeployCount
+		case 5:
+			less = m.k8sNamespaces[i].STSCount < m.k8sNamespaces[j].STSCount
+		case 6:
+			less = m.k8sNamespaces[i].DSCount < m.k8sNamespaces[j].DSCount
+		case 7:
+			less = m.k8sNamespaces[i].Age < m.k8sNamespaces[j].Age
+		default:
+			return false
 		}
-		if m.sortAsc { return less }
+		if m.sortAsc {
+			return less
+		}
 		return !less
 	})
 }
 
 // filteredK8sWorkloads returns workloads matching the current filter.
 func (m Model) filteredK8sWorkloads() []k8s.K8sWorkload {
-	if m.k8sWorkloads == nil { return nil }
-	if m.filterText == "" { return m.k8sWorkloads }
+	if m.k8sWorkloads == nil {
+		return nil
+	}
+	if m.filterText == "" {
+		return m.k8sWorkloads
+	}
 	filter := strings.ToLower(m.filterText)
 	var filtered []k8s.K8sWorkload
 	for _, w := range m.k8sWorkloads {
-		if strings.Contains(strings.ToLower(w.Kind+" "+w.Name+" "+w.Ready), filter) { filtered = append(filtered, w) }
+		if strings.Contains(strings.ToLower(w.Kind+" "+w.Name+" "+w.Ready), filter) {
+			filtered = append(filtered, w)
+		}
 	}
 	return filtered
 }
@@ -1211,25 +1338,37 @@ func (m *Model) sortK8sWorkloads() {
 	sort.Slice(m.k8sWorkloads, func(i, j int) bool {
 		var less bool
 		switch m.sortColumn {
-		case 1: less = m.k8sWorkloads[i].Name < m.k8sWorkloads[j].Name
-		case 2: less = m.k8sWorkloads[i].Ready < m.k8sWorkloads[j].Ready
-		case 3: less = m.k8sWorkloads[i].Age < m.k8sWorkloads[j].Age
-		default: return false
+		case 1:
+			less = m.k8sWorkloads[i].Name < m.k8sWorkloads[j].Name
+		case 2:
+			less = m.k8sWorkloads[i].Ready < m.k8sWorkloads[j].Ready
+		case 3:
+			less = m.k8sWorkloads[i].Age < m.k8sWorkloads[j].Age
+		default:
+			return false
 		}
-		if m.sortAsc { return less }
+		if m.sortAsc {
+			return less
+		}
 		return !less
 	})
 }
 
 // filteredK8sPodList returns pods matching the current filter.
 func (m Model) filteredK8sPodList() []k8s.K8sPod {
-	if m.k8sPodList == nil { return nil }
-	if m.filterText == "" { return m.k8sPodList }
+	if m.k8sPodList == nil {
+		return nil
+	}
+	if m.filterText == "" {
+		return m.k8sPodList
+	}
 	filter := strings.ToLower(m.filterText)
 	var filtered []k8s.K8sPod
 	for _, p := range m.k8sPodList {
 		line := strings.ToLower(p.Name + " " + p.Status + " " + p.Node)
-		if strings.Contains(line, filter) { filtered = append(filtered, p) }
+		if strings.Contains(line, filter) {
+			filtered = append(filtered, p)
+		}
 	}
 	return filtered
 }
@@ -1238,15 +1377,24 @@ func (m *Model) sortK8sPodList() {
 	sort.Slice(m.k8sPodList, func(i, j int) bool {
 		var less bool
 		switch m.sortColumn {
-		case 1: less = m.k8sPodList[i].Name < m.k8sPodList[j].Name
-		case 2: less = m.k8sPodList[i].Status < m.k8sPodList[j].Status
-		case 3: less = m.k8sPodList[i].Ready < m.k8sPodList[j].Ready
-		case 4: less = m.k8sPodList[i].Restarts < m.k8sPodList[j].Restarts
-		case 5: less = m.k8sPodList[i].Node < m.k8sPodList[j].Node
-		case 6: less = m.k8sPodList[i].Age < m.k8sPodList[j].Age
-		default: return false
+		case 1:
+			less = m.k8sPodList[i].Name < m.k8sPodList[j].Name
+		case 2:
+			less = m.k8sPodList[i].Status < m.k8sPodList[j].Status
+		case 3:
+			less = m.k8sPodList[i].Ready < m.k8sPodList[j].Ready
+		case 4:
+			less = m.k8sPodList[i].Restarts < m.k8sPodList[j].Restarts
+		case 5:
+			less = m.k8sPodList[i].Node < m.k8sPodList[j].Node
+		case 6:
+			less = m.k8sPodList[i].Age < m.k8sPodList[j].Age
+		default:
+			return false
 		}
-		if m.sortAsc { return less }
+		if m.sortAsc {
+			return less
+		}
 		return !less
 	})
 }

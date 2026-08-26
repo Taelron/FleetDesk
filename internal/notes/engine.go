@@ -99,12 +99,12 @@ func (e *Engine) List(ref ResourceRef) ([]Note, error) {
 // usual terminal-handover flow.
 func (e *Engine) Create(ref ResourceRef) (string, error) {
 	dir := ref.Dir(e.base)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // G301: notes dir 0755, known permission defect — TAE-42
 		return "", fmt.Errorf("creating notes dir: %w", err)
 	}
 	name := filename(time.Now().UTC())
 	path := filepath.Join(dir, name)
-	f, err := os.Create(path)
+	f, err := os.Create(path) //nolint:gosec // G304: dir already sanitised per segment, name a generated timestamp
 	if err != nil {
 		return "", fmt.Errorf("creating note file: %w", err)
 	}
@@ -155,7 +155,7 @@ func parseTimestamp(name string) (time.Time, bool) {
 
 // readPreview returns the first non-empty line of the note, truncated.
 func readPreview(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path from an os.ReadDir listing of a sanitised note directory
 	if err != nil {
 		return "", err
 	}

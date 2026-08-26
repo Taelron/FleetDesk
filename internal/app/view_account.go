@@ -79,7 +79,6 @@ func (m Model) renderAccountList() string {
 		userCol := len("USER")
 		uidCol := len("UID")
 		groupCol := len("GROUPS")
-		shellCol := len("SHELL")
 		for _, a := range accts {
 			if len(a.User) > userCol {
 				userCol = len(a.User)
@@ -95,14 +94,10 @@ func (m Model) renderAccountList() string {
 			if len(g) > groupCol {
 				groupCol = len(g)
 			}
-			if len(a.Shell) > shellCol {
-				shellCol = len(a.Shell)
-			}
 		}
 		userCol += 2
 		uidCol += 2
 		groupCol += 2
-		shellCol += 2
 
 		hdr := fmt.Sprintf("     %-*s  %-*s  %-*s  %s", userCol, "USER"+m.sortIndicator(1), uidCol, "UID"+m.sortIndicator(2), groupCol, "GROUPS"+m.sortIndicator(3), "SHELL"+m.sortIndicator(4))
 		s += borderedRow(hdr, iw, colHeaderStyle) + "\n"
@@ -163,7 +158,7 @@ func (m Model) renderAccountList() string {
 	s += m.renderHintBar(hintWithHelp([][]string{
 		{"\u2191\u2193", "Navigate"},
 		{"1-4", "Sort"},
-{"Enter", "Detail"},
+		{"Enter", "Detail"},
 		{"/", "Search"},
 		{"r", "Refresh"},
 		{"Esc", "Back"},

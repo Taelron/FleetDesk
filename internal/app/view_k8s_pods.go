@@ -325,13 +325,21 @@ func (m Model) renderK8sPodDetail() string {
 		for i, c := range d.InitContainers {
 			ready := fmt.Sprintf("%v", c.Ready)
 			cpuR := c.CPUReq
-			if cpuR == "" { cpuR = "\u2014" }
+			if cpuR == "" {
+				cpuR = "\u2014"
+			}
 			cpuL := c.CPULim
-			if cpuL == "" { cpuL = "\u2014" }
+			if cpuL == "" {
+				cpuL = "\u2014"
+			}
 			mR := c.MemReq
-			if mR == "" { mR = "\u2014" }
+			if mR == "" {
+				mR = "\u2014"
+			}
 			mL := c.MemLim
-			if mL == "" { mL = "\u2014" }
+			if mL == "" {
+				mL = "\u2014"
+			}
 
 			line := fmt.Sprintf("     %-*s  %-*s  %-*s  %-7s  %-10d  %-10s  %-10s  %-10s  %s",
 				initNameW, c.Name, initImageW, c.Image, initStateW, c.State,

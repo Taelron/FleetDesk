@@ -129,9 +129,9 @@ func listHeaderLine(cfg ListConfig, widths []int) string {
 			continue
 		}
 		if c.RightAlign {
-			b.WriteString(fmt.Sprintf("%*s", widths[i], label))
+			fmt.Fprintf(&b, "%*s", widths[i], label)
 		} else {
-			b.WriteString(fmt.Sprintf("%-*s", widths[i], label))
+			fmt.Fprintf(&b, "%-*s", widths[i], label)
 		}
 		b.WriteString("  ")
 	}
@@ -173,9 +173,9 @@ func listRowLine(cfg ListConfig, widths []int, r int) string {
 			continue
 		}
 		if c.RightAlign {
-			b.WriteString(fmt.Sprintf("%*s", widths[i], val))
+			fmt.Fprintf(&b, "%*s", widths[i], val)
 		} else {
-			b.WriteString(fmt.Sprintf("%-*s", widths[i], val))
+			fmt.Fprintf(&b, "%-*s", widths[i], val)
 		}
 		b.WriteString("  ")
 	}

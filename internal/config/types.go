@@ -18,13 +18,13 @@ type Fleet struct {
 
 // HostDefaults holds default values applied to all hosts in a fleet.
 type HostDefaults struct {
-	User            string        `yaml:"user"`
-	Port            int           `yaml:"port"`
-	Timeout         time.Duration `yaml:"timeout"`
-	SystemdMode     string        `yaml:"systemd_mode"`
-	ServiceFilter   []string      `yaml:"service_filter"`
-	Logs            []LogEntry       `yaml:"-"` // populated by parser via merge cascade
-	Commands        []CommandEntry   `yaml:"-"` // populated by parser via merge cascade
+	User            string         `yaml:"user"`
+	Port            int            `yaml:"port"`
+	Timeout         time.Duration  `yaml:"timeout"`
+	SystemdMode     string         `yaml:"systemd_mode"`
+	ServiceFilter   []string       `yaml:"service_filter"`
+	Logs            []LogEntry     `yaml:"-"` // populated by parser via merge cascade
+	Commands        []CommandEntry `yaml:"-"` // populated by parser via merge cascade
 	ErrorLogSince   string
 	RefreshInterval string
 	RHOrgID         string `yaml:"rh_org_id"`
@@ -47,11 +47,11 @@ type HostEntry struct {
 	Timeout         time.Duration `yaml:"timeout"`
 	SystemdMode     string        `yaml:"systemd_mode"`
 	ServiceFilter   []string
-	Logs            []LogEntry       // merged from defaults + group + host
-	Commands        []CommandEntry   // merged from defaults + group + host
-	RHOrgID         string           `yaml:"rh_org_id"`
-	RHActivationKey string     `yaml:"rh_activation_key"`
-	SatelliteURL    string     `yaml:"satellite_url"`
+	Logs            []LogEntry     // merged from defaults + group + host
+	Commands        []CommandEntry // merged from defaults + group + host
+	RHOrgID         string         `yaml:"rh_org_id"`
+	RHActivationKey string         `yaml:"rh_activation_key"`
+	SatelliteURL    string         `yaml:"satellite_url"`
 }
 
 // Host is the runtime representation of a host with connection state.
@@ -63,26 +63,27 @@ type Host struct {
 	ErrorLogSince string
 
 	// probe results
-	FQDN            string
-	OS              string
-	UpSince         string
-	CronCount       int
-	ErrorCount      int
-	DiskCount       int
-	DiskHighCount   int
-	UserCount       int
-	InterfacesUp    int
-	InterfacesTotal int
-	ListeningPorts  int
-	UpdateCount     int
-	SudoReady              bool
-	SupervisorctlPresent   bool
-	Error                  string
+	FQDN                 string
+	OS                   string
+	UpSince              string
+	CronCount            int
+	ErrorCount           int
+	DiskCount            int
+	DiskHighCount        int
+	UserCount            int
+	InterfacesUp         int
+	InterfacesTotal      int
+	ListeningPorts       int
+	UpdateCount          int
+	SudoReady            bool
+	SupervisorctlPresent bool
+	Error                string
 }
 
 // HostStatus represents the connection state of a host.
 type HostStatus int
 
+// HostStatus values, in connection-state order.
 const (
 	HostConnecting HostStatus = iota
 	HostOnline

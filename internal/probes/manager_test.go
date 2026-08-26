@@ -1,8 +1,8 @@
 package probes
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -109,7 +109,7 @@ func TestReadBodyPreview_JSON(t *testing.T) {
 	got := readBodyPreview(resp)
 	// Should be pretty-printed
 	var buf bytes.Buffer
-	json.Indent(&buf, []byte(data), "", "  ")
+	_ = json.Indent(&buf, []byte(data), "", "  ")
 	want := buf.String()
 	if got != want {
 		t.Errorf("readBodyPreview(json) =\n%s\nwant\n%s", got, want)
@@ -168,7 +168,7 @@ func TestManagerStartStop(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprintf(w, `{"status":"ok"}`)
+		_, _ = fmt.Fprintf(w, `{"status":"ok"}`)
 	}))
 	defer ts.Close()
 

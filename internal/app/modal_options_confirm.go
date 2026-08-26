@@ -39,9 +39,7 @@ func (o *optionsStep) Result() any {
 // Flags are inserted in order. --setopt=skip_if_unavailable=1 and -y are always appended.
 func buildDnfCommand(base string, flags []string) string {
 	parts := []string{base}
-	for _, f := range flags {
-		parts = append(parts, f)
-	}
+	parts = append(parts, flags...)
 	parts = append(parts, "--setopt=skip_if_unavailable=1", "-y")
 	cmd := strings.Join(parts, " ")
 	cmd += "; echo ''; echo 'Done. Press Enter to return...'"

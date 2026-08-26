@@ -1,3 +1,5 @@
 fleetdesk
 *.exe
 dist/
+# bootstrapped tool binaries (golangci-lint), fetched by `make lint`
+bin/

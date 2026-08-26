@@ -1,3 +1,4 @@
+// Package logging provides FleetDesk's structured application logger.
 package logging
 
 import (
@@ -6,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/fspath"
 )
 
 // openFiles tracks log file handles for cleanup.
@@ -14,7 +17,7 @@ var openFiles []*os.File
 // CloseAll closes all open log file handles.
 func CloseAll() {
 	for _, f := range openFiles {
-		f.Close()
+		_ = f.Close()
 	}
 	openFiles = nil
 }
@@ -35,8 +38,8 @@ func InitLogger(debug bool, dir string) *slog.Logger {
 	if !debug {
 		return slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
-	os.MkdirAll(dir, 0755)
-	f, err := os.Create(filepath.Join(dir, "debug.log"))
+	_ = os.MkdirAll(dir, 0755)                           //nolint:gosec // G301: log dir 0755, known permission defect — TAE-42
+	f, err := os.Create(filepath.Join(dir, "debug.log")) //nolint:gosec // G304: constant dir, literal filename
 	if err != nil {
 		return slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
@@ -93,9 +96,9 @@ func NewTargetLogger(global *slog.Logger, debug bool, dir string, prefix, name s
 	if !debug {
 		return global
 	}
-	os.MkdirAll(dir, 0755)
-	filename := prefix + "-" + name + ".log"
-	f, err := os.Create(filepath.Join(dir, filename))
+	_ = os.MkdirAll(dir, 0755) //nolint:gosec // G301: log dir 0755, known permission defect — TAE-42
+	filename := prefix + "-" + fspath.Sanitize(name) + ".log"
+	f, err := os.Create(filepath.Join(dir, filename)) //nolint:gosec // G304: constant dir, sanitised filename
 	if err != nil {
 		return global
 	}

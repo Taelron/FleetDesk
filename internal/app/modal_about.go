@@ -56,6 +56,7 @@ func (a *AboutContent) UpdateField(field, value string) {
 	}
 }
 
+// HandleKey implements StepContent for AboutContent.
 func (a *AboutContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	switch msg.Type {
 	case tea.KeyEnter, tea.KeyEsc:
@@ -64,18 +65,20 @@ func (a *AboutContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	return a, nil, false
 }
 
+// View implements StepContent for AboutContent.
 func (a *AboutContent) View(width int) string {
 	labelW := 16
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("  %-*s %s\n", labelW, "Version", a.version))
-	b.WriteString(fmt.Sprintf("  %-*s %s\n", labelW, "Repository", a.repo))
+	fmt.Fprintf(&b, "  %-*s %s\n", labelW, "Version", a.version)
+	fmt.Fprintf(&b, "  %-*s %s\n", labelW, "Repository", a.repo)
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("  %-*s %s\n", labelW, "Azure CLI", a.azVersion))
-	b.WriteString(fmt.Sprintf("  %-*s %s\n", labelW, "Azure Identity", a.azIdentity))
-	b.WriteString(fmt.Sprintf("  %-*s %s\n", labelW, "kubectl", a.kubectl))
+	fmt.Fprintf(&b, "  %-*s %s\n", labelW, "Azure CLI", a.azVersion)
+	fmt.Fprintf(&b, "  %-*s %s\n", labelW, "Azure Identity", a.azIdentity)
+	fmt.Fprintf(&b, "  %-*s %s\n", labelW, "kubectl", a.kubectl)
 	return b.String()
 }
 
+// Result implements StepContent for AboutContent.
 func (a *AboutContent) Result() any {
 	return nil
 }

@@ -9,17 +9,17 @@ import (
 
 // ProbeInfo holds the results of a host probe.
 type ProbeInfo struct {
-	FQDN            string
-	OS              string
-	UpSince         string
-	CronCount       int
-	ErrorCount      int
-	DiskCount       int
-	DiskHighCount   int
-	UserCount       int
-	InterfacesUp    int
-	InterfacesTotal int
-	ListeningPorts  int
+	FQDN                 string
+	OS                   string
+	UpSince              string
+	CronCount            int
+	ErrorCount           int
+	DiskCount            int
+	DiskHighCount        int
+	UserCount            int
+	InterfacesUp         int
+	InterfacesTotal      int
+	ListeningPorts       int
 	UpdateCount          int
 	SupervisorctlPresent bool
 	SystemdMode          string
@@ -79,17 +79,17 @@ func ParseProbeOutput(output string, systemdMode string) (ProbeInfo, error) {
 	}
 
 	return ProbeInfo{
-		FQDN:            strings.TrimSpace(lines[0]),
-		UpSince:         FormatDateEU(strings.TrimSpace(lines[1])),
-		OS:              strings.TrimSpace(lines[2]),
-		CronCount:       getInt(3),
-		ErrorCount:      getInt(4),
-		DiskCount:       getInt(5),
-		DiskHighCount:   getInt(6),
-		UserCount:       getInt(7),
-		InterfacesUp:    getInt(8),
-		InterfacesTotal: getInt(9),
-		ListeningPorts:  getInt(10),
+		FQDN:                 strings.TrimSpace(lines[0]),
+		UpSince:              FormatDateEU(strings.TrimSpace(lines[1])),
+		OS:                   strings.TrimSpace(lines[2]),
+		CronCount:            getInt(3),
+		ErrorCount:           getInt(4),
+		DiskCount:            getInt(5),
+		DiskHighCount:        getInt(6),
+		UserCount:            getInt(7),
+		InterfacesUp:         getInt(8),
+		InterfacesTotal:      getInt(9),
+		ListeningPorts:       getInt(10),
 		UpdateCount:          getInt(11),
 		SupervisorctlPresent: getInt(12) == 1,
 		SystemdMode:          systemdMode,

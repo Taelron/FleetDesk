@@ -22,9 +22,9 @@ func ParseVMList(data []byte) ([]VM, error) {
 	}
 
 	var raw []struct {
-		Name          string `json:"name"`
-		ResourceGroup string `json:"resourceGroup"`
-		Location      string `json:"location"`
+		Name            string `json:"name"`
+		ResourceGroup   string `json:"resourceGroup"`
+		Location        string `json:"location"`
 		HardwareProfile struct {
 			VMSize string `json:"vmSize"`
 		} `json:"hardwareProfile"`
@@ -41,7 +41,7 @@ func ParseVMList(data []byte) ([]VM, error) {
 		PrivateIPs string `json:"privateIps"`
 		PublicIPs  string `json:"publicIps"`
 		ID         string `json:"id"`
-		OsProfile struct {
+		OsProfile  struct {
 			ComputerName string `json:"computerName"`
 		} `json:"osProfile"`
 	}

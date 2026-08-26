@@ -66,7 +66,7 @@ func (m Model) loadNoteListCmd(ref notes.ResourceRef) tea.Cmd {
 // loadNoteReadCmd reads a single note file and emits noteReadLoadedMsg.
 func (m Model) loadNoteReadCmd(path string) tea.Cmd {
 	return func() tea.Msg {
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(path) //nolint:gosec // G304: path from an os.ReadDir listing of a sanitised note directory
 		if err != nil {
 			return noteReadLoadedMsg{path: path, err: err}
 		}
@@ -121,7 +121,7 @@ func (m Model) loadNoteCountsCmd(refs []notes.ResourceRef) tea.Cmd {
 // fileIsEmpty reports whether the file at path has zero bytes of
 // non-whitespace content. Used to clean up abandoned create flows.
 func fileIsEmpty(path string) bool {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path from an os.ReadDir listing of a sanitised note directory
 	if err != nil {
 		return false
 	}
