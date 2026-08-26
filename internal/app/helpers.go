@@ -15,6 +15,8 @@ import (
 )
 
 // parseNumericPrefix extracts the leading integer from a string like "200G" or "90%".
+// Used only as a sort key — a failed parse degrades sort order, never the
+// displayed value, which is always the untouched raw field.
 func parseNumericPrefix(s string) int {
 	var n int
 	_, _ = fmt.Sscanf(s, "%d", &n)
