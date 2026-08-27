@@ -130,9 +130,12 @@ func targetBlock(t *testing.T, db, target string) string {
 	return strings.Join(lines[start+1:end], "\n")
 }
 
-// subTargetTokens, ordered longest-alternative-first so a compound name like
-// verify-fresh-clone is never mistaken for a bare "verify" prefix match.
-var subTargetMention = regexp.MustCompile(`\b(verify-fresh-clone|verify-lint-baseline|verify-nolint|verify|regression|build|lint|test-report|test)\b`)
+// identifierToken matches a whole hyphenated identifier (e.g.
+// verify-baseline-shallow-abort) as one token, greedily, so a name outside
+// any fixed list of "known" sub-targets is never misread as a shorter
+// substring of itself (a hyphen is a non-word character, so \bverify\b alone
+// would also match the start of verify-anything-else).
+var identifierToken = regexp.MustCompile(`\b[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*\b`)
 
 var makeVarRef = regexp.MustCompile(`\$[({]([A-Za-z0-9_]+)[)}]`)
 
@@ -171,7 +174,7 @@ func expandMakeVars(db, block string) string {
 }
 
 func orderedMentions(block string) []string {
-	return subTargetMention.FindAllString(block, -1)
+	return identifierToken.FindAllString(block, -1)
 }
 
 func filterTo(mentions []string, keep ...string) []string {
