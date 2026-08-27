@@ -134,6 +134,42 @@ func targetBlock(t *testing.T, db, target string) string {
 // verify-fresh-clone is never mistaken for a bare "verify" prefix match.
 var subTargetMention = regexp.MustCompile(`\b(verify-fresh-clone|verify-lint-baseline|verify-nolint|verify|regression|build|lint|test-report|test)\b`)
 
+var makeVarRef = regexp.MustCompile(`\$[({]([A-Za-z0-9_]+)[)}]`)
+
+// makeVarValue looks up a variable's value from the `make -qp` database text,
+// e.g. a line "REGRESSION_CONTROLS := verify-nolint verify-lint-baseline
+// verify-fresh-clone".
+func makeVarValue(db, name string) (string, bool) {
+	re := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(name) + `\s*:?=\s*(.*)$`)
+	m := re.FindStringSubmatch(db)
+	if m == nil {
+		return "", false
+	}
+	return strings.TrimSpace(m[1]), true
+}
+
+// expandMakeVars substitutes $(VAR)/${VAR} references in block with VAR's
+// value from db, so a recipe that names its sub-targets through a Makefile
+// variable (rather than spelling them out) is still inspectable by name.
+// Bounded passes handle one level of variable-referencing-variable.
+func expandMakeVars(db, block string) string {
+	for range 5 {
+		replaced := false
+		block = makeVarRef.ReplaceAllStringFunc(block, func(m string) string {
+			name := makeVarRef.FindStringSubmatch(m)[1]
+			if val, ok := makeVarValue(db, name); ok {
+				replaced = true
+				return val
+			}
+			return m
+		})
+		if !replaced {
+			break
+		}
+	}
+	return block
+}
+
 func orderedMentions(block string) []string {
 	return subTargetMention.FindAllString(block, -1)
 }
@@ -156,7 +192,7 @@ func filterTo(mentions []string, keep ...string) []string {
 
 func TestMakeVerifyRunsLintBuildTestInOrder(t *testing.T) {
 	db := makeDatabase(t)
-	block := targetBlock(t, db, "verify")
+	block := expandMakeVars(db, targetBlock(t, db, "verify"))
 	got := filterTo(orderedMentions(block), "lint", "build", "test")
 	want := []string{"lint", "build", "test"}
 	if len(got) < 3 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
@@ -168,7 +204,7 @@ func TestMakeVerifyRunsLintBuildTestInOrder(t *testing.T) {
 
 func TestMakeRegressionRunsAllFourInOrder(t *testing.T) {
 	db := makeDatabase(t)
-	block := targetBlock(t, db, "regression")
+	block := expandMakeVars(db, targetBlock(t, db, "regression"))
 	got := filterTo(orderedMentions(block), "verify", "verify-nolint", "verify-lint-baseline", "verify-fresh-clone")
 	want := []string{"verify", "verify-nolint", "verify-lint-baseline", "verify-fresh-clone"}
 	if len(got) < 4 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] || got[3] != want[3] {
@@ -180,7 +216,7 @@ func TestMakeRegressionRunsAllFourInOrder(t *testing.T) {
 
 func TestVerifyFreshCloneRunsVerifyNotRegression(t *testing.T) {
 	db := makeDatabase(t)
-	block := targetBlock(t, db, "verify-fresh-clone")
+	block := expandMakeVars(db, targetBlock(t, db, "verify-fresh-clone"))
 	mentions := orderedMentions(block)
 
 	if !filterHas(mentions, "verify") {
