@@ -170,21 +170,21 @@ func TestMakeLintBootstrapsWithoutPreinstalledGolangciLint(t *testing.T) {
 	}
 }
 
-// checkRecursionGuardEnv prevents infinite recursion: `make check` runs
+// checkRecursionGuardEnv prevents infinite recursion: `make verify` runs
 // `go test ./...`, which would otherwise re-run this very test.
-const checkRecursionGuardEnv = "TAE80_MAKE_CHECK_GUARD"
+const checkRecursionGuardEnv = "TAE80_MAKE_VERIFY_GUARD"
 
-func TestMakeCheckGreenWithoutPreinstalledGolangciLint(t *testing.T) {
+func TestMakeVerifyGreenWithoutPreinstalledGolangciLint(t *testing.T) {
 	if os.Getenv(checkRecursionGuardEnv) != "" {
-		t.Skip("nested invocation via `make check` -> `go test ./...`; skipping to avoid infinite recursion")
+		t.Skip("nested invocation via `make verify` -> `go test ./...`; skipping to avoid infinite recursion")
 	}
 	env := stripGolangciLintFromPath(t)
 	env = append(env, checkRecursionGuardEnv+"=1")
-	cmd := exec.Command("make", "check")
+	cmd := exec.Command("make", "verify")
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("expected `make check` to be green on a machine with no golangci-lint on PATH (TAE-80 AC8): %v\n%s", err, out)
+		t.Fatalf("expected `make verify` to be green on a machine with no golangci-lint on PATH (TAE-80 AC8): %v\n%s", err, out)
 	}
 }
 
@@ -262,7 +262,7 @@ func TestNoBlanketNolintSuppressions(t *testing.T) {
 		}
 		file, perr := parser.ParseFile(fset, path, nil, parser.ParseComments)
 		if perr != nil {
-			return nil // a build-breaking file is a `make check` failure, not this test's concern
+			return nil // a build-breaking file is a `make verify` failure, not this test's concern
 		}
 		rel, _ := filepath.Rel(root, path)
 		for _, cg := range file.Comments {
