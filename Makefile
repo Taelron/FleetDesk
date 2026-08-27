@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression
+.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression
 
 # Single pin for golangci-lint, shared by `lint` and `verify` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
@@ -55,7 +55,7 @@ LICENSE_PLACEHOLDER      := Copyright [yyyy] [name of copyright owner]
 # share this one list so they cannot drift apart — the standing rule "every
 # automated target added later joins regression" becomes a one-variable
 # edit (TAE-83's guard is exactly that edit).
-REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license verify-fresh-clone
+REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license verify-fresh-clone verify-fresh-clone-abort
 
 ##@ General
 
@@ -202,7 +202,7 @@ verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: shallow clone for
 # of the committed tree, not the working tree: uncommitted Makefile or test
 # changes are invisible to this control.
 verify-fresh-clone: ## Prove a clean machine bootstraps golangci-lint and passes verify
-	@tmp=$$(mktemp -d); \
+	@tmp=$$(mktemp -d $${MKTMPDIR:+-p "$$MKTMPDIR"}); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	if ! git clone --quiet . "$$tmp" >/dev/null 2>&1; then \
 		echo "verify-fresh-clone FAIL — could not clone this repository into $$tmp"; exit 1; \
@@ -223,6 +223,25 @@ verify-fresh-clone: ## Prove a clean machine bootstraps golangci-lint and passes
 	fi; \
 	os=$$(go env GOOS); arch=$$(go env GOARCH); \
 	echo "verify-fresh-clone OK — bootstrapped $(GOLANGCI_LINT_VERSION) on $$os/$$arch, make verify green"
+
+# TAE-92: regression — from a directory with no .git, verify-fresh-clone
+# aborts naming the clone instead of silently continuing into an empty
+# directory and dying on a missing Makefile.
+verify-fresh-clone-abort: ## TAE-92: no .git forces verify-fresh-clone to abort naming the clone, not the Makefile
+	@tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	mkdir -p "$$tmp/tmpdir" "$$tmp/nogit"; \
+	cp Makefile "$$tmp/nogit/Makefile"; \
+	out=$$(cd "$$tmp/nogit" && MKTMPDIR="$$tmp/tmpdir" $(MAKE) --no-print-directory verify-fresh-clone 2>&1); rc=$$?; \
+	printf '%s\n' "$$out" | sed 's/^/    | /'; \
+	fail=0; \
+	if [ "$$rc" -eq 0 ]; then echo "FAIL — verify-fresh-clone succeeded with no .git present; it must abort"; fail=1; fi; \
+	if ! printf '%s\n' "$$out" | grep -q "could not clone this repository"; then echo "FAIL — the failure does not name the clone"; fail=1; fi; \
+	if printf '%s\n' "$$out" | grep -q "make verify did not pass in the clone"; then echo "FAIL — the recipe carried on past the failed clone and died running make verify against an empty directory (TAE-92 regression)"; fail=1; fi; \
+	left=$$(ls -A "$$tmp/tmpdir" | wc -l); \
+	if [ "$$left" -ne 0 ]; then echo "FAIL — $$left temp directory/directories left behind on the failure path:"; ls -A "$$tmp/tmpdir"; fail=1; fi; \
+	if [ "$$fail" -ne 0 ]; then exit 1; fi; \
+	echo "verify-fresh-clone-abort OK — aborted (rc $$rc) naming the clone, no fallthrough to a missing-Makefile error, temp directory cleaned up"
 
 ##@ Licence (TAE-93)
 

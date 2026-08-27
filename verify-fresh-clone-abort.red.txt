@@ -1,0 +1,28 @@
+Base commit under test: ffc60070ebe66f499a924b3f781b6fadeeae0de8 (321273b^, the
+pre-TAE-79-review-fix verify-fresh-clone recipe, which clones without checking
+`git clone`'s exit status).
+Date: 2026-08-27T03:00:26Z
+Setup: a scratch clone of the working copy checked out to 321273b^, with this
+change's verify-fresh-clone-abort target spliced onto the end of that commit's
+verify-fresh-clone recipe (verify-fresh-clone-abort itself does not exist at
+321273b^ — it is the new target under test, run here against the old target it
+is meant to catch a regression in).
+Command: make verify-fresh-clone-abort
+
+    | make[2]: *** No rule to make target 'verify'.  Stop.
+    | verify-fresh-clone FAIL — make verify did not pass in the clone
+    | make[1]: *** [Makefile:192: verify-fresh-clone] Error 1
+FAIL — the failure does not name the clone
+FAIL — the recipe carried on past the failed clone and died running make verify against an empty directory (TAE-92 regression)
+make: *** [Makefile:215: verify-fresh-clone-abort] Error 1
+
+Exit status: 2
+
+Against the current (post-fix) verify-fresh-clone, the same
+verify-fresh-clone-abort run is green:
+
+    | verify-fresh-clone FAIL — could not clone this repository into /tmp/tmp.bI3922DTsd/tmpdir/tmp.UNkI1S8t3T
+    | make[1]: *** [Makefile:205: verify-fresh-clone] Error 1
+verify-fresh-clone-abort OK — aborted (rc 2) naming the clone, no fallthrough to a missing-Makefile error, temp directory cleaned up
+
+Exit status: 0
