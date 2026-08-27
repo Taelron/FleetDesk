@@ -53,7 +53,7 @@ REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-baseline-shallo
 help: ## List targets, grouped
 	@awk 'BEGIN {FS = ":.*?## "} \
 		/^##@/ {printf "\n%s\n", substr($$0, 5)} \
-		/^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+		/^[a-zA-Z_-]+:.*?## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 clean:          ## Remove build artifacts
 	rm -f fleetdesk coverage.out coverage.html
