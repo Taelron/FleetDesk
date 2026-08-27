@@ -1,28 +1,29 @@
-Base commit under test: ffc60070ebe66f499a924b3f781b6fadeeae0de8 (321273b^, the
-pre-TAE-79-review-fix verify-fresh-clone recipe, which clones without checking
-`git clone`'s exit status).
-Date: 2026-08-27T03:00:26Z
-Setup: a scratch clone of the working copy checked out to 321273b^, with this
-change's verify-fresh-clone-abort target spliced onto the end of that commit's
-verify-fresh-clone recipe (verify-fresh-clone-abort itself does not exist at
-321273b^ — it is the new target under test, run here against the old target it
-is meant to catch a regression in).
-Command: make verify-fresh-clone-abort
+Date: 2026-08-27T03:15:00Z
+
+Both runs below use the reproducible negative control the approved plan
+specifies: FRESH_CLONE_ABORT_MAKEFILE selects which Makefile the target
+copies into its non-repository test directory before running
+verify-fresh-clone against it. Anyone can re-run either command from the
+repo root; this file is a record of one run, not the only proof.
+
+--- Command: make verify-fresh-clone-abort (current recipe; default
+    FRESH_CLONE_ABORT_MAKEFILE = Makefile) ---
+
+    | verify-fresh-clone FAIL — could not clone this repository into /tmp/tmp.UM3D1iRXHM/tmpdir/tmp.FEvQPHUvsG
+    | make[1]: *** [Makefile:212: verify-fresh-clone] Error 1
+verify-fresh-clone-abort OK — aborted (rc 2) naming the clone failure, no fallthrough into make verify, temp directory cleaned up
+
+Exit status: 0
+
+--- Command: git show 321273b^:Makefile > /tmp/tae92-prefix.Makefile &&
+    make verify-fresh-clone-abort FRESH_CLONE_ABORT_MAKEFILE=/tmp/tae92-prefix.Makefile
+    (pre-TAE-79-review-fix recipe at 321273b^, which clones without
+    checking git clone's exit status) ---
 
     | make[2]: *** No rule to make target 'verify'.  Stop.
     | verify-fresh-clone FAIL — make verify did not pass in the clone
     | make[1]: *** [Makefile:192: verify-fresh-clone] Error 1
 FAIL — the failure does not name the clone
-FAIL — the recipe carried on past the failed clone and died running make verify against an empty directory (TAE-92 regression)
-make: *** [Makefile:215: verify-fresh-clone-abort] Error 1
+FAIL — the recipe carried on past the failed clone and ran make verify in an empty directory (TAE-92 regression)
 
 Exit status: 2
-
-Against the current (post-fix) verify-fresh-clone, the same
-verify-fresh-clone-abort run is green:
-
-    | verify-fresh-clone FAIL — could not clone this repository into /tmp/tmp.bI3922DTsd/tmpdir/tmp.UNkI1S8t3T
-    | make[1]: *** [Makefile:205: verify-fresh-clone] Error 1
-verify-fresh-clone-abort OK — aborted (rc 2) naming the clone, no fallthrough to a missing-Makefile error, temp directory cleaned up
-
-Exit status: 0

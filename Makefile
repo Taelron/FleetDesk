@@ -42,6 +42,13 @@ NOLINT_TOTAL_WANT          := 41
 BASELINE_REF    ?= e11985e
 BASELINE_EXPECT ?= 170
 
+# verify-fresh-clone-abort's negative control (TAE-92). The Makefile the
+# control copies into its non-repository test directory and runs
+# verify-fresh-clone from. Default is the working tree's; point it at a
+# historical Makefile (e.g. `git show 321273b^:Makefile`) to re-prove the
+# control bites on that recipe, without a one-off transcript.
+FRESH_CLONE_ABORT_MAKEFILE ?= Makefile
+
 # verify-license's reference (TAE-93). LICENSE_CANONICAL_SHA256 is the
 # sha256 of https://www.apache.org/licenses/LICENSE-2.0.txt as published; the
 # repo's LICENSE differs from it only on the appendix copyright line, which
@@ -224,24 +231,32 @@ verify-fresh-clone: ## Prove a clean machine bootstraps golangci-lint and passes
 	os=$$(go env GOOS); arch=$$(go env GOARCH); \
 	echo "verify-fresh-clone OK — bootstrapped $(GOLANGCI_LINT_VERSION) on $$os/$$arch, make verify green"
 
-# TAE-92: regression — from a directory with no .git, verify-fresh-clone
+# TAE-92: regression — from a non-repository directory, verify-fresh-clone
 # aborts naming the clone instead of silently continuing into an empty
-# directory and dying on a missing Makefile.
-verify-fresh-clone-abort: ## TAE-92: no .git forces verify-fresh-clone to abort naming the clone, not the Makefile
+# directory and running make verify there. FRESH_CLONE_ABORT_MAKEFILE lets
+# the same target re-prove itself against a historical (pre-fix) recipe, so
+# the negative control stays a reproducible Make step, not a one-off
+# transcript.
+verify-fresh-clone-abort: ## TAE-92: non-repository forces verify-fresh-clone to abort, not fall through
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
-	mkdir -p "$$tmp/tmpdir" "$$tmp/nogit"; \
-	cp Makefile "$$tmp/nogit/Makefile"; \
-	out=$$(cd "$$tmp/nogit" && MKTMPDIR="$$tmp/tmpdir" $(MAKE) --no-print-directory verify-fresh-clone 2>&1); rc=$$?; \
+	mkdir -p "$$tmp/norepo" "$$tmp/tmpdir"; \
+	if ! cp "$(FRESH_CLONE_ABORT_MAKEFILE)" "$$tmp/norepo/Makefile"; then \
+		echo "verify-fresh-clone-abort FAIL — could not copy $(FRESH_CLONE_ABORT_MAKEFILE) into the test directory"; exit 1; \
+	fi; \
+	if git -C "$$tmp/norepo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+		echo "verify-fresh-clone-abort FAIL — $$tmp/norepo is inside a git repository; the case under test is not set up"; exit 1; \
+	fi; \
+	out=$$(cd "$$tmp/norepo" && MKTMPDIR="$$tmp/tmpdir" $(MAKE) --no-print-directory verify-fresh-clone 2>&1); rc=$$?; \
 	printf '%s\n' "$$out" | sed 's/^/    | /'; \
 	fail=0; \
-	if [ "$$rc" -eq 0 ]; then echo "FAIL — verify-fresh-clone succeeded with no .git present; it must abort"; fail=1; fi; \
-	if ! printf '%s\n' "$$out" | grep -q "could not clone this repository"; then echo "FAIL — the failure does not name the clone"; fail=1; fi; \
-	if printf '%s\n' "$$out" | grep -q "make verify did not pass in the clone"; then echo "FAIL — the recipe carried on past the failed clone and died running make verify against an empty directory (TAE-92 regression)"; fail=1; fi; \
+	if [ "$$rc" -eq 0 ]; then echo "FAIL — verify-fresh-clone succeeded from a non-repository; it must abort"; fail=1; fi; \
+	if ! printf '%s\n' "$$out" | grep -q "could not clone this repository into"; then echo "FAIL — the failure does not name the clone"; fail=1; fi; \
+	if printf '%s\n' "$$out" | grep -q "make verify did not pass in the clone"; then echo "FAIL — the recipe carried on past the failed clone and ran make verify in an empty directory (TAE-92 regression)"; fail=1; fi; \
 	left=$$(ls -A "$$tmp/tmpdir" | wc -l); \
 	if [ "$$left" -ne 0 ]; then echo "FAIL — $$left temp directory/directories left behind on the failure path:"; ls -A "$$tmp/tmpdir"; fail=1; fi; \
 	if [ "$$fail" -ne 0 ]; then exit 1; fi; \
-	echo "verify-fresh-clone-abort OK — aborted (rc $$rc) naming the clone, no fallthrough to a missing-Makefile error, temp directory cleaned up"
+	echo "verify-fresh-clone-abort OK — aborted (rc $$rc) naming the clone failure, no fallthrough into make verify, temp directory cleaned up"
 
 ##@ Licence (TAE-93)
 
