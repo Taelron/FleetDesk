@@ -156,11 +156,13 @@ FleetDesk uses your existing SSH setup — no additional configuration needed:
 
 ## Development
 
-Run `make check` before opening a PR — it builds, runs the test suite, and
-lints. `make lint` fetches a pinned golangci-lint (checksum-verified) into
+Run `make verify` before opening a PR — it lints, builds, and runs the test
+suite. `make lint` fetches a pinned golangci-lint (checksum-verified) into
 `bin/tools/` on first run; the only prerequisites are `curl`, `tar`, and
 `sha256sum` or `shasum`. `make verify-fresh-clone` proves a clean machine
-with no pre-installed `golangci-lint` still passes `make check`.
+with no pre-installed `golangci-lint` still passes `make verify`. `make
+regression` runs `verify` plus the verification controls — what CI runs.
+`make help` (or bare `make`) lists every target.
 
 ## License
 

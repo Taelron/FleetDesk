@@ -103,17 +103,20 @@ re-deriving them.
 ## Build & test
 
 ```bash
-make check    # build + test + lint — required before PR
-make build
-make test
-make lint
+make verify      # lint + build + test — required before PR
+make regression  # verify + the verification controls — what CI runs
+make help
 ```
 
 The verification handoff in a PR description is an ordered list of **Make targets**,
 each with its purpose and expected result, runnable top to bottom without inference.
 Where no target exists for what needs verifying, create one as part of the
-implementation. `make check` passing and CI passing are not the same claim — check
-what each actually runs before treating either as evidence.
+implementation. `make verify` is the pre-PR gate; CI runs `make regression`, so CI
+green is strictly stronger than `verify` green. `make regression` locally is the
+closest local reproduction of CI, not an identical claim: `verify-fresh-clone` and
+`verify-lint-baseline` clone the last commit, not the working tree, so uncommitted
+changes are invisible to them locally exactly as they would be to a CI checkout of
+an unpushed branch.
 
 Testing tiers: **Unit** (parsers, formatters, config) and **UI** (navigation, key
 bindings, state transitions, rendering — via `teatest`) run in CI. **Integration**

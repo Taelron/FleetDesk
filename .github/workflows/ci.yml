@@ -7,12 +7,13 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  regression:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go test ./... -race
-      - run: go build -o fleetdesk .
+      - run: make regression

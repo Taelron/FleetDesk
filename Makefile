@@ -1,6 +1,7 @@
-.PHONY: test test-report build lint check clean verify-fresh-clone verify-nolint verify-lint-baseline verify-baseline-shallow-abort
+.DEFAULT_GOAL := help
+.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-nolint verify-lint-baseline verify-baseline-shallow-abort regression
 
-# Single pin for golangci-lint, shared by `lint` and `check` (which
+# Single pin for golangci-lint, shared by `lint` and `verify` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
 # downloads the official release binary into the git-ignored bin/tools/
 # directory, checksum-verified, rather than building from source — building
@@ -41,6 +42,28 @@ NOLINT_TOTAL_WANT          := 41
 BASELINE_REF    ?= e11985e
 BASELINE_EXPECT ?= 170
 
+# Regression-only targets. verify's closing line and regression's run list
+# share this one list so they cannot drift apart — the standing rule "every
+# automated target added later joins regression" becomes a one-variable
+# edit (TAE-83's guard is exactly that edit).
+REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-fresh-clone
+
+##@ General
+
+help: ## List targets, grouped
+	@awk 'BEGIN {FS = ":.*?## "} \
+		/^##@/ {printf "\n%s\n", substr($$0, 5)} \
+		/^[a-zA-Z_-]+:.*?## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+clean:          ## Remove build artifacts
+	rm -f fleetdesk coverage.out coverage.html
+	rm -rf bin
+
+##@ Build & verify
+
+build:          ## Build binary
+	go build -o fleetdesk .
+
 test:           ## Run unit tests
 	go test ./... -race -v
 
@@ -48,9 +71,6 @@ test-report:    ## Run unit tests with coverage report
 	go test ./... -race -coverprofile=coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
-
-build:          ## Build binary
-	go build -o fleetdesk .
 
 $(GOLANGCI_LINT_BIN):
 	@os=$$(go env GOOS); arch=$$(go env GOARCH); \
@@ -91,12 +111,18 @@ lint: $(GOLANGCI_LINT_BIN) ## Verify .golangci.yml, then run golangci-lint acros
 	@./$(GOLANGCI_LINT_BIN) run
 	@echo "lint OK — config verified, zero findings"
 
-check:          ## Run all checks before PR (build + test + lint)
+verify: ## Pre-PR gate: lint, then build, then test
+	$(MAKE) lint
 	$(MAKE) build
 	$(MAKE) test
-	$(MAKE) lint
+	@echo "verify OK — lint, build, test green"
+	@echo "verify does NOT run: $(REGRESSION_CONTROLS) (make regression); integration against real SSH / Azure / K8s is manual, tracked in Linear"
 
-verify-nolint: ## TAE-80: assert the //nolint suppression inventory matches the exact record this issue left behind
+##@ Verification controls (TAE-80)
+
+# TAE-80: assert the //nolint suppression inventory matches the exact
+# record this issue left behind.
+verify-nolint: ## Assert the //nolint inventory matches TAE-80's record
 	@lines="$$(grep -rn --include='*.go' --exclude='*_test.go' '//nolint:' . 2>/dev/null)"; \
 	total=$$(printf '%s\n' "$$lines" | grep -c '//nolint:'); \
 	errcheck_tae82=$$(printf '%s\n' "$$lines" | grep '//nolint:errcheck' | grep -c 'TAE-82'); \
@@ -116,7 +142,9 @@ verify-nolint: ## TAE-80: assert the //nolint suppression inventory matches the 
 	if [ "$$fail" -ne 0 ]; then exit 1; fi; \
 	echo "verify-nolint OK — $$total directives: errcheck/TAE-82 $$errcheck_tae82, gosec/TAE-22 $$gosec_tae22, gosec/TAE-23 $$gosec_tae23, gosec/TAE-42 $$gosec_tae42, gosec case-1 $$gosec_case1"
 
-verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## TAE-80: negative control — confirm the pre-fix tree lints to BASELINE_EXPECT findings under the current config
+# TAE-80: negative control — confirm the pre-fix tree lints to
+# BASELINE_EXPECT findings under the current config.
+verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## Negative control: the pre-TAE-80 tree lints to BASELINE_EXPECT findings
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	if ! git clone --quiet . "$$tmp" >/dev/null 2>&1; then \
@@ -132,7 +160,9 @@ verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## TAE-80: negative control — confi
 	if [ "$$n" -ne "$(BASELINE_EXPECT)" ]; then echo "verify-lint-baseline FAIL — $(BASELINE_REF) lints to $$n findings under the current config, want $(BASELINE_EXPECT)"; exit 1; fi; \
 	echo "verify-lint-baseline OK — $(BASELINE_REF) lints to $$n findings under the current config"
 
-verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: regression — from a shallow working copy, verify-lint-baseline aborts naming BASELINE_REF instead of silently linting HEAD
+# TAE-91: regression — from a shallow working copy, verify-lint-baseline
+# aborts naming BASELINE_REF instead of silently linting HEAD.
+verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: shallow clone forces verify-lint-baseline to abort, not mislint
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	mkdir -p "$$tmp/tmpdir"; \
@@ -156,10 +186,16 @@ verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: regression — fr
 	if [ "$$fail" -ne 0 ]; then exit 1; fi; \
 	echo "verify-baseline-shallow-abort OK — aborted (rc $$rc) naming $(BASELINE_REF), no parser fallthrough, temp directory cleaned up"
 
-verify-fresh-clone: ## TAE-80 AC 8: clone the committed tree, strip golangci-lint from PATH, confirm `make check` bootstraps its own binary and passes
+# TAE-80 AC 8: clone the committed tree, strip golangci-lint from PATH,
+# confirm `make verify` bootstraps its own binary and passes. The clone is
+# of the committed tree, not the working tree: uncommitted Makefile or test
+# changes are invisible to this control.
+verify-fresh-clone: ## Prove a clean machine bootstraps golangci-lint and passes verify
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
-	git clone --quiet . "$$tmp" >/dev/null 2>&1; \
+	if ! git clone --quiet . "$$tmp" >/dev/null 2>&1; then \
+		echo "verify-fresh-clone FAIL — could not clone this repository into $$tmp"; exit 1; \
+	fi; \
 	strippedpath=""; \
 	oldifs="$$IFS"; IFS=':'; \
 	for d in $$PATH; do \
@@ -168,15 +204,18 @@ verify-fresh-clone: ## TAE-80 AC 8: clone the committed tree, strip golangci-lin
 		fi; \
 	done; \
 	IFS="$$oldifs"; \
-	if ( cd "$$tmp" && PATH="$$strippedpath" $(MAKE) check ); then :; else \
-		echo "verify-fresh-clone FAIL — make check did not pass in the clone"; exit 1; \
+	if ( cd "$$tmp" && PATH="$$strippedpath" $(MAKE) verify ); then :; else \
+		echo "verify-fresh-clone FAIL — make verify did not pass in the clone"; exit 1; \
 	fi; \
 	if [ ! -x "$$tmp/$(GOLANGCI_LINT_BIN)" ]; then \
 		echo "verify-fresh-clone FAIL — $(GOLANGCI_LINT_BIN) was not bootstrapped inside the clone"; exit 1; \
 	fi; \
 	os=$$(go env GOOS); arch=$$(go env GOARCH); \
-	echo "verify-fresh-clone OK — bootstrapped $(GOLANGCI_LINT_VERSION) on $$os/$$arch, make check green"
+	echo "verify-fresh-clone OK — bootstrapped $(GOLANGCI_LINT_VERSION) on $$os/$$arch, make verify green"
 
-clean:          ## Remove build artifacts
-	rm -f fleetdesk coverage.out coverage.html
-	rm -rf bin
+##@ Regression gate
+
+regression: ## Every automated check, ascending cost: verify, then the verification controls
+	$(MAKE) verify
+	@for t in $(REGRESSION_CONTROLS); do $(MAKE) $$t || exit 1; done
+	@echo "regression OK — verify $(REGRESSION_CONTROLS)"
