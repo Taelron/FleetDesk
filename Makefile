@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-nolint verify-lint-baseline verify-baseline-shallow-abort regression
+.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression
 
 # Single pin for golangci-lint, shared by `lint` and `verify` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
@@ -42,11 +42,20 @@ NOLINT_TOTAL_WANT          := 41
 BASELINE_REF    ?= e11985e
 BASELINE_EXPECT ?= 170
 
+# verify-license's reference (TAE-93). LICENSE_CANONICAL_SHA256 is the
+# sha256 of https://www.apache.org/licenses/LICENSE-2.0.txt as published; the
+# repo's LICENSE differs from it only on the appendix copyright line, which
+# the target restores to the placeholder before hashing. Regenerate with:
+#   curl -sSfL https://www.apache.org/licenses/LICENSE-2.0.txt | sha256sum
+LICENSE_CANONICAL_SHA256 := cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+LICENSE_COPYRIGHT        := Copyright 2026 Cloud Infra Consult SRL
+LICENSE_PLACEHOLDER      := Copyright [yyyy] [name of copyright owner]
+
 # Regression-only targets. verify's closing line and regression's run list
 # share this one list so they cannot drift apart — the standing rule "every
 # automated target added later joins regression" becomes a one-variable
 # edit (TAE-83's guard is exactly that edit).
-REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-fresh-clone
+REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license verify-fresh-clone
 
 ##@ General
 
@@ -214,6 +223,27 @@ verify-fresh-clone: ## Prove a clean machine bootstraps golangci-lint and passes
 	fi; \
 	os=$$(go env GOOS); arch=$$(go env GOARCH); \
 	echo "verify-fresh-clone OK — bootstrapped $(GOLANGCI_LINT_VERSION) on $$os/$$arch, make verify green"
+
+##@ Licence (TAE-93)
+
+# TAE-93: the repository claims exactly one licence, Apache-2.0, and the
+# LICENSE file is the canonical text with only the copyright line filled in.
+verify-license: ## TAE-93: LICENSE is canonical Apache-2.0 plus the copyright line; README claims nothing else
+	@test -f LICENSE || { echo "verify-license FAIL: LICENSE missing at repository root"; exit 1; }
+	@grep -qxF '   $(LICENSE_COPYRIGHT)' LICENSE || { echo "verify-license FAIL: LICENSE lacks the line '$(LICENSE_COPYRIGHT)'"; exit 1; }
+	@if command -v sha256sum >/dev/null 2>&1; then hasher="sha256sum"; \
+	elif command -v shasum >/dev/null 2>&1; then hasher="shasum -a 256"; \
+	else echo "verify-license FAIL: neither sha256sum nor shasum found on PATH"; exit 1; fi; \
+	got=$$(sed 's/^   $(LICENSE_COPYRIGHT)$$/   $(LICENSE_PLACEHOLDER)/' LICENSE | $$hasher | awk '{print $$1}'); \
+	if [ "$$got" != "$(LICENSE_CANONICAL_SHA256)" ]; then \
+		echo "verify-license FAIL: LICENSE differs from canonical Apache-2.0 beyond the copyright line (want $(LICENSE_CANONICAL_SHA256), got $$got)"; exit 1; \
+	fi
+	@grep -qF '[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)' README.md || { echo "verify-license FAIL: README badge is not the Apache 2.0 badge linking LICENSE"; exit 1; }
+	@sed -n '/^## License$$/,$$p' README.md | grep -q 'Apache-2.0' || { echo "verify-license FAIL: README ## License section does not say Apache-2.0"; exit 1; }
+	@if stray="$$(grep -rnE --exclude-dir=.git --exclude-dir=bin --exclude=LICENSE 'License[:-] ?MIT|MIT Licen[cs]e|^MIT$$' . 2>/dev/null)" && [ -n "$$stray" ]; then \
+		echo "verify-license FAIL: MIT licence claim still present:"; printf '%s\n' "$$stray"; exit 1; \
+	fi
+	@echo "verify-license OK — LICENSE is canonical Apache-2.0 with '$(LICENSE_COPYRIGHT)'; README and repo claim nothing else"
 
 ##@ Regression gate
 
