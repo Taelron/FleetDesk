@@ -147,7 +147,7 @@ verify-nolint: ## Assert the //nolint inventory matches TAE-80's record
 # TAE-80: negative control — confirm the pre-fix tree lints to
 # BASELINE_EXPECT findings under the current config.
 verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## Negative control: the pre-TAE-80 tree lints to BASELINE_EXPECT findings
-	@tmp=$$(mktemp -d); \
+	@tmp=$$(mktemp -d $${MKTMPDIR:+-p "$$MKTMPDIR"}); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	if ! git clone --quiet . "$$tmp" >/dev/null 2>&1; then \
 		echo "verify-lint-baseline FAIL — could not clone this repository into $$tmp"; exit 1; \
@@ -177,7 +177,7 @@ verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: shallow clone for
 	fi; \
 	mkdir -p "$$tmp/shallow/$(GOLANGCI_LINT_DIR)"; \
 	cp "$(GOLANGCI_LINT_BIN)" "$$tmp/shallow/$(GOLANGCI_LINT_BIN)"; \
-	out=$$(cd "$$tmp/shallow" && TMPDIR="$$tmp/tmpdir" $(MAKE) --no-print-directory verify-lint-baseline 2>&1); rc=$$?; \
+	out=$$(cd "$$tmp/shallow" && MKTMPDIR="$$tmp/tmpdir" $(MAKE) --no-print-directory verify-lint-baseline 2>&1); rc=$$?; \
 	printf '%s\n' "$$out" | sed 's/^/    | /'; \
 	fail=0; \
 	if [ "$$rc" -eq 0 ]; then echo "FAIL — verify-lint-baseline succeeded from a shallow clone; it must abort"; fail=1; fi; \
