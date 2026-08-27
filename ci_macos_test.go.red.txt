@@ -1,0 +1,28 @@
+Commit: 1618085f6d2ce329767e5548520d00554363f14a
+Date: 2026-08-27T01:38:18Z
+Command: go test . -run 'TestCIMatrix|TestMacOSBootstrapsGolangciLintAndPassesChecksum' -v
+
+=== RUN   TestCIMatrixCoversUbuntuAndMacOS
+    ci_macos_test.go:88: expected a job in ci.yml with a matrix axis listing both ubuntu-latest and macos-latest (TAE-37 AC1)
+--- FAIL: TestCIMatrixCoversUbuntuAndMacOS (0.00s)
+=== RUN   TestCIMatrixRunsOnExpandsFromMatrix
+    ci_macos_test.go:93: expected a job in ci.yml with a matrix axis listing both ubuntu-latest and macos-latest (TAE-37 AC1)
+--- FAIL: TestCIMatrixRunsOnExpandsFromMatrix (0.00s)
+=== RUN   TestCIMatrixFailFastDisabled
+    ci_macos_test.go:102: expected a job in ci.yml with a matrix axis listing both ubuntu-latest and macos-latest (TAE-37 AC1)
+--- FAIL: TestCIMatrixFailFastDisabled (0.00s)
+=== RUN   TestCIMatrixLegRunsMakeRegression
+    ci_macos_test.go:116: expected a job in ci.yml with a matrix axis listing both ubuntu-latest and macos-latest (TAE-37 AC1)
+--- FAIL: TestCIMatrixLegRunsMakeRegression (0.00s)
+=== RUN   TestCIMatrixLegChecksOutFullHistory
+    ci_macos_test.go:135: expected a job in ci.yml with a matrix axis listing both ubuntu-latest and macos-latest (TAE-37 AC1)
+--- FAIL: TestCIMatrixLegChecksOutFullHistory (0.00s)
+=== RUN   TestCIMatrixLegSetsUpGoFromModFile
+    ci_macos_test.go:158: expected a job in ci.yml with a matrix axis listing both ubuntu-latest and macos-latest (TAE-37 AC1)
+--- FAIL: TestCIMatrixLegSetsUpGoFromModFile (0.00s)
+=== RUN   TestMacOSBootstrapsGolangciLintAndPassesChecksum
+    ci_macos_test.go:191: only meaningful on darwin -- exercised for real by the macos-latest CI leg (TAE-37 AC4)
+--- SKIP: TestMacOSBootstrapsGolangciLintAndPassesChecksum (0.00s)
+FAIL
+FAIL	github.com/Gaetan-Jaminon/fleetdesk	0.004s
+FAIL

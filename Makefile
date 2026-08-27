@@ -90,8 +90,10 @@ $(GOLANGCI_LINT_BIN):
 	echo "bootstrapping golangci-lint $$ver ($$os/$$arch)..."; \
 	curl -sSfL -o "$$tmp/$$tarball" "$$url" || { echo "download failed: $$url"; exit 1; }; \
 	if command -v sha256sum >/dev/null 2>&1; then \
+		hasher=sha256sum; \
 		got=$$(sha256sum "$$tmp/$$tarball" | awk '{print $$1}'); \
 	elif command -v shasum >/dev/null 2>&1; then \
+		hasher=shasum; \
 		got=$$(shasum -a 256 "$$tmp/$$tarball" | awk '{print $$1}'); \
 	else \
 		echo "neither sha256sum nor shasum found on PATH — cannot verify checksum"; exit 1; \
@@ -104,7 +106,7 @@ $(GOLANGCI_LINT_BIN):
 	cp "$$tmp/$$asset/golangci-lint" "$(GOLANGCI_LINT_BIN).tmp"; \
 	chmod +x "$(GOLANGCI_LINT_BIN).tmp"; \
 	mv "$(GOLANGCI_LINT_BIN).tmp" "$(GOLANGCI_LINT_BIN)"; \
-	echo "bootstrap OK — $(GOLANGCI_LINT_BIN), checksum verified"
+	echo "bootstrap OK — $(GOLANGCI_LINT_BIN), checksum verified ($$hasher)"
 
 lint: $(GOLANGCI_LINT_BIN) ## Verify .golangci.yml, then run golangci-lint across the module
 	@./$(GOLANGCI_LINT_BIN) config verify
@@ -145,7 +147,7 @@ verify-nolint: ## Assert the //nolint inventory matches TAE-80's record
 # TAE-80: negative control — confirm the pre-fix tree lints to
 # BASELINE_EXPECT findings under the current config.
 verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## Negative control: the pre-TAE-80 tree lints to BASELINE_EXPECT findings
-	@tmp=$$(mktemp -d); \
+	@tmp=$$(mktemp -d $${MKTMPDIR:+-p "$$MKTMPDIR"}); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	if ! git clone --quiet . "$$tmp" >/dev/null 2>&1; then \
 		echo "verify-lint-baseline FAIL — could not clone this repository into $$tmp"; exit 1; \
@@ -175,7 +177,7 @@ verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: shallow clone for
 	fi; \
 	mkdir -p "$$tmp/shallow/$(GOLANGCI_LINT_DIR)"; \
 	cp "$(GOLANGCI_LINT_BIN)" "$$tmp/shallow/$(GOLANGCI_LINT_BIN)"; \
-	out=$$(cd "$$tmp/shallow" && TMPDIR="$$tmp/tmpdir" $(MAKE) --no-print-directory verify-lint-baseline 2>&1); rc=$$?; \
+	out=$$(cd "$$tmp/shallow" && MKTMPDIR="$$tmp/tmpdir" $(MAKE) --no-print-directory verify-lint-baseline 2>&1); rc=$$?; \
 	printf '%s\n' "$$out" | sed 's/^/    | /'; \
 	fail=0; \
 	if [ "$$rc" -eq 0 ]; then echo "FAIL — verify-lint-baseline succeeded from a shallow clone; it must abort"; fail=1; fi; \
