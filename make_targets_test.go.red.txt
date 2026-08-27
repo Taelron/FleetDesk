@@ -1,0 +1,78 @@
+Commit: 6e190c1c5e2fae6384fd02ac47f6b7a3810a3dec
+Date: 2026-08-27T00:06:58Z
+Command: go test . -run 'TestMakeHelp|TestDefaultGoalIsHelp|TestMakeCheckTargetRemoved|TestMakeVerifyRunsLintBuildTestInOrder|TestMakeRegressionRunsAllFourInOrder|TestVerifyFreshCloneRunsVerifyNotRegression|TestMakeVerifySucceedsAndNamesSkippedWork|TestCIWorkflowRunsMakeRegressionWithFullHistory' -v
+
+=== RUN   TestMakeHelpListsEveryTarget
+    make_targets_test.go:34: expected `make help` to succeed and print a target listing (TAE-79 AC1): exit status 2
+        make: *** No rule to make target 'help'.  Stop.
+--- FAIL: TestMakeHelpListsEveryTarget (0.00s)
+=== RUN   TestMakeHelpGroupsTargets
+    make_targets_test.go:48: expected `make help` to succeed (TAE-79 AC1): exit status 2
+        make: *** No rule to make target 'help'.  Stop.
+--- FAIL: TestMakeHelpGroupsTargets (0.00s)
+=== RUN   TestDefaultGoalIsHelp
+    make_targets_test.go:64: expected `make -n help` to succeed (TAE-79 AC1): exit status 2
+        make: *** No rule to make target 'help'.  Stop.
+--- FAIL: TestDefaultGoalIsHelp (0.00s)
+=== RUN   TestMakeCheckTargetRemoved
+    make_targets_test.go:80: expected `check` to no longer exist as a target name (TAE-79 AC2); `make -n check` succeeded:
+        make build
+        make[1]: Entering directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        go build -o fleetdesk .
+        make[1]: Leaving directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        make test
+        make[1]: Entering directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        go test ./... -race -v
+        make[1]: Leaving directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        make lint
+        make[1]: Entering directory '/home/gaetan/Projects/Taelron/FleetDesk'
+        ./bin/tools/golangci-lint-v2.11.4 config verify
+        ./bin/tools/golangci-lint-v2.11.4 run
+        echo "lint OK — config verified, zero findings"
+        make[1]: Leaving directory '/home/gaetan/Projects/Taelron/FleetDesk'
+--- FAIL: TestMakeCheckTargetRemoved (0.01s)
+=== RUN   TestMakeVerifyRunsLintBuildTestInOrder
+    make_targets_test.go:159: expected a "verify" target in the Make database (TAE-79)
+--- FAIL: TestMakeVerifyRunsLintBuildTestInOrder (0.00s)
+=== RUN   TestMakeRegressionRunsAllFourInOrder
+    make_targets_test.go:171: expected a "regression" target in the Make database (TAE-79)
+--- FAIL: TestMakeRegressionRunsAllFourInOrder (0.00s)
+=== RUN   TestVerifyFreshCloneRunsVerifyNotRegression
+    make_targets_test.go:187: expected `verify-fresh-clone` to run `make verify` inside its clone (TAE-79 AC11); recipe:
+        #  Phony target (prerequisite of .PHONY).
+        #  Implicit rule search has not been done.
+        #  File does not exist.
+        #  File has not been updated.
+        #  recipe to execute (from 'Makefile', line 160):
+        	@tmp=$$(mktemp -d); \
+        	trap 'rm -rf "$$tmp"' EXIT; \
+        	git clone --quiet . "$$tmp" >/dev/null 2>&1; \
+        	strippedpath=""; \
+        	oldifs="$$IFS"; IFS=':'; \
+        	for d in $$PATH; do \
+        		if [ ! -x "$$d/golangci-lint" ]; then \
+        			strippedpath="$$strippedpath$${strippedpath:+:}$$d"; \
+        		fi; \
+        	done; \
+        	IFS="$$oldifs"; \
+        	if ( cd "$$tmp" && PATH="$$strippedpath" $(MAKE) check ); then :; else \
+        		echo "verify-fresh-clone FAIL — make check did not pass in the clone"; exit 1; \
+        	fi; \
+        	if [ ! -x "$$tmp/$(GOLANGCI_LINT_BIN)" ]; then \
+        		echo "verify-fresh-clone FAIL — $(GOLANGCI_LINT_BIN) was not bootstrapped inside the clone"; exit 1; \
+        	fi; \
+        	os=$$(go env GOOS); arch=$$(go env GOARCH); \
+        	echo "verify-fresh-clone OK — bootstrapped $(GOLANGCI_LINT_VERSION) on $$os/$$arch, make check green"
+--- FAIL: TestVerifyFreshCloneRunsVerifyNotRegression (0.00s)
+=== RUN   TestMakeVerifySucceedsAndNamesSkippedWork
+    make_targets_test.go:216: expected `make verify` to succeed (TAE-79 AC2): exit status 2
+        make: *** No rule to make target 'verify'.  Stop.
+--- FAIL: TestMakeVerifySucceedsAndNamesSkippedWork (0.00s)
+=== RUN   TestCIWorkflowRunsMakeRegressionWithFullHistory
+    make_targets_test.go:293: expected a checkout step with `fetch-depth: 0` (TAE-79 AC10); verify-lint-baseline checks out a historical ref and needs full history
+    make_targets_test.go:296: expected a CI step to invoke `make regression` (TAE-79 AC10)
+    make_targets_test.go:299: expected CI to invoke `make regression` rather than raw `go test`/`go build` commands (TAE-79 AC10)
+--- FAIL: TestCIWorkflowRunsMakeRegressionWithFullHistory (0.00s)
+FAIL
+FAIL	github.com/Gaetan-Jaminon/fleetdesk	0.026s
+FAIL
