@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help test test-report build lint verify clean verify-fresh-clone verify-nolint verify-lint-baseline verify-baseline-shallow-abort regression
 
-# Single pin for golangci-lint, shared by `lint` and `check` (which
+# Single pin for golangci-lint, shared by `lint` and `verify` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
 # downloads the official release binary into the git-ignored bin/tools/
 # directory, checksum-verified, rather than building from source — building
@@ -46,7 +46,7 @@ BASELINE_EXPECT ?= 170
 # share this one list so they cannot drift apart — the standing rule "every
 # automated target added later joins regression" becomes a one-variable
 # edit (TAE-83's guard is exactly that edit).
-REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-fresh-clone
+REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-fresh-clone
 
 ##@ General
 
@@ -160,7 +160,9 @@ verify-lint-baseline: $(GOLANGCI_LINT_BIN) ## Negative control: the pre-TAE-80 t
 	if [ "$$n" -ne "$(BASELINE_EXPECT)" ]; then echo "verify-lint-baseline FAIL — $(BASELINE_REF) lints to $$n findings under the current config, want $(BASELINE_EXPECT)"; exit 1; fi; \
 	echo "verify-lint-baseline OK — $(BASELINE_REF) lints to $$n findings under the current config"
 
-verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: regression — from a shallow working copy, verify-lint-baseline aborts naming BASELINE_REF instead of silently linting HEAD
+# TAE-91: regression — from a shallow working copy, verify-lint-baseline
+# aborts naming BASELINE_REF instead of silently linting HEAD.
+verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: shallow clone forces verify-lint-baseline to abort, not mislint
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	mkdir -p "$$tmp/tmpdir"; \
@@ -191,7 +193,9 @@ verify-baseline-shallow-abort: $(GOLANGCI_LINT_BIN) ## TAE-91: regression — fr
 verify-fresh-clone: ## Prove a clean machine bootstraps golangci-lint and passes verify
 	@tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
-	git clone --quiet . "$$tmp" >/dev/null 2>&1; \
+	if ! git clone --quiet . "$$tmp" >/dev/null 2>&1; then \
+		echo "verify-fresh-clone FAIL — could not clone this repository into $$tmp"; exit 1; \
+	fi; \
 	strippedpath=""; \
 	oldifs="$$IFS"; IFS=':'; \
 	for d in $$PATH; do \

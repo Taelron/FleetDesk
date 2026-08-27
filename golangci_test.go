@@ -170,16 +170,20 @@ func TestMakeLintBootstrapsWithoutPreinstalledGolangciLint(t *testing.T) {
 	}
 }
 
-// checkRecursionGuardEnv prevents infinite recursion: `make verify` runs
-// `go test ./...`, which would otherwise re-run this very test.
-const checkRecursionGuardEnv = "TAE80_MAKE_VERIFY_GUARD"
+// verifyRecursionGuardEnv prevents infinite recursion: `make verify` runs
+// `go test ./...`, which would otherwise re-run this very test. Same value
+// as make_targets_test.go's tae79VerifyGuardEnv, so a nested `make verify`
+// triggered by either test skips both here -- two separate guard values
+// would each cover only their own test, and the two would fan out into
+// each other's uncovered case before both finally settle.
+const verifyRecursionGuardEnv = "TAE79_MAKE_VERIFY_GUARD"
 
 func TestMakeVerifyGreenWithoutPreinstalledGolangciLint(t *testing.T) {
-	if os.Getenv(checkRecursionGuardEnv) != "" {
+	if os.Getenv(verifyRecursionGuardEnv) != "" {
 		t.Skip("nested invocation via `make verify` -> `go test ./...`; skipping to avoid infinite recursion")
 	}
 	env := stripGolangciLintFromPath(t)
-	env = append(env, checkRecursionGuardEnv+"=1")
+	env = append(env, verifyRecursionGuardEnv+"=1")
 	cmd := exec.Command("make", "verify")
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
