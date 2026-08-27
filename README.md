@@ -3,7 +3,7 @@
 [![CI](https://github.com/Gaetan-Jaminon/fleetdesk/actions/workflows/ci.yml/badge.svg)](https://github.com/Gaetan-Jaminon/fleetdesk/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Gaetan-Jaminon/fleetdesk)](https://github.com/Gaetan-Jaminon/fleetdesk/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Gaetan-Jaminon/fleetdesk)](go.mod)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 Manage your entire platform infrastructure from a single TUI.
 VMs, Azure subscriptions, Kubernetes clusters — one tool, one view.
@@ -166,4 +166,4 @@ regression` runs `verify` plus the verification controls — what CI runs.
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE).
