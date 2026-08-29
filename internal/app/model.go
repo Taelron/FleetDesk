@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -194,11 +195,15 @@ type fetchAzureActivityLogMsg struct {
 }
 
 // sudoTestMsg is sent after silently testing whether the SSH password works for sudo.
+// Err is set only when the password could not be delivered safely
+// (ssh.ErrSudoDelivery) — never for a wrong password, which still reports
+// via Success=false.
 type sudoTestMsg struct {
 	Password string
 	Success  bool
 	Retry    tea.Cmd
 	HostIdx  int
+	Err      error
 }
 
 // sudoProbeMsg is sent after testing sudo availability on a host during probe.
@@ -573,6 +578,17 @@ func (m Model) WizardError() error {
 	return m.wizardExitError
 }
 
+// sudoDeliveryErr returns err when it wraps ssh.ErrSudoDelivery (the
+// password could not be delivered safely), else nil — distinguishing that
+// case from a plain wrong-password failure, which msg handlers must keep
+// reporting as "Wrong sudo password".
+func sudoDeliveryErr(err error) error {
+	if errors.Is(err, ssh.ErrSudoDelivery) {
+		return err
+	}
+	return nil
+}
+
 // handleSudoOrFlash checks if err is a sudo password error.
 // If yes: stores the retry closure, then either silently tests the SSH cached password
 // or shows the sudo prompt. Returns the updated model, an optional tea.Cmd, and true.
@@ -598,9 +614,12 @@ func (m Model) handleSudoOrFlash(err error, retry tea.Cmd) (Model, tea.Cmd, bool
 		return m, nil, true
 	}
 
-	// Try the SSH connection password silently if available.
+	// Try the SSH connection password silently if available. The user never
+	// entered it *as* a sudo password, so one sudo -S can't accept (e.g. a
+	// multi-line paste) must not surface as a flash here — skip straight to
+	// the prompt instead of silently testing an undeliverable password.
 	sshPw := m.ssh.GetCachedPassword()
-	if sshPw != "" {
+	if sshPw != "" && ssh.ValidateSudoPassword(sshPw) == nil {
 		m.logger.Debug("sudo trying SSH password silently", "host_idx", idx)
 		sm := m.ssh
 		r := retry
@@ -609,7 +628,7 @@ func (m Model) handleSudoOrFlash(err error, retry tea.Cmd) (Model, tea.Cmd, bool
 			out, runErr := sm.RunSudoCommand(idx, "sudo true")
 			sm.SetSudoPassword(idx, "") // always clear — model Update sets it on success
 			success := runErr == nil && !ssh.IsSudoOutput(out)
-			return sudoTestMsg{Password: sshPw, Success: success, Retry: r, HostIdx: idx}
+			return sudoTestMsg{Password: sshPw, Success: success, Retry: r, HostIdx: idx, Err: sudoDeliveryErr(runErr)}
 		}
 		return m, testCmd, true
 	}
@@ -725,10 +744,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.fetchServices(), m.fetchContainers(), m.fetchUpdates())
 		}
 
-		// Try SSH password silently first
+		// Try SSH password silently first. The user never entered it *as* a
+		// sudo password, so one sudo -S can't accept must not surface as a
+		// flash here — skip straight to the wizard instead.
 		idx := msg.hostIdx
 		sshPw := m.ssh.GetCachedPassword()
-		if sshPw != "" {
+		if sshPw != "" && ssh.ValidateSudoPassword(sshPw) == nil {
 			m.logger.Debug("sudo trying SSH password silently", "host_idx", idx)
 			sm := m.ssh
 			return m, func() tea.Msg {
@@ -739,7 +760,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return sudoWizardResultMsg{hostIdx: idx, success: true}
 				}
 				sm.SetSudoPassword(idx, "") // wrong — clear
-				return sudoWizardResultMsg{hostIdx: idx, success: false}
+				return sudoWizardResultMsg{hostIdx: idx, success: false, err: sudoDeliveryErr(runErr)}
 			}
 		}
 
@@ -766,10 +787,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			out, err := sm.RunSudoCommand(idx, "sudo true")
 			sm.SetSudoPassword(idx, "")
 			success := err == nil && !ssh.IsSudoOutput(out)
-			return sudoWizardResultMsg{hostIdx: idx, password: pw, success: success}
+			return sudoWizardResultMsg{hostIdx: idx, password: pw, success: success, err: sudoDeliveryErr(err)}
 		}
 
 	case sudoWizardResultMsg:
+		if errors.Is(msg.err, ssh.ErrSudoDelivery) {
+			m.flash = msg.err.Error()
+			m.flashError = true
+			m.modal = nil
+			return m, nil
+		}
 		if msg.success {
 			m.modal = nil
 			m.logger.Debug("sudo wizard success", "host_idx", msg.hostIdx)
@@ -1344,6 +1371,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sudoTestMsg:
 		m.logger.Debug("sudo test result", "success", msg.Success, "host_idx", msg.HostIdx)
+		if errors.Is(msg.Err, ssh.ErrSudoDelivery) {
+			m.flash = msg.Err.Error()
+			m.flashError = true
+			m.modal = nil
+			return m, nil
+		}
 		if msg.Success {
 			// Cache sudo password and mark all online hosts as sudo-ready
 			for i := range m.hosts {
@@ -1411,7 +1444,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			out, runErr := sm.RunSudoCommand(idx, "sudo true")
 			sm.SetSudoPassword(idx, "") // clear — sudoTestMsg sets it on success
 			success := runErr == nil && !ssh.IsSudoOutput(out)
-			return sudoTestMsg{Password: pw, Success: success, Retry: retry, HostIdx: idx}
+			return sudoTestMsg{Password: pw, Success: success, Retry: retry, HostIdx: idx, Err: sudoDeliveryErr(runErr)}
 		}
 
 	case sudoCancelledMsg:

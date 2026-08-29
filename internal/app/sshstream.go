@@ -9,6 +9,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/crypto/ssh"
+
+	fdssh "github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
 // SSHStreamConfig configures a generic SSH command stream rendered in-TUI.
@@ -89,7 +91,11 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 		defer func() { _ = session.Close() }()
 
 		// Rewrite sudo if password is cached
-		finalCmd := sm.RewriteSudoInCmd(idx, cmd)
+		finalCmd, sudoStdin, err := sm.RewriteSudoInCmd(idx, cmd)
+		if err != nil {
+			ch <- "ERROR: " + err.Error()
+			return
+		}
 		// Merge stderr so we see errors
 		finalCmd = finalCmd + " 2>&1"
 
@@ -98,6 +104,8 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 			logCmd = "[sudo-rewritten]"
 		}
 		logger.Debug("ssh stream start", "cmd_prefix", logCmd[:min(len(logCmd), 60)])
+
+		session.Stdin = sudoStdin
 
 		stdout, err := session.StdoutPipe()
 		if err != nil {
@@ -127,6 +135,14 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 				*exitCode = exitErr.ExitStatus()
 			} else {
 				*exitCode = -1
+			}
+		}
+		// Only meaningful when the command was actually rewritten (sudoStdin
+		// != nil) — otherwise a plain command that happens to exit 96/97 is
+		// not a sudo delivery failure and must not be reported as one.
+		if sudoStdin != nil {
+			if delivErr := fdssh.SudoDeliveryError(*exitCode); delivErr != nil {
+				ch <- delivErr.Error()
 			}
 		}
 		logger.Debug("ssh stream complete", "exit_code", *exitCode)

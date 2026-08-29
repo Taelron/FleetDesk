@@ -16,10 +16,14 @@ type sudoWizardTestMsg struct {
 }
 
 // sudoWizardResultMsg is sent after the sudo wizard tests the password.
+// err is set only when the password could not be delivered safely
+// (ssh.ErrSudoDelivery) — never for a wrong password, which still reports
+// via success=false.
 type sudoWizardResultMsg struct {
 	hostIdx  int
 	password string
 	success  bool
+	err      error
 }
 
 // NewSudoWizard creates a sudo authentication wizard.
@@ -29,7 +33,7 @@ type sudoWizardResultMsg struct {
 func NewSudoWizard(user, host string, hostIdx int, sshMgr *ssh.Manager) *ModalOverlay {
 	prompt := fmt.Sprintf("Sudo password for %s@%s:", user, host)
 	m := NewModalOverlay("Sudo Authentication", []ModalStep{
-		{Title: prompt, Content: NewMaskedTextInputContent(prompt)},
+		{Title: prompt, Content: NewMaskedTextInputContentWithValidator(prompt, ssh.ValidateSudoPassword)},
 	}, func(results []any) tea.Cmd {
 		pw := results[0].(string)
 		idx := hostIdx

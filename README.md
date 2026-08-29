@@ -170,9 +170,15 @@ regression` runs `verify` plus the verification controls — what CI runs.
 `sshd` and `sudo`, used to verify SSH auth, credential handling, and
 process-visibility behaviour against a real target instead of a mock. See
 [test/testhost/README.md](test/testhost/README.md) for what it provides and
-what it deliberately does not cover; `go test -tags testhost -run
-TestTestHost -v .` runs its acceptance harness. It never runs as part of
-`make verify` or `make regression`.
+what it deliberately does not cover; `make testhost-test` runs its full
+acceptance harness. `make testhost-sudo-ps` and `make
+testhost-verify-sudo-stdin` run TAE-20's sudo-password-delivery measurement
+against it, with output meant to be pasted into a PR as evidence.
+`make testhost-run` launches the TUI against the fixture fleet under an
+isolated `HOME`, never touching `~/.config/fleetdesk`; `make
+testhost-log-scan` then checks that session's logs for the sudo path
+having run and for no fixture password leaking into them. None of this runs
+as part of `make verify` or `make regression`.
 
 ## License
 

@@ -1,7 +1,9 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -16,6 +18,65 @@ import (
 
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
 )
+
+// ErrSudoDelivery is returned when a sudo password cannot be delivered
+// safely to the remote shell — a malformed password (ValidateSudoPassword)
+// or the rewritten command's relay preamble failing on the remote host
+// (SudoDeliveryError). It is never returned for a wrong password; that
+// still fails the way it always has (IsSudoOutput/IsSudoError).
+var ErrSudoDelivery = errors.New("sudo password cannot be delivered safely")
+
+// ValidateSudoPassword rejects a password sudo -S's stdin relay cannot
+// carry: the relay is a single "read -r" line, so an embedded newline,
+// carriage return or NUL would either truncate the password or spill the
+// remainder into the command stream.
+func ValidateSudoPassword(pw string) error {
+	if strings.ContainsAny(pw, "\n\r\x00") {
+		return fmt.Errorf("%w: password contains a line break, which sudo -S cannot accept", ErrSudoDelivery)
+	}
+	return nil
+}
+
+// SudoDeliveryError maps the rewritten command's relay preamble exit codes
+// to ErrSudoDelivery. 96: no password line reached the remote shell before
+// EOF. 97: printf is not a shell builtin on the remote host, so it cannot
+// be trusted to relay the password without exec'ing something that would
+// expose it. Any other status is the wrapped command's own exit code, not
+// a delivery failure.
+//
+// Exported so a caller streaming a rewritten command's own exit code (that
+// path doesn't go through RunSudoCommand, which maps this internally) can
+// distinguish a delivery failure from the wrapped command's own status —
+// applying it only when the caller knows the command was rewritten, so a
+// user command that happens to exit 96 or 97 is never misread.
+func SudoDeliveryError(status int) error {
+	switch status {
+	case 97:
+		return fmt.Errorf("%w: printf is not a shell builtin on the remote host", ErrSudoDelivery)
+	case 96:
+		return fmt.Errorf("%w: no password line reached the remote shell", ErrSudoDelivery)
+	default:
+		return nil
+	}
+}
+
+// sudoDeliveryErrorFromErr extracts the remote exit status from err, if any,
+// and maps it via SudoDeliveryError. Only meaningful when called on the
+// result of a rewritten sudo command — a plain command exiting 96 or 97 on
+// its own has nothing to do with sudo delivery.
+func sudoDeliveryErrorFromErr(err error) error {
+	var exitErr *gossh.ExitError
+	if errors.As(err, &exitErr) {
+		return SudoDeliveryError(exitErr.ExitStatus())
+	}
+	return nil
+}
+
+// sudoStdin returns the sudo password relay's entire stdin contract: one
+// line, then EOF.
+func sudoStdin(pw string) io.Reader {
+	return strings.NewReader(pw + "\n")
+}
 
 // Manager holds persistent SSH connections for all hosts in a fleet.
 type Manager struct {
@@ -124,18 +185,28 @@ func (sm *Manager) GetSudoPassword(idx int) string {
 }
 
 // RunSudoCommand executes a command on the given host, wrapping sudo invocations
-// with password piping if a sudo password is cached for this host.
+// so the cached password is delivered over the session's stdin rather than the
+// command string, if a sudo password is cached for this host.
 // If no sudo password is cached, delegates to RunCommand unchanged.
+//
+// Stdin contract: the session's stdin is exactly the password line the
+// rewritten command's relay reads. A cmd that also needs its own stdin
+// must be given one through a parameter that does not yet exist — the
+// relay consumes the session's stdin before the wrapped command runs.
 func (sm *Manager) RunSudoCommand(idx int, cmd string) (string, error) {
 	pw := sm.GetSudoPassword(idx)
-	if pw != "" {
-		cmd = rewriteSudoCmd(cmd, pw)
+	if pw == "" || !strings.Contains(cmd, "sudo ") {
+		return sm.runCommand(idx, cmd, nil)
 	}
-	out, err := sm.RunCommand(idx, cmd)
-	if pw != "" {
-		out = stripSudoPrompt(out)
+	if err := ValidateSudoPassword(pw); err != nil {
+		return "", err
 	}
-	return out, err
+	rewritten := rewriteSudoCmd(cmd)
+	out, err := sm.runCommand(idx, rewritten, sudoStdin(pw))
+	if delivErr := sudoDeliveryErrorFromErr(err); delivErr != nil {
+		err = delivErr
+	}
+	return stripSudoPrompt(out), err
 }
 
 // stripSudoPrompt removes "[sudo] password for ..." lines from output.
@@ -152,15 +223,52 @@ func stripSudoPrompt(s string) string {
 	return strings.Join(clean, "\n")
 }
 
-// rewriteSudoCmd rewrites every "sudo " occurrence in cmd to pipe the password
-// via stdin. Single quotes in the password are escaped to prevent shell injection.
-func rewriteSudoCmd(cmd string, password string) string {
-	escaped := EscapeSingleQuotes(password)
-	return strings.ReplaceAll(cmd, "sudo ", "echo '"+escaped+"' | sudo -S 2>/dev/null ")
+// sudoPreamble reads exactly one line from the session's stdin into a
+// variable, then verifies printf is a shell builtin before the rewritten
+// command's first use of it — per command, not once at password-test time,
+// because the password cache is fleet-wide and a host may never have been
+// individually tested. IFS= keeps leading/trailing spaces, -r keeps
+// backslashes. Nothing is appended after the wrapped command: an unset
+// would clobber the exit status every caller reads, so the variable simply
+// dies with the shell.
+//
+// The builtin check uses `command -v printf`, not `type printf`: bash
+// localizes `type`'s human-readable output ("printf is a shell builtin" is
+// only the C-locale wording), so a case matching on it silently fails
+// closed on any host whose SSH session sets a non-English LANG — every
+// rewritten sudo command exits 97 there, even though printf really is a
+// builtin. `command -v` prints the bare command name for a builtin and an
+// absolute path otherwise, identically across locales in bash and dash.
+// The property this actually needs is narrower than "is a builtin": it
+// confirms printf is not an external binary, so it can never exec, so the
+// password can never reach an argv. (It also passes for a shell function
+// named printf, which shares that same non-exec property — reaching that
+// requires the remote's non-interactive shell startup to define one, e.g.
+// via BASH_ENV, not an ordinary bashrc.)
+const sudoPreamble = `IFS= read -r FLEETDESK_SUDO_PW || exit 96; case "$(command -v printf)" in printf) ;; *) exit 97;; esac; `
+
+// rewriteSudoCmd rewrites every "sudo " occurrence in cmd into a relay that
+// pipes the password FleetDesk delivers over stdin to sudo -S, via a shell
+// variable rather than the literal password — so the password never
+// appears in the command string, in any argument, or in the environment.
+// cmd is returned unchanged, with no preamble, when it contains no "sudo ".
+func rewriteSudoCmd(cmd string) string {
+	if !strings.Contains(cmd, "sudo ") {
+		return cmd
+	}
+	relay := `printf '%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null `
+	return sudoPreamble + strings.ReplaceAll(cmd, "sudo ", relay)
 }
 
 // RunCommand executes a command on the given host index and returns stdout.
 func (sm *Manager) RunCommand(idx int, cmd string) (string, error) {
+	return sm.runCommand(idx, cmd, nil)
+}
+
+// runCommand is RunCommand's body, plus an optional stdin for the sudo
+// password relay. stdin is left unset on the session when nil, matching
+// RunCommand's behavior exactly.
+func (sm *Manager) runCommand(idx int, cmd string, stdin io.Reader) (string, error) {
 	logPrefix := cmd[:min(len(cmd), 60)]
 	if strings.Contains(cmd, "| sudo -S") {
 		logPrefix = "[sudo-rewritten]"
@@ -181,6 +289,10 @@ func (sm *Manager) RunCommand(idx int, cmd string) (string, error) {
 		return "", fmt.Errorf("new session: %w", err)
 	}
 	defer func() { _ = session.Close() }()
+
+	if stdin != nil {
+		session.Stdin = stdin
+	}
 
 	out, err := session.CombinedOutput(cmd)
 	result := stripShellWarnings(string(out))
@@ -283,14 +395,22 @@ func (sm *Manager) ConnectWithPassword(idx int, h config.Host, password string) 
 	return PasswordRetryResult{Index: idx, Info: info}
 }
 
-// RewriteSudoInCmd rewrites sudo commands with the cached password for the given host.
-// If no password is cached, returns the command unchanged.
-func (sm *Manager) RewriteSudoInCmd(idx int, cmd string) string {
+// RewriteSudoInCmd rewrites sudo commands so the cached password for the
+// given host is delivered over stdin rather than the command string. If no
+// password is cached, or cmd has no "sudo ", returns (cmd, nil, nil)
+// unchanged. If the cached password cannot be delivered safely
+// (ValidateSudoPassword), returns ("", nil, err) before anything is
+// rewritten or sent. Otherwise returns the rewritten command and the
+// reader the caller must set as the session's stdin before starting it.
+func (sm *Manager) RewriteSudoInCmd(idx int, cmd string) (string, io.Reader, error) {
 	pw := sm.GetSudoPassword(idx)
-	if pw == "" {
-		return cmd
+	if pw == "" || !strings.Contains(cmd, "sudo ") {
+		return cmd, nil, nil
 	}
-	return rewriteSudoCmd(cmd, pw)
+	if err := ValidateSudoPassword(pw); err != nil {
+		return "", nil, err
+	}
+	return rewriteSudoCmd(cmd), sudoStdin(pw), nil
 }
 
 // GetConnection returns the SSH client for the given host index, or nil if not connected.
