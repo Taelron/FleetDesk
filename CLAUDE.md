@@ -122,6 +122,9 @@ Testing tiers: **Unit** (parsers, formatters, config) and **UI** (navigation, ke
 bindings, state transitions, rendering — via `teatest`) run in CI. **Integration**
 (real SSH / Azure / K8s) is manual, tracked in Linear.
 
+A disposable sshd/sudo test host for manual integration checks (TAE-98) lives
+under `test/testhost/` — see its README.md; run with `make testhost-up`.
+
 `teatest` UI tests drive a real `tea.Program`:
 
 - Always set an initial term size; use `WaitFor` with a 2s duration; `WaitFinished`

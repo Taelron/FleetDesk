@@ -1,0 +1,30 @@
+# TAE-98: the M2 sshd/sudo test host. See README.md in this directory for
+# what this fixture is for and what it deliberately does not cover.
+#
+# Base image pinned by digest (AC 7) so this fixture never changes underneath
+# a run. Re-derive with:
+#   podman pull registry.access.redhat.com/ubi9/ubi:latest
+#   podman image inspect registry.access.redhat.com/ubi9/ubi:latest --format '{{.Digest}}'
+FROM registry.access.redhat.com/ubi9/ubi@sha256:03b3d228574922e50bc654aea24a213f68467937c5cc001b5786815152d6f4e2
+
+RUN dnf -y install openssh-server sudo procps-ng passwd \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+# Two accounts, both sudo-capable via the stock %wheel rule, each with its
+# own fixed fixture password (AC 3, AC 4). These authenticate nothing but a
+# throwaway local container (TAE-98 D3).
+RUN useradd -m -G wheel testuser1 \
+    && useradd -m -G wheel testuser2 \
+    && echo 'testuser1:th98-testuser1-pw' | chpasswd \
+    && echo 'testuser2:th98-testuser2-pw' | chpasswd
+
+COPY sshd-testhost.conf /etc/ssh/sshd_config.d/99-testhost.conf
+COPY sudoers-testhost /etc/sudoers.d/99-testhost
+COPY subscription-manager /usr/local/bin/subscription-manager
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod 0755 /usr/local/bin/subscription-manager /usr/local/bin/entrypoint.sh \
+    && chmod 0440 /etc/sudoers.d/99-testhost
+
+EXPOSE 22
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

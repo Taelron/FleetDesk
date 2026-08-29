@@ -164,6 +164,16 @@ with no pre-installed `golangci-lint` still passes `make verify`. `make
 regression` runs `verify` plus the verification controls — what CI runs.
 `make help` (or bare `make`) lists every target.
 
+### Test host container
+
+`make testhost-up` builds and starts a disposable Podman container running
+`sshd` and `sudo`, used to verify SSH auth, credential handling, and
+process-visibility behaviour against a real target instead of a mock. See
+[test/testhost/README.md](test/testhost/README.md) for what it provides and
+what it deliberately does not cover; `go test -tags testhost -run
+TestTestHost -v .` runs its acceptance harness. It never runs as part of
+`make verify` or `make regression`.
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).

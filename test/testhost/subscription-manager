@@ -1,0 +1,15 @@
+#!/bin/bash
+# Inert subscription-manager stub (TAE-98 AC 9). It registers nothing: real
+# registration is explicitly out of scope for this fixture (see README.md).
+# It exists only so a command that hands it a credential on stdin has a
+# process to observe in the container's process listing while it runs.
+#
+# Drains stdin until EOF (or a 20s cap, in case a caller never closes it),
+# then holds a couple more seconds regardless of how the caller behaved --
+# a caller that writes and immediately closes stdin (or never opens it at
+# all) still leaves an observable window, not just one that holds stdin
+# open itself (review finding, TAE-98).
+set -euo pipefail
+timeout 20 cat >/dev/null || true
+sleep 2
+exit 0

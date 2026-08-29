@@ -1,0 +1,4 @@
+# Defensive: nothing in the Containerfile COPYs the generated keypair today,
+# but excluding it from the build context means a later `COPY . .` here
+# can never bake private key material into the image (review finding, TAE-98).
+.keys/

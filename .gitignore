@@ -3,3 +3,5 @@ fleetdesk
 dist/
 # bootstrapped tool binaries (golangci-lint), fetched by `make lint`
 bin/
+# TAE-98: generated per-lifecycle SSH keypair for the testhost fixture — never committed
+test/testhost/.keys/
