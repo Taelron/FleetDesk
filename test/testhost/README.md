@@ -26,13 +26,29 @@ by whoever runs it.
 
 ```
 make testhost-up                          # build/start, prints how to reach it
-go test -tags testhost -run TestTestHost -v .
+make testhost-test                        # run every testhost-tagged acceptance test
 make testhost-regen-host-key              # rotate the host key in place
-make testhost-down                        # stop, remove, wipe generated keys
+make testhost-down                        # stop, remove, wipe generated keys and isolated HOME
 ```
 
 The client keypair used for key auth is generated fresh on every
 `testhost-up` into `.keys/` (gitignored) and is never committed.
+
+TAE-20 (sudo password delivered over stdin, never in the command string)
+adds a few narrower targets:
+
+```
+make testhost-sudo-ps               # AC2 evidence: the named resident-command test, -v output to paste into a PR
+make testhost-verify-sudo-stdin     # AC2 evidence: every TAE-20 acceptance test, -v output to paste into a PR
+make testhost-run                   # launch the TUI on the fixture fleet under an isolated HOME
+make testhost-log-scan              # AC6: that session's logs ran the sudo path and carry no fixture password
+```
+
+`testhost-run` sets `HOME` to `test/testhost/.home` for the launched
+process, so both the config it reads (`ConfigPath()`) and the logs it
+writes (`LogDir()`) are relocated there — `~/.config/fleetdesk` is never
+touched, and nothing has to be restored afterward. `.home/` is gitignored
+beside `.keys/` and is wiped by `testhost-down`.
 
 ## What it deliberately does not cover
 

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression testhost-up testhost-down testhost-regen-host-key testhost-test
+.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression testhost-up testhost-down testhost-regen-host-key testhost-test testhost-sudo-ps testhost-verify-sudo-stdin testhost-run testhost-log-scan
 
 # Single pin for golangci-lint, shared by `lint` and `verify` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
@@ -83,6 +83,12 @@ TESTHOST_PORT      := $(shell awk '/^[[:space:]]*port:/ {print $$2; exit}' $(TES
 ifeq ($(strip $(TESTHOST_PORT)),)
 TESTHOST_PORT      := 2222
 endif
+
+# TAE-20 AC 2's acceptance test — measures a resident sudo command via
+# Manager.RunSudoCommand against ps aux + /proc/*/cmdline on the container.
+# Owned by the acceptance suite, not this Makefile; keep in sync if it is
+# renamed or moved.
+TESTHOST_AC2_TEST  := TestTAE20SudoPasswordViaStdinNotInProcessArgsOrEnviron
 
 ##@ General
 
@@ -325,15 +331,70 @@ testhost-up: ## Build/(re)start the TAE-98 sshd test host; prints how to reach i
 	@echo "  ssh -i $(TESTHOST_KEYS_DIR)/client_ed25519 -p $(TESTHOST_PORT) testuser1@127.0.0.1   (or password: th98-testuser1-pw)"
 	@echo "  ssh -p $(TESTHOST_PORT) testuser2@127.0.0.1   (password: th98-testuser2-pw)"
 
-testhost-down: ## Stop/remove the TAE-98 test host and wipe its generated keys
+testhost-down: ## Stop/remove the TAE-98 test host and wipe its generated keys and isolated HOME
 	@podman rm -f $(TESTHOST_CONTAINER) >/dev/null 2>&1 || true
-	@rm -rf $(TESTHOST_KEYS_DIR)
+	@rm -rf $(TESTHOST_KEYS_DIR) $(TESTHOST_DIR)/.home
 
 testhost-regen-host-key: ## Delete and regenerate the TAE-98 test host's SSH host keys in place
 	@podman exec $(TESTHOST_CONTAINER) sh -c 'rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && kill -HUP 1'
 
-testhost-test: ## Run the TAE-98 acceptance harness (requires Podman; starts/stops the fixture itself)
-	go test -tags testhost -run TestTestHost -v .
+# go test -run matching nothing exits 0, so an exit code alone is not
+# evidence that a target's subject ran — testhost-test and testhost-sudo-ps
+# both capture -v output to a file, then assert a `--- PASS:` line for the
+# named subject is actually present in it, not just that go test succeeded.
+#
+# The output file lives directly under $(TESTHOST_DIR), not under
+# $(TESTHOST_DIR)/.home: testhost_container_test.go's TestMain runs
+# `make testhost-down` itself once the testhost-tagged tests finish, inside
+# the very same `go test` invocation these targets shell out to, and
+# testhost-down wipes .home/. A file written under .home/ by this recipe
+# would be deleted by that nested teardown before the recipe's own cat/grep
+# below ever runs.
+
+testhost-test: ## Run every testhost-tagged acceptance test (requires Podman; starts/stops the fixture itself)
+	@go test -tags testhost -count=1 -v ./... >$(TESTHOST_DIR)/testhost-test.out 2>&1; status=$$?; \
+	cat $(TESTHOST_DIR)/testhost-test.out; \
+	if [ $$status -ne 0 ]; then echo "testhost-test FAIL — go test exited $$status"; exit 1; fi; \
+	if ! grep -q -- '--- PASS: TestTestHost' $(TESTHOST_DIR)/testhost-test.out; then \
+		echo "testhost-test FAIL — no '--- PASS: TestTestHost' line; the testhost tag likely did not compile, or TAE-98's harness did not run, so this may have exited 0 having tested nothing tagged testhost"; \
+		exit 1; \
+	fi
+
+testhost-sudo-ps: ## TAE-20 AC2 — resident sudo command; ps aux + /proc/*/cmdline must show no password
+	@go test -tags testhost -count=1 -run '^$(TESTHOST_AC2_TEST)$$' -v . >$(TESTHOST_DIR)/sudo-ps.out 2>&1; status=$$?; \
+	cat $(TESTHOST_DIR)/sudo-ps.out; \
+	if [ $$status -ne 0 ]; then echo "testhost-sudo-ps FAIL — go test exited $$status"; exit 1; fi; \
+	if ! grep -q -- "--- PASS: $(TESTHOST_AC2_TEST)" $(TESTHOST_DIR)/sudo-ps.out; then \
+		echo "testhost-sudo-ps FAIL — the AC 2 acceptance test '$(TESTHOST_AC2_TEST)' did not run — renamed, moved, or TESTHOST_AC2_TEST is wrong; go test -run matching nothing exits 0"; \
+		exit 1; \
+	fi
+
+testhost-verify-sudo-stdin: ## Run every TAE-20 acceptance test against the fixture; output goes in the PR (TAE-20 AC2)
+	@go test -tags testhost -count=1 -run TestTAE20 -v . >$(TESTHOST_DIR)/tae20.out 2>&1; status=$$?; \
+	cat $(TESTHOST_DIR)/tae20.out; \
+	if [ $$status -ne 0 ]; then echo "testhost-verify-sudo-stdin FAIL — go test exited $$status"; exit 1; fi; \
+	if ! grep -q -- '--- PASS: TestTAE20' $(TESTHOST_DIR)/tae20.out; then \
+		echo "testhost-verify-sudo-stdin FAIL — no '--- PASS: TestTAE20' line; the testhost tag likely did not compile, or the -run pattern matched nothing"; \
+		exit 1; \
+	fi
+
+testhost-run: ## Launch the TUI on the TAE-98 fixture fleet under an isolated HOME (never touches ~/.config/fleetdesk)
+	@$(MAKE) testhost-up
+	@mkdir -p $(TESTHOST_DIR)/.home/.config/fleetdesk
+	@echo 'fleet_dir: $(CURDIR)/$(TESTHOST_DIR)' > $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml
+	HOME=$(CURDIR)/$(TESTHOST_DIR)/.home go run . --debug
+
+testhost-log-scan: ## TAE-20 AC6 — the isolated testhost-run session's logs carry no fixture password
+	@log=$(TESTHOST_DIR)/.home/.local/share/fleetdesk/debug.log; \
+	if [ ! -f "$$log" ]; then echo "testhost-log-scan FAIL — $$log does not exist; run testhost-run first"; exit 1; fi; \
+	if ! grep -q 'cmd_prefix=\[sudo-rewritten\]' "$$log"; then \
+		echo "testhost-log-scan FAIL — $$log exists but shows no sudo command ran with a cached password (no cmd_prefix=[sudo-rewritten] line); the session this scans must exercise the sudo path"; \
+		exit 1; \
+	fi; \
+	if leak=$$(grep -rl -e 'th98-testuser1-pw' -e 'th98-testuser2-pw' $(TESTHOST_DIR)/.home/.local/share/fleetdesk/ 2>/dev/null); then \
+		echo "testhost-log-scan FAIL — a fixture password appears in:"; printf '%s\n' "$$leak"; exit 1; \
+	fi
+	@echo "testhost-log-scan OK — sudo path exercised, no fixture password found in any log"
 
 ##@ Regression gate
 

@@ -1,0 +1,60 @@
+Commit 8db1bdb6339fd681d29b4898eb17501c02f8e8dc, 2026-08-29T03:47:13Z -- go test -tags testhost -run TestTAE20 -v .
+
+=== RUN   TestTAE20SudoPasswordViaStdinNotInProcessArgsOrEnviron
+    testhost_sudo_stdin_test.go:168: expected the sudo password to never appear in `ps aux` while the sudo-prefixed command is resident (TAE-20 AC1/AC2); it did:
+        USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+        root           1  0.0  0.0  11780  7584 ?        Ss   03:47   0:00 sshd: /usr/sbin/sshd -D -e [listener] 0 of 10-100 startups
+        root          16  0.0  0.0  17704 11520 ?        Ss   03:47   0:00 sshd-session: testuser1 [priv]
+        testuse+      20  0.0  0.0  17964  7616 ?        S    03:47   0:00 sshd-session: testuser1@notty
+        testuse+     101  0.0  0.0   4596  3472 ?        Ss   03:48   0:00 bash -c echo 'th98-testuser1-pw' | sudo -S 2>/dev/null bash -c 'M=fleetdesk_tae20_marker_1787975286186451163; sleep 6'
+        root         113  0.0  0.0  19352  9064 ?        S    03:48   0:00 sudo -S bash -c M=fleetdesk_tae20_marker_1787975286186451163; sleep 6
+        root         117  0.0  0.0   5344  2792 ?        S    03:48   0:00 /usr/bin/coreutils --coreutils-prog-shebang=sleep /bin/sleep 6
+        root         118  0.0  0.0   7060  3136 ?        Rs   03:48   0:00 ps aux
+    testhost_sudo_stdin_test.go:171: expected the sudo password to never appear in any process's /proc/*/cmdline while resident (TAE-20 AC1/AC2 -- 'does not appear in the command string, in any argument'); it did:
+        sshd: /usr/sbin/sshd -D -e [listener] 0 of 10-100 startups 
+        bash -c echo 'th98-testuser1-pw' | sudo -S 2>/dev/null bash -c 'M=fleetdesk_tae20_marker_1787975286186451163; sleep 6' 
+        sudo -S bash -c M=fleetdesk_tae20_marker_1787975286186451163; sleep 6 
+        /usr/bin/coreutils --coreutils-prog-shebang=sleep /bin/sleep 6 
+        sh -c for f in /proc/[0-9]*/cmdline; do tr '\0' ' ' < "$f" 2>/dev/null; echo; done 
+        sshd-session: testuser1 [priv]             
+        sshd-session: testuser1@notty              
+--- FAIL: TestTAE20SudoPasswordViaStdinNotInProcessArgsOrEnviron (51.77s)
+=== RUN   TestTAE20MakeTargetRunsSudoStdinMeasurement
+    testhost_sudo_stdin_test.go:208: expected a Make target whose recipe runs `go test -tags testhost -run TestTAE20 ...` so the AC2 measurement runs via a Make target and its output can go in the PR (TAE-20 AC2); none of the 19 targets in Makefile do
+--- FAIL: TestTAE20MakeTargetRunsSudoStdinMeasurement (0.00s)
+=== RUN   TestTAE20BothEntryPointsHandleMultipleSudoOccurrences
+    testhost_sudo_stdin_test.go:243: expected none of a command's multiple `sudo ` occurrences to leak the password via RunSudoCommand (TAE-20 AC3 -- 'each must work'); ps:
+        USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+        root           1  0.0  0.0  11780  7588 ?        Ss   03:47   0:00 sshd: /usr/sbin/sshd -D -e [listener] 0 of 10-100 startups
+        root         135  0.0  0.0  17704 11680 ?        Ss   03:48   0:00 sshd-session: testuser1 [priv]
+        testuse+     139  0.0  0.0  17964  7680 ?        S    03:48   0:00 sshd-session: testuser1@notty
+        testuse+     200  0.0  0.0   4596  3416 ?        Ss   03:48   0:00 bash -c echo 'th98-testuser1-pw' | sudo -S 2>/dev/null true && echo 'th98-testuser1-pw' | sudo -S 2>/dev/null true && echo 'th98-testuser1-pw' | sudo -S 2>/dev/null true && echo 'th98-testuser1-pw' | sudo -S 2>/dev/null bash -c 'M=fleetdesk_tae20_multi_marker_1787975293858686631; sleep 6'
+        root         218  0.0  0.0  19220  8460 ?        S    03:48   0:00 sudo -S true
+        root         219  0.0  0.0   7060  3104 ?        Rs   03:48   0:00 ps aux
+        root         220  0.0  0.0   3948  2468 ?        R    03:48   0:00 /usr/sbin/unix_chkpwd testuser1 nullok
+        
+        cmdlines:
+        sshd: /usr/sbin/sshd -D -e [listener] 0 of 10-100 startups 
+        sshd-session: testuser1 [priv]             
+        sshd-session: testuser1@notty              
+        bash -c echo 'th98-testuser1-pw' | sudo -S 2>/dev/null true && echo 'th98-testuser1-pw' | sudo -S 2>/dev/null true && echo 'th98-testuser1-pw' | sudo -S 2>/dev/null true && echo 'th98-testuser1-pw' | sudo -S 2>/dev/null bash -c 'M=fleetdesk_tae20_multi_marker_1787975293858686631; sleep 6' 
+        sudo -S bash -c M=fleetdesk_tae20_multi_marker_1787975293858686631; sleep 6 
+        /usr/bin/coreutils --coreutils-prog-shebang=sleep /bin/sleep 6 
+        sh -c for f in /proc/[0-9]*/cmdline; do tr '\0' ' ' < "$f" 2>/dev/null; echo; done 
+    testhost_sudo_stdin_test.go:267: expected RewriteSudoInCmd to never place the password in the returned command string, at 1 `sudo ` occurrences (TAE-20 AC1/AC3): "echo 'th98-testuser1-pw' | sudo -S 2>/dev/null cmd0"
+    testhost_sudo_stdin_test.go:267: expected RewriteSudoInCmd to never place the password in the returned command string, at 2 `sudo ` occurrences (TAE-20 AC1/AC3): "echo 'th98-testuser1-pw' | sudo -S 2>/dev/null cmd0; echo 'th98-testuser1-pw' | sudo -S 2>/dev/null cmd1"
+    testhost_sudo_stdin_test.go:267: expected RewriteSudoInCmd to never place the password in the returned command string, at 4 `sudo ` occurrences (TAE-20 AC1/AC3): "echo 'th98-testuser1-pw' | sudo -S 2>/dev/null cmd0; echo 'th98-testuser1-pw' | sudo -S 2>/dev/null cmd1; echo 'th98-testuser1-pw' | sudo -S 2>/dev/null cmd2; echo 'th98-testuser1-pw' | sudo -S 2>/dev/null cmd3"
+--- FAIL: TestTAE20BothEntryPointsHandleMultipleSudoOccurrences (7.80s)
+=== RUN   TestTAE20CallSitesRouteThroughEntryPoints
+--- PASS: TestTAE20CallSitesRouteThroughEntryPoints (0.00s)
+=== RUN   TestTAE20WrongSudoPasswordFailsAndMessageOmitsPassword
+--- PASS: TestTAE20WrongSudoPasswordFailsAndMessageOmitsPassword (3.58s)
+=== RUN   TestTAE20NoAppLayerCallSiteClaimsSessionStdin
+--- PASS: TestTAE20NoAppLayerCallSiteClaimsSessionStdin (0.02s)
+=== RUN   TestTAE20ConnectionUsableForFreshStdinAfterSudoDelivery
+--- PASS: TestTAE20ConnectionUsableForFreshStdinAfterSudoDelivery (1.68s)
+=== RUN   TestTAE20NoLogLineContainsPasswordAtDebugLevel
+--- PASS: TestTAE20NoLogLineContainsPasswordAtDebugLevel (1.69s)
+FAIL
+FAIL	github.com/Gaetan-Jaminon/fleetdesk	68.863s
+FAIL

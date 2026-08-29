@@ -188,6 +188,13 @@ func NewMaskedTextInputContent(prompt string) StepContent {
 	return &TextInputContent{prompt: prompt, masked: true}
 }
 
+// NewMaskedTextInputContentWithValidator creates a masked text input step
+// that rejects a value at capture — before it is ever cached or sent —
+// showing validate's error inline under the field.
+func NewMaskedTextInputContentWithValidator(prompt string, validate func(string) error) StepContent {
+	return &TextInputContent{prompt: prompt, masked: true, validate: validate}
+}
+
 // HandleKey implements StepContent for TextInputContent.
 func (t *TextInputContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool) {
 	switch msg.Type {

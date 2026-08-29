@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
 // --- Message types for modal prompt results ---
@@ -68,7 +70,7 @@ func NewPasswordModal(user, host string, hostIdx int) *ModalOverlay {
 func NewSudoModal(user, host string, hostIdx int, retry tea.Cmd) *ModalOverlay {
 	prompt := fmt.Sprintf("Sudo password for %s:", user)
 	m := NewModalOverlay("Sudo Password", []ModalStep{
-		{Title: prompt, Content: NewMaskedTextInputContent(prompt)},
+		{Title: prompt, Content: NewMaskedTextInputContentWithValidator(prompt, ssh.ValidateSudoPassword)},
 	}, func(results []any) tea.Cmd {
 		pw := results[0].(string)
 		idx := hostIdx

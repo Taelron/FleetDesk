@@ -5,3 +5,9 @@ dist/
 bin/
 # TAE-98: generated per-lifecycle SSH keypair for the testhost fixture — never committed
 test/testhost/.keys/
+# TAE-20: isolated HOME for `make testhost-run` (config + logs) — never committed
+test/testhost/.home/
+# TAE-20: testhost-test/testhost-sudo-ps/testhost-verify-sudo-stdin evidence output — never committed
+test/testhost/testhost-test.out
+test/testhost/sudo-ps.out
+test/testhost/tae20.out

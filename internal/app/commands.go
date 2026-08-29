@@ -617,9 +617,9 @@ func (m Model) fetchSubscription() func() tea.Msg {
 			`done; wait`
 		out, err := sm.RunSudoCommand(idx, cmd)
 		// Check for sudo password prompt only when no sudo password is cached.
-		// When cached, the rewritten command's "echo pw | sudo -S" still outputs
-		// "[sudo] password for" to stdout (2>&1 overrides 2>/dev/null), so
-		// IsSudoOutput would false-positive on a successful run.
+		// When cached, the rewritten command's stdin-relayed "| sudo -S" still
+		// outputs "[sudo] password for" to stdout (2>&1 overrides 2>/dev/null),
+		// so IsSudoOutput would false-positive on a successful run.
 		if sm.GetSudoPassword(idx) == "" && ssh.IsSudoOutput(out) {
 			return fetchSubscriptionMsg{err: fmt.Errorf("%w", ssh.ErrSudoRequired)}
 		}
