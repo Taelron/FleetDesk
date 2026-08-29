@@ -1,0 +1,64 @@
+Commit: f09107ed5e1bb8038b1ecc034c731f6621aac15f
+Date: 2026-08-29T01:57:36Z
+Command: go test -tags testhost -run TestTestHost -v .
+
+=== RUN   TestTestHostFleetFileExistsAndParses
+    testhost_container_test.go:216: expected a fleet file at test/testhost/fleet.yaml for the test host, so verification does not depend on one written by hand (TAE-98 AC2): reading file: open test/testhost/fleet.yaml: no such file or directory
+--- FAIL: TestTestHostFleetFileExistsAndParses (0.00s)
+=== RUN   TestTestHostContainerfileBaseImagePinnedByDigest
+    testhost_container_test.go:242: read test/testhost/Containerfile (TAE-98 AC7): open test/testhost/Containerfile: no such file or directory
+--- FAIL: TestTestHostContainerfileBaseImagePinnedByDigest (0.00s)
+=== RUN   TestTestHostNoKeyMaterialCommitted
+    testhost_container_test.go:277: expected test/testhost/.keys/client_ed25519 to be gitignored so a generated key can never be accidentally committed (TAE-98 AC8): git check-ignore did not confirm it: exit status 1
+--- FAIL: TestTestHostNoKeyMaterialCommitted (0.01s)
+=== RUN   TestTestHostDocumentationDescribesPurposeAndScope
+    testhost_container_test.go:286: expected documentation describing the container's purpose and scope at test/testhost/README.md (TAE-98 AC10): open test/testhost/README.md: no such file or directory
+--- FAIL: TestTestHostDocumentationDescribesPurposeAndScope (0.00s)
+=== RUN   TestTestHostUpPrintsConnectionInfoMatchingFleetFile
+    testhost_container_test.go:305: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostUpPrintsConnectionInfoMatchingFleetFile (0.00s)
+=== RUN   TestTestHostPasswordAuthWorks
+    testhost_container_test.go:327: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostPasswordAuthWorks (0.00s)
+=== RUN   TestTestHostPublicKeyAuthWorks
+    testhost_container_test.go:341: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostPublicKeyAuthWorks (0.00s)
+=== RUN   TestTestHostSudoRequiresPassword
+    testhost_container_test.go:367: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostSudoRequiresPassword (0.00s)
+=== RUN   TestTestHostSudoPasswordDiffersBetweenAccounts
+    testhost_container_test.go:380: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostSudoPasswordDiffersBetweenAccounts (0.00s)
+=== RUN   TestTestHostCommandRunOverSSHVisibleInProcessListFromHost
+    testhost_container_test.go:395: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostCommandRunOverSSHVisibleInProcessListFromHost (0.00s)
+=== RUN   TestTestHostSubscriptionManagerStubInertAndObservable
+    testhost_container_test.go:429: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostSubscriptionManagerStubInertAndObservable (0.00s)
+=== RUN   TestTestHostRegenerateHostKeyChangesFingerprint
+    testhost_container_test.go:481: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostRegenerateHostKeyChangesFingerprint (0.00s)
+=== RUN   TestTestHostDownStopsAndRemovesContainer
+    testhost_container_test.go:505: testhost-up did not succeed, so this container-dependent check cannot run (TAE-98 AC1): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostDownStopsAndRemovesContainer (0.00s)
+=== RUN   TestTestHostKeypairGeneratedOnFirstStart
+    testhost_container_test.go:536: testhost-down before first-start check (best effort, container may already be absent): exit status 2
+        make: *** No rule to make target 'testhost-down'.  Stop.
+    testhost_container_test.go:541: make testhost-up (TAE-98 AC1/AC8): exit status 2
+        make: *** No rule to make target 'testhost-up'.  Stop.
+--- FAIL: TestTestHostKeypairGeneratedOnFirstStart (0.00s)
+FAIL
+testhost_container_test.go: testhost-down cleanup failed: exit status 2
+make: *** No rule to make target 'testhost-down'.  Stop.
+
+FAIL	github.com/Gaetan-Jaminon/fleetdesk	0.038s
+FAIL
