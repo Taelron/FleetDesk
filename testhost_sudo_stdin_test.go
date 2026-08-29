@@ -384,13 +384,31 @@ func TestTAE20NoAppLayerCallSiteClaimsSessionStdin(t *testing.T) {
 			}
 		}
 	}
-	// The issue states this set is empty today: "No call site sets
-	// session.Stdin today, so AC 5's conflict set is currently empty." This
-	// is that assumption, held as a canary -- if a call site starts setting
-	// a session's Stdin without the sudo password mechanism accounting for
-	// it, that conflict must be identifiable, not discovered later.
-	if len(offenders) != 0 {
-		t.Errorf("expected no internal/app call site to set a session's Stdin (TAE-20 AC5 -- the issue's stated current baseline is zero); found %d, which now conflicts with the sudo password's stdin delivery and needs a deliberate resolution, not a silent one:\n%s", len(offenders), strings.Join(offenders, "\n"))
+
+	// The issue's stated baseline ("No call site sets session.Stdin today,
+	// so AC 5's conflict set is currently empty") holds only until the fix
+	// itself claims session.Stdin to deliver the sudo password -- per the
+	// approved plan (D2/D3'), that is sshstream.go's streaming entry point,
+	// and nowhere else. So the canary now allows exactly one occurrence,
+	// and only in that file: the mechanism itself is not a conflict: a
+	// second, unrelated call site claiming the same session's stdin is
+	// exactly the conflict AC5 says must be identifiable, not discovered
+	// later.
+	const sudoDeliverySite = "internal/app/sshstream.go"
+	var unexpected []string
+	sudoDeliveryCount := 0
+	for _, o := range offenders {
+		if strings.HasPrefix(o, sudoDeliverySite+":") {
+			sudoDeliveryCount++
+			continue
+		}
+		unexpected = append(unexpected, o)
+	}
+	if len(unexpected) != 0 {
+		t.Errorf("expected no internal/app call site outside %s's sudo-password stdin delivery to set a session's Stdin (TAE-20 AC5); found %d that do, which now conflict with sudo's stdin delivery and need a deliberate resolution, not a silent one:\n%s", sudoDeliverySite, len(unexpected), strings.Join(unexpected, "\n"))
+	}
+	if sudoDeliveryCount != 1 {
+		t.Errorf("expected exactly one session.Stdin assignment in %s -- the sudo password's own stdin delivery for the streaming entry point (TAE-20 AC1/AC5, RewriteSudoInCmd's D3' reader consumed at sshstream.go:92-94-shaped call site); found %d", sudoDeliverySite, sudoDeliveryCount)
 	}
 }
 
