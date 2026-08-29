@@ -253,16 +253,19 @@ func TestTAE20BothEntryPointsHandleMultipleSudoOccurrences(t *testing.T) {
 	}
 
 	// RewriteSudoInCmd is the second entry point (used by the streaming call
-	// sites, sshstream.go:92). It returns the rewritten string directly, so
-	// this half needs no container round trip -- just no password left in
-	// what it hands back, at 1, 2, and 4 occurrences.
+	// sites, sshstream.go:92). Per the approved plan's D3', it returns
+	// (string, io.Reader, error); this test only pins the command-string
+	// half of that contract -- no password left in what it hands back, at
+	// 1, 2, and 4 occurrences -- and leaves the reader/error contract to
+	// whatever the implementation lands, so this needs no container round
+	// trip either.
 	for _, n := range []int{1, 2, 4} {
 		parts := make([]string, n)
 		for i := range parts {
 			parts[i] = fmt.Sprintf("sudo cmd%d", i)
 		}
 		multi := strings.Join(parts, "; ")
-		rewritten := sm.RewriteSudoInCmd(0, multi)
+		rewritten, _, _ := sm.RewriteSudoInCmd(0, multi)
 		if strings.Contains(rewritten, testUser1Password) {
 			t.Errorf("expected RewriteSudoInCmd to never place the password in the returned command string, at %d `sudo ` occurrences (TAE-20 AC1/AC3): %q", n, rewritten)
 		}
