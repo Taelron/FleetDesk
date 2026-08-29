@@ -266,6 +266,7 @@ func TestTestHostNoKeyMaterialCommitted(t *testing.T) {
 		"-e", "BEGIN RSA PRIVATE KEY",
 		"-e", "BEGIN EC PRIVATE KEY",
 		"-e", "BEGIN PRIVATE KEY",
+		"--", ".", ":!testhost_container_test.go", // else this test's own source, which names the patterns literally, always matches itself
 	).CombinedOutput()
 	if err == nil {
 		t.Errorf("expected no committed private key material (TAE-98 AC8); git grep found matches in:\n%s", out)
@@ -402,11 +403,18 @@ func TestTestHostCommandRunOverSSHVisibleInProcessListFromHost(t *testing.T) {
 	}
 	defer func() { _ = session.Close() }()
 
+	// A resident bash loop, not `exec -a <marker> sleep`: this image's
+	// /usr/bin/sleep is a shebang wrapper around a multicall coreutils
+	// binary, so the kernel's shebang exec rewrites argv on the way in and
+	// any argv0 rename is lost before ps ever sees it -- verified
+	// empirically. A `while` loop can never be bash's tail call, so bash
+	// itself stays resident and its own argv (which the marker lives in)
+	// is never rewritten.
 	marker := fmt.Sprintf("fleetdesk_tae98_marker_%d", time.Now().UnixNano())
-	if err := session.Start(fmt.Sprintf("bash -c 'exec -a %s sleep 30'", marker)); err != nil {
+	if err := session.Start(fmt.Sprintf("bash -c 'M=%s; while :; do sleep 2; done'", marker)); err != nil {
 		t.Fatalf("start marked background command over SSH (TAE-98 AC6): %v", err)
 	}
-	defer func() { _ = session.Signal(ssh.SIGTERM) }()
+	defer func() { _ = session.Signal(ssh.SIGTERM) }() // best effort: signal forwarding is not universally supported by sshd; testhost-down is the real cleanup
 
 	var psOut []byte
 	found := false
@@ -447,7 +455,12 @@ func TestTestHostSubscriptionManagerStubInertAndObservable(t *testing.T) {
 	var psOut []byte
 	found := false
 	for range 20 {
-		psOut, err = exec.Command("podman", "exec", containerName, "ps", "-eo", "comm").CombinedOutput()
+		// `-eo args` (full argv), not `comm`: Linux's TASK_COMM_LEN caps comm
+		// at 15 usable characters, so "subscription-manager" (21 chars)
+		// always truncates to "subscription-ma" there regardless of how the
+		// stub is invoked -- verified empirically against a script under
+		// this exact name.
+		psOut, err = exec.Command("podman", "exec", containerName, "ps", "-eo", "args").CombinedOutput()
 		if err == nil && strings.Contains(string(psOut), "subscription-manager") {
 			found = true
 			break
