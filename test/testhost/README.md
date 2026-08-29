@@ -16,8 +16,9 @@ by whoever runs it.
   password-only.
 - A host key that can be regenerated on demand, in place, while the
   container keeps running (`make testhost-regen-host-key`).
-- An inert `subscription-manager` stub on `PATH`: it reads stdin, holds, and
-  exits 0. It registers nothing.
+- An inert `subscription-manager` stub on `PATH`: it drains stdin (or a 20s
+  cap), then holds a couple seconds more regardless of how it was called,
+  before exiting 0. It registers nothing.
 - A committed fleet file (`fleet.yaml`) pointing at the container, so
   verification never depends on a fleet file someone typed by hand.
 

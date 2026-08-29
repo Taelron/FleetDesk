@@ -74,7 +74,12 @@ TESTHOST_DIR       := test/testhost
 TESTHOST_KEYS_DIR  := $(TESTHOST_DIR)/.keys
 TESTHOST_IMAGE     := fleetdesk-testhost
 TESTHOST_CONTAINER := fleetdesk-testhost
-TESTHOST_PORT      := 2222
+# Read, not duplicated: the committed fleet file is the single source of
+# truth for the port testhost-up publishes, so the two can never disagree
+# (review R4). Falls back to 2222 only if fleet.yaml is ever unparseable by
+# this simple awk, which the acceptance harness's own parse would already
+# have caught.
+TESTHOST_PORT      := $(shell awk '/^[[:space:]]*port:/ {print $$2; exit}' $(TESTHOST_DIR)/fleet.yaml 2>/dev/null)
 
 ##@ General
 
@@ -294,19 +299,25 @@ verify-license: ## TAE-93: LICENSE is canonical Apache-2.0 plus the copyright li
 ##@ Test host (M2 fixture, TAE-98)
 
 testhost-up: ## Build/(re)start the TAE-98 sshd test host; prints how to reach it
+	@podman build -q -t $(TESTHOST_IMAGE) $(TESTHOST_DIR) >/dev/null
 	@rm -rf $(TESTHOST_KEYS_DIR)
 	@mkdir -p $(TESTHOST_KEYS_DIR)
 	@ssh-keygen -q -t ed25519 -N '' -f $(TESTHOST_KEYS_DIR)/client_ed25519
-	@podman build -q -t $(TESTHOST_IMAGE) $(TESTHOST_DIR) >/dev/null
 	@podman rm -f $(TESTHOST_CONTAINER) >/dev/null 2>&1 || true
 	@podman run -d --name $(TESTHOST_CONTAINER) \
 		-p 127.0.0.1:$(TESTHOST_PORT):22 \
 		-v $(CURDIR)/$(TESTHOST_KEYS_DIR)/client_ed25519.pub:/run/testhost/client_ed25519.pub:ro,Z \
 		$(TESTHOST_IMAGE) >/dev/null
-	@for i in $$(seq 1 40); do \
-		if ssh-keyscan -p $(TESTHOST_PORT) -T 1 127.0.0.1 2>/dev/null | grep -q .; then break; fi; \
+	@ready=0; \
+	for i in $$(seq 1 40); do \
+		if ssh-keyscan -p $(TESTHOST_PORT) -T 1 127.0.0.1 2>/dev/null | grep -q .; then ready=1; break; fi; \
 		sleep 0.5; \
-	done
+	done; \
+	if [ "$$ready" -ne 1 ]; then \
+		echo "testhost-up FAIL — $(TESTHOST_CONTAINER) did not accept SSH connections within 20s; container/entrypoint logs:"; \
+		podman logs $(TESTHOST_CONTAINER) 2>&1 | sed 's/^/    | /'; \
+		exit 1; \
+	fi
 	@echo "fleetdesk-testhost ready — fleet file: $(TESTHOST_DIR)/fleet.yaml"
 	@echo "  ssh -i $(TESTHOST_KEYS_DIR)/client_ed25519 -p $(TESTHOST_PORT) testuser1@127.0.0.1   (or password: th98-testuser1-pw)"
 	@echo "  ssh -p $(TESTHOST_PORT) testuser2@127.0.0.1   (password: th98-testuser2-pw)"
@@ -316,7 +327,7 @@ testhost-down: ## Stop/remove the TAE-98 test host and wipe its generated keys
 	@rm -rf $(TESTHOST_KEYS_DIR)
 
 testhost-regen-host-key: ## Delete and regenerate the TAE-98 test host's SSH host keys in place
-	podman exec $(TESTHOST_CONTAINER) sh -c 'rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && kill -HUP 1'
+	@podman exec $(TESTHOST_CONTAINER) sh -c 'rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && kill -HUP 1'
 
 testhost-test: ## Run the TAE-98 acceptance harness (requires Podman; starts/stops the fixture itself)
 	go test -tags testhost -run TestTestHost -v .

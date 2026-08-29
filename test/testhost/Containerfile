@@ -20,9 +20,11 @@ RUN useradd -m -G wheel testuser1 \
     && echo 'testuser2:th98-testuser2-pw' | chpasswd
 
 COPY sshd-testhost.conf /etc/ssh/sshd_config.d/99-testhost.conf
+COPY sudoers-testhost /etc/sudoers.d/99-testhost
 COPY subscription-manager /usr/local/bin/subscription-manager
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod 0755 /usr/local/bin/subscription-manager /usr/local/bin/entrypoint.sh
+RUN chmod 0755 /usr/local/bin/subscription-manager /usr/local/bin/entrypoint.sh \
+    && chmod 0440 /etc/sudoers.d/99-testhost
 
 EXPOSE 22
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

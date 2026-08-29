@@ -1,0 +1,6 @@
+# Force a password on every sudo, not just the first in a session (AC 4).
+# Without this, sudo's default credential cache lets a second `sudo -n`
+# within a short window succeed with no password at all, which would let a
+# FleetDesk path that fails to deliver the sudo password pass anyway
+# whenever it reuses a session (review finding, TAE-98/TAE-89).
+Defaults timestamp_timeout=0
