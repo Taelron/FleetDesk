@@ -1,0 +1,15 @@
+# TAE-98: committed fleet file for the M2 sshd test host. One container
+# published on 127.0.0.1:2222 presents as two fleet hosts, one per test
+# account, which is the shape TAE-89's cross-host sudo-password check needs.
+# No credential and no secret name lives here.
+name: fleetdesk-testhost
+type: vm
+defaults:
+  port: 2222
+hosts:
+  - name: testhost-testuser1
+    hostname: 127.0.0.1
+    user: testuser1
+  - name: testhost-testuser2
+    hostname: 127.0.0.1
+    user: testuser2

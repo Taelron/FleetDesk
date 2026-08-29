@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression
+.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression testhost-up testhost-down testhost-regen-host-key testhost-test
 
 # Single pin for golangci-lint, shared by `lint` and `verify` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
@@ -63,6 +63,18 @@ LICENSE_PLACEHOLDER      := Copyright [yyyy] [name of copyright owner]
 # automated target added later joins regression" becomes a one-variable
 # edit (TAE-83's guard is exactly that edit).
 REGRESSION_CONTROLS := verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license verify-fresh-clone verify-fresh-clone-abort
+
+# TAE-98 test host fixture. Deliberately NOT added to REGRESSION_CONTROLS:
+# joining would make every machine's `regression` require rootless Podman
+# and start containers on each invocation (D4) — the integration tier is
+# TAE-99's to design. The `testhost` Go build tag on
+# testhost_container_test.go keeps `make test`/`verify`/`regression` from
+# ever compiling the harness.
+TESTHOST_DIR       := test/testhost
+TESTHOST_KEYS_DIR  := $(TESTHOST_DIR)/.keys
+TESTHOST_IMAGE     := fleetdesk-testhost
+TESTHOST_CONTAINER := fleetdesk-testhost
+TESTHOST_PORT      := 2222
 
 ##@ General
 
@@ -278,6 +290,36 @@ verify-license: ## TAE-93: LICENSE is canonical Apache-2.0 plus the copyright li
 		echo "verify-license FAIL: MIT licence claim still present:"; printf '%s\n' "$$stray"; exit 1; \
 	fi
 	@echo "verify-license OK — LICENSE is canonical Apache-2.0 with '$(LICENSE_COPYRIGHT)'; README and repo claim nothing else"
+
+##@ Test host (M2 fixture, TAE-98)
+
+testhost-up: ## Build/(re)start the TAE-98 sshd test host; prints how to reach it
+	@rm -rf $(TESTHOST_KEYS_DIR)
+	@mkdir -p $(TESTHOST_KEYS_DIR)
+	@ssh-keygen -q -t ed25519 -N '' -f $(TESTHOST_KEYS_DIR)/client_ed25519
+	@podman build -q -t $(TESTHOST_IMAGE) $(TESTHOST_DIR) >/dev/null
+	@podman rm -f $(TESTHOST_CONTAINER) >/dev/null 2>&1 || true
+	@podman run -d --name $(TESTHOST_CONTAINER) \
+		-p 127.0.0.1:$(TESTHOST_PORT):22 \
+		-v $(CURDIR)/$(TESTHOST_KEYS_DIR)/client_ed25519.pub:/run/testhost/client_ed25519.pub:ro,Z \
+		$(TESTHOST_IMAGE) >/dev/null
+	@for i in $$(seq 1 40); do \
+		if ssh-keyscan -p $(TESTHOST_PORT) -T 1 127.0.0.1 2>/dev/null | grep -q .; then break; fi; \
+		sleep 0.5; \
+	done
+	@echo "fleetdesk-testhost ready — fleet file: $(TESTHOST_DIR)/fleet.yaml"
+	@echo "  ssh -i $(TESTHOST_KEYS_DIR)/client_ed25519 -p $(TESTHOST_PORT) testuser1@127.0.0.1   (or password: th98-testuser1-pw)"
+	@echo "  ssh -p $(TESTHOST_PORT) testuser2@127.0.0.1   (password: th98-testuser2-pw)"
+
+testhost-down: ## Stop/remove the TAE-98 test host and wipe its generated keys
+	@podman rm -f $(TESTHOST_CONTAINER) >/dev/null 2>&1 || true
+	@rm -rf $(TESTHOST_KEYS_DIR)
+
+testhost-regen-host-key: ## Delete and regenerate the TAE-98 test host's SSH host keys in place
+	podman exec $(TESTHOST_CONTAINER) sh -c 'rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && kill -HUP 1'
+
+testhost-test: ## Run the TAE-98 acceptance harness (requires Podman; starts/stops the fixture itself)
+	go test -tags testhost -run TestTestHost -v .
 
 ##@ Regression gate
 
