@@ -12,6 +12,12 @@ package main_test
 // These tests share the TAE-98 fixture's TestMain (testhost_container_test.go,
 // same package/build tag) rather than standing up their own container.
 //
+// Updated for TAE-21: Manager.SetSudoPassword and Manager.ConnectWithPassword
+// take []byte, not string, per TAE-21's storage/ownership decision. This
+// file's assertions are unchanged -- only the calls at the two entry points
+// are adjusted to the new signatures, so this package compiles once TAE-21
+// lands, without TAE-21's Dev needing to touch an acceptance test.
+//
 // AC2 requires measurement against a *resident* command -- a privileged view
 // fetch completes in milliseconds and leaves no observation window. Every
 // container-measurement test below therefore starts a long-lived `sudo`
@@ -68,7 +74,7 @@ func newSSHManagerConnected(t *testing.T, info *testhostInfo, user, password str
 		Timeout:  10 * time.Second,
 	}}
 
-	res := sm.ConnectWithPassword(0, host, password)
+	res := sm.ConnectWithPassword(0, host, []byte(password))
 	if res.Err != nil {
 		t.Fatalf("ConnectWithPassword against the TAE-98 fixture (the fixed delivery path AC2 requires): %v", res.Err)
 	}
@@ -144,7 +150,7 @@ func TestTAE20SudoPasswordViaStdinNotInProcessArgsOrEnviron(t *testing.T) {
 	sm, _ := newSSHManagerConnected(t, info, testUser1, testUser1Password)
 	defer sm.Close()
 
-	sm.SetSudoPassword(0, testUser1Password)
+	sm.SetSudoPassword(0, []byte(testUser1Password))
 
 	marker := fmt.Sprintf("fleetdesk_tae20_marker_%d", time.Now().UnixNano())
 	cmd := fmt.Sprintf("sudo bash -c 'M=%s; sleep 6'", marker)
@@ -216,7 +222,7 @@ func TestTAE20BothEntryPointsHandleMultipleSudoOccurrences(t *testing.T) {
 	sm, _ := newSSHManagerConnected(t, info, testUser1, testUser1Password)
 	defer sm.Close()
 
-	sm.SetSudoPassword(0, testUser1Password)
+	sm.SetSudoPassword(0, []byte(testUser1Password))
 
 	// commands.go:1184 carries up to 4 sudo invocations in a single command
 	// string -- the densest real construction the issue cites. Three quick
@@ -329,7 +335,7 @@ func TestTAE20WrongSudoPasswordFailsAndMessageOmitsPassword(t *testing.T) {
 	defer sm.Close()
 
 	wrongPassword := testUser1Password + "-wrong"
-	sm.SetSudoPassword(0, wrongPassword)
+	sm.SetSudoPassword(0, []byte(wrongPassword))
 
 	out, err := sm.RunSudoCommand(0, "sudo true")
 	wrongDetected := err != nil || fdssh.IsSudoOutput(out) || fdssh.IsSudoError(err)
@@ -417,7 +423,7 @@ func TestTAE20ConnectionUsableForFreshStdinAfterSudoDelivery(t *testing.T) {
 	sm, _ := newSSHManagerConnected(t, info, testUser1, testUser1Password)
 	defer sm.Close()
 
-	sm.SetSudoPassword(0, testUser1Password)
+	sm.SetSudoPassword(0, []byte(testUser1Password))
 	if _, err := sm.RunSudoCommand(0, "sudo true"); err != nil {
 		t.Fatalf("RunSudoCommand(sudo true) before the stdin-usability check: %v", err)
 	}
@@ -449,7 +455,7 @@ func TestTAE20NoLogLineContainsPasswordAtDebugLevel(t *testing.T) {
 	sm, buf := newSSHManagerConnected(t, info, testUser1, testUser1Password)
 	defer sm.Close()
 
-	sm.SetSudoPassword(0, testUser1Password)
+	sm.SetSudoPassword(0, []byte(testUser1Password))
 	if _, err := sm.RunSudoCommand(0, "sudo true"); err != nil {
 		t.Fatalf("RunSudoCommand(sudo true) with a cached password: %v", err)
 	}
