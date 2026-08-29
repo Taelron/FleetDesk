@@ -80,6 +80,9 @@ TESTHOST_CONTAINER := fleetdesk-testhost
 # this simple awk, which the acceptance harness's own parse would already
 # have caught.
 TESTHOST_PORT      := $(shell awk '/^[[:space:]]*port:/ {print $$2; exit}' $(TESTHOST_DIR)/fleet.yaml 2>/dev/null)
+ifeq ($(strip $(TESTHOST_PORT)),)
+TESTHOST_PORT      := 2222
+endif
 
 ##@ General
 
