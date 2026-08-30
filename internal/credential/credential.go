@@ -131,6 +131,14 @@ func (r *Reader) WriteTo(w io.Writer) (int64, error) {
 		if err != nil {
 			break
 		}
+		if n == 0 {
+			// io.Writer's contract requires progress or a non-nil error;
+			// a writer violating that would otherwise spin here forever,
+			// holding this lock and blocking the erase a caller may be
+			// waiting on (mirrors io.Copy's own copyBuffer).
+			err = io.ErrShortWrite
+			break
+		}
 	}
 	r.eraseLocked()
 	return written, err

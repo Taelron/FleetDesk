@@ -197,6 +197,14 @@ func (sm *Manager) eraseCachedPasswordLocked() {
 	sm.cachedPassword = nil
 }
 
+// sameBacking reports whether a and b share the same backing array —
+// used to confirm a buffer cloned earlier is still the value currently
+// cached before erasing it, since a nil or empty slice never aliases
+// anything.
+func sameBacking(a, b []byte) bool {
+	return len(a) > 0 && len(b) > 0 && &a[0] == &b[0]
+}
+
 // eraseAllSudoLocked erases every distinct sudo entry exactly once —
 // deduped by pointer, since a value shared by several host indices has
 // one backing array — and empties the map. Caller must hold sm.mu.
@@ -556,23 +564,27 @@ func (sm *Manager) ClearPassword() {
 // ConnectWithCachedPassword connects to a host using the cached SSH
 // password, through a fresh per-operation copy that is erased when the
 // dial (and its probe) finishes, regardless of outcome. Counts as a use
-// of the cached credential. On an authentication rejection, the cached
-// password itself is erased — not just the per-operation copy — so a
-// wrong password is never retried against another host (TAE-21 Erasure
-// AC: "a rejected password is erased before the next attempt is stored";
-// this is the SSH instance the AC names).
+// of the cached credential. On a rejected password — never a broader
+// handshake failure such as a key-exchange mismatch, which would falsely
+// implicate a password that was never tried — the cached password itself
+// is erased, but only if it still aliases the value this call cloned
+// from: a slower, wrong-password dial completing after the user has
+// already entered a new, correct one must not erase that new one (TAE-21
+// Erasure AC: "a rejected password is erased before the next attempt is
+// stored"; this is the SSH instance the AC names).
 func (sm *Manager) ConnectWithCachedPassword(idx int, h config.Host) PasswordRetryResult {
 	// Clone while holding the lock: releasing it between reading
 	// sm.cachedPassword and copying out of it would let a concurrent
 	// idle-timeout erasure (or EraseCredentials/Close) zero the backing
 	// array mid-copy.
 	sm.mu.Lock()
-	hadCached := sm.cachedPassword != nil
+	src := sm.cachedPassword
+	hadCached := src != nil
 	var cp []byte
 	var err error
 	if hadCached {
 		sm.touch(kindSSH)
-		cp, err = credential.Clone(sm.cachedPassword)
+		cp, err = credential.Clone(src)
 	}
 	sm.mu.Unlock()
 
@@ -584,8 +596,12 @@ func (sm *Manager) ConnectWithCachedPassword(idx int, h config.Host) PasswordRet
 	}
 	res := sm.ConnectWithPassword(idx, h, cp)
 	credential.Erase(cp) // no-op if ConnectWithPassword already erased it on auth failure
-	if res.Err != nil && IsAuthError(res.Err) {
-		sm.ClearPassword()
+	if res.Err != nil && IsPasswordRejected(res.Err) {
+		sm.mu.Lock()
+		if sameBacking(sm.cachedPassword, src) {
+			sm.eraseCachedPasswordLocked()
+		}
+		sm.mu.Unlock()
 	}
 	return res
 }

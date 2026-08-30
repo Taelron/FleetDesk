@@ -26,6 +26,25 @@ func allZero(t *testing.T, b []byte) bool {
 	return true
 }
 
+func TestSameBackingIdentifiesSharedArray(t *testing.T) {
+	buf := make([]byte, 4, 8)
+	clone := make([]byte, 4, 8)
+	copy(clone, buf)
+
+	if !sameBacking(buf, buf) {
+		t.Error("sameBacking(buf, buf) = false, want true")
+	}
+	if sameBacking(buf, clone) {
+		t.Error("sameBacking(buf, an independent copy) = true, want false -- distinct backing arrays with equal contents must not compare equal")
+	}
+	if sameBacking(buf[:0], buf) {
+		t.Error("sameBacking(buf[:0], buf) = true, want false -- an empty slice never aliases anything, even one sliced from the same array")
+	}
+	if sameBacking(nil, nil) {
+		t.Error("sameBacking(nil, nil) = true, want false")
+	}
+}
+
 func TestSudoPasswordCache(t *testing.T) {
 	sm := NewManager(slog.Default())
 	defer sm.Close()
