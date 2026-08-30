@@ -196,6 +196,9 @@ func TestTAE21IdleTimeoutErasesCredentialAtDeadline(t *testing.T) {
 
 	buf := []byte("idle-timeout-measurement-password")
 	sm.SetSudoPassword(0, buf)
+	// Anchor the deadline to the SetSudoPassword call, not to time.Now()
+	// after the sleep below -- otherwise it drifts past the real deadline.
+	deadline := time.Now().Add(timeout)
 
 	time.Sleep(timeout / 2)
 	if allZero(t, buf) {
@@ -204,7 +207,6 @@ func TestTAE21IdleTimeoutErasesCredentialAtDeadline(t *testing.T) {
 
 	// The default granularity is 30s; the deadline itself is 2s out, so
 	// poll up to 30s past it before declaring the deadline missed.
-	deadline := time.Now().Add(timeout)
 	pollUntil := deadline.Add(30 * time.Second)
 	for time.Now().Before(pollUntil) {
 		if allZero(t, buf) {
