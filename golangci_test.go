@@ -290,7 +290,7 @@ func TestGosecG106SuppressionsReferenceTAE22(t *testing.T) {
 		t.Fatalf("internal/ssh/manager.go: %v", err)
 	}
 	lines := strings.Split(string(data), "\n")
-	for _, lineNo := range []int{370, 572} {
+	for _, lineNo := range []int{636, 861} {
 		if lineNo > len(lines) {
 			t.Errorf("expected a //nolint:gosec suppression naming TAE-22 near line %d, but the file has only %d lines (TAE-80 AC7)", lineNo, len(lines))
 			continue

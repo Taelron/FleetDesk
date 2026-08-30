@@ -1077,3 +1077,30 @@ func TestIsSudoError(t *testing.T) {
 		t.Error("IsSudoError(wrapped ErrSudoRequired) = false, want true")
 	}
 }
+
+func TestIsPasswordRejectedExcludesTransportHandshakeFailures(t *testing.T) {
+	// x/crypto/ssh wraps the whole clientHandshake (version exchange, key
+	// exchange, cipher negotiation) in "ssh: handshake failed: %w", not
+	// just password auth (client.go:83-85) -- so a key-exchange mismatch
+	// or a version-string failure reaches here with the same prefix a
+	// rejected password would carry, and must not be mistaken for one.
+	rejected := fmt.Errorf("password auth: %w", errString("ssh: handshake failed: ssh: unable to authenticate, attempted methods [none password], no supported methods remain"))
+	if !IsPasswordRejected(rejected) {
+		t.Error("IsPasswordRejected(rejected password) = false, want true")
+	}
+	if !IsAuthError(rejected) {
+		t.Error("IsAuthError(rejected password) = false, want true")
+	}
+
+	transport := fmt.Errorf("password auth: %w", errString("ssh: handshake failed: ssh: no common algorithm for key exchange"))
+	if IsPasswordRejected(transport) {
+		t.Error("IsPasswordRejected(key-exchange failure) = true, want false -- would falsely implicate a password never tried")
+	}
+	if !IsAuthError(transport) {
+		t.Error("IsAuthError(key-exchange failure) = false, want true -- IsAuthError intentionally matches every handshake failure for the cheap show-a-prompt decision")
+	}
+
+	if IsPasswordRejected(nil) {
+		t.Error("IsPasswordRejected(nil) = true, want false")
+	}
+}

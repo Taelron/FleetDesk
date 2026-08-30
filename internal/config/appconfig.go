@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -15,16 +16,30 @@ import (
 // ErrNoConfig is returned when the config file does not exist.
 var ErrNoConfig = errors.New("config file not found")
 
+// DefaultCredentialTimeout is the idle timeout applied when
+// credential_timeout is absent from config.yaml — matching sudo's own
+// timestamp_timeout.
+const DefaultCredentialTimeout = 15 * time.Minute
+
 // AppConfig holds the application-level configuration.
 type AppConfig struct {
 	FleetDir string `yaml:"fleet_dir"`
-	editor   string // unexported — access via Editor()
+	// CredentialTimeout is how long an idle session credential (SSH or
+	// sudo password) is held before being erased. 0 disables expiry.
+	CredentialTimeout time.Duration
+	editor            string // unexported — access via Editor()
 }
 
 // configFile is the on-disk YAML representation.
 type configFile struct {
 	FleetDir string `yaml:"fleet_dir"`
 	Editor   string `yaml:"editor"`
+	// CredentialTimeout is a Go duration string (e.g. "15m", "90s").
+	// Absent means DefaultCredentialTimeout; "0" disables expiry. An
+	// unparseable value fails LoadAppConfig — defaulting silently would
+	// leave a user who wrote "15min" believing they had set five minutes
+	// when they had fifteen.
+	CredentialTimeout string `yaml:"credential_timeout"`
 }
 
 // Editor returns the configured editor, falling back to $EDITOR, $VISUAL, then vi.
@@ -69,9 +84,22 @@ func LoadAppConfig(configDir string) (AppConfig, error) {
 		return AppConfig{}, err
 	}
 
+	credentialTimeout := DefaultCredentialTimeout
+	if cf.CredentialTimeout != "" {
+		d, err := time.ParseDuration(cf.CredentialTimeout)
+		if err != nil {
+			return AppConfig{}, fmt.Errorf("credential_timeout: %w", err)
+		}
+		if d < 0 {
+			return AppConfig{}, fmt.Errorf("credential_timeout must not be negative")
+		}
+		credentialTimeout = d
+	}
+
 	return AppConfig{
-		FleetDir: fleetDir,
-		editor:   cf.Editor,
+		FleetDir:          fleetDir,
+		CredentialTimeout: credentialTimeout,
+		editor:            cf.Editor,
 	}, nil
 }
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/notes"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
 // newNotesTestModel builds a Model with a real notes engine rooted at fleetDir.
@@ -22,7 +23,7 @@ func newNotesTestModel(t *testing.T, fleetDir string, fleets []config.Fleet) Mod
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	appCfg := config.AppConfig{FleetDir: fleetDir}
-	return NewModel(fleets, appCfg, logger, "test", "none")
+	return NewModel(fleets, appCfg, logger, ssh.NewManager(logger), "test", "none")
 }
 
 // seedNote writes a note file directly on disk to simulate a pre-existing note.

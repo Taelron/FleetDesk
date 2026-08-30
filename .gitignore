@@ -11,3 +11,5 @@ test/testhost/.home/
 test/testhost/testhost-test.out
 test/testhost/sudo-ps.out
 test/testhost/tae20.out
+# TAE-21: testhost-idle-timeout evidence output — never committed
+test/testhost/idle-timeout.out

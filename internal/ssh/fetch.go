@@ -128,7 +128,12 @@ func ExtractPkgName(nvra string) string {
 	return nvra[:secondDash]
 }
 
-// IsAuthError checks if an error is an SSH authentication failure.
+// IsAuthError checks if an error is an SSH authentication failure. Matches
+// broadly — including x/crypto/ssh's "handshake failed" wrapper, which
+// covers the whole clientHandshake (version exchange and key exchange too,
+// not just password auth) — because callers use it for the cheap decision
+// of whether to show a password prompt at all, where a false positive
+// costs nothing worse than an extra prompt.
 func IsAuthError(err error) bool {
 	if err == nil {
 		return false
@@ -137,6 +142,21 @@ func IsAuthError(err error) bool {
 	return strings.Contains(s, "unable to authenticate") ||
 		strings.Contains(s, "no supported methods remain") ||
 		strings.Contains(s, "handshake failed")
+}
+
+// IsPasswordRejected reports whether err is specifically a rejected
+// password — never a transport-level handshake failure (key exchange,
+// version mismatch, connection reset), which IsAuthError's broader
+// "handshake failed" match would also catch. Used where a false positive
+// is destructive: clearing a cached credential that was never actually
+// wrong.
+func IsPasswordRejected(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "unable to authenticate") ||
+		strings.Contains(s, "no supported methods remain")
 }
 
 // ParseAccountLine parses a pipe-delimited account line:

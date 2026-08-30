@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,6 +13,14 @@ type StepContent interface {
 	HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool)
 	View(width int) string
 	Result() any
+}
+
+// erasable is implemented by step content types that hold a credential
+// buffer needing explicit erasure — currently SecretInputContent. Content
+// that does not implement it (text, select, static, confirm, loading) has
+// nothing to erase.
+type erasable interface {
+	Erase()
 }
 
 // ModalStep represents a single step in a multi-step modal.
@@ -73,6 +80,7 @@ func (m *ModalOverlay) HandleKey(msg tea.KeyMsg) tea.Cmd {
 		// Content did not handle Esc — fall through to overlay Esc behavior
 		if m.current == 0 {
 			m.done = true
+			m.Erase()
 			if m.OnCancel != nil {
 				return m.OnCancel()
 			}
@@ -167,6 +175,41 @@ func (m *ModalOverlay) Done() bool {
 	return m.done
 }
 
+// Erase erases every step content in the overlay that holds a credential
+// buffer (implements erasable). Safe to call on an overlay whose content
+// has already handed its buffer off via Result() and erased itself — a
+// completed SecretInputContent's Erase is a no-op (see its Done guard).
+func (m *ModalOverlay) Erase() {
+	for _, step := range m.steps {
+		if e, ok := step.Content.(erasable); ok {
+			e.Erase()
+		}
+	}
+}
+
+// replaceModal assigns next as the model's modal overlay, first erasing
+// the outgoing overlay's credential content unless it is nil or already
+// Done(). The Done() guard is load-bearing: an overlay completed by Enter
+// has handed its buffer to a message and still aliases it, so erasing
+// here would zero the credential that message is carrying — a
+// cancelled overlay has already erased its own content before Done()
+// is observed here.
+//
+// Every m.modal assignment reachable from Update (the 24 direct
+// assignments in its switch, plus showLoading and dismissLoadingFor,
+// which assign on Update's behalf) goes through this, not just the sites
+// measured as live drop races — so the property does not depend on that
+// classification staying true as the code changes. Key-handler sites
+// (keys.go) are direct assignments: they cannot fire while a modal is
+// open (keys.go's modal interception hands every key to the modal first),
+// so there is nothing in flight for them to drop.
+func (m *Model) replaceModal(next *ModalOverlay) {
+	if m.modal != nil && !m.modal.Done() {
+		m.modal.Erase()
+	}
+	m.modal = next
+}
+
 // --- TextInputContent ---
 
 // TextInputContent is a single-line text input with optional validation.
@@ -175,24 +218,11 @@ type TextInputContent struct {
 	value    string
 	validate func(string) error
 	err      string
-	masked   bool
 }
 
 // NewTextInputContent creates a text input step.
 func NewTextInputContent(prompt string, validate func(string) error) StepContent {
 	return &TextInputContent{prompt: prompt, validate: validate}
-}
-
-// NewMaskedTextInputContent creates a masked text input step (for passwords).
-func NewMaskedTextInputContent(prompt string) StepContent {
-	return &TextInputContent{prompt: prompt, masked: true}
-}
-
-// NewMaskedTextInputContentWithValidator creates a masked text input step
-// that rejects a value at capture — before it is ever cached or sent —
-// showing validate's error inline under the field.
-func NewMaskedTextInputContentWithValidator(prompt string, validate func(string) error) StepContent {
-	return &TextInputContent{prompt: prompt, masked: true, validate: validate}
 }
 
 // HandleKey implements StepContent for TextInputContent.
@@ -229,11 +259,7 @@ func (t *TextInputContent) HandleKey(msg tea.KeyMsg) (StepContent, tea.Cmd, bool
 // View implements StepContent for TextInputContent.
 func (t *TextInputContent) View(width int) string {
 	cursor := "█"
-	display := t.value
-	if t.masked {
-		display = strings.Repeat("*", utf8.RuneCountInString(t.value))
-	}
-	input := display + cursor
+	input := t.value + cursor
 	line := modalInputStyle.Width(width).Render(input)
 	if t.err != "" {
 		line += "\n" + modalErrorStyle.Render(t.err)

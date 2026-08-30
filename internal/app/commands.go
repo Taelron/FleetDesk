@@ -472,7 +472,7 @@ func (m Model) fetchUpdates() func() tea.Msg {
 		// When cached, rewriteSudoCmd pipes the password via -S, and
 		// the 2>&1 in the dnf command captures "[sudo] password for"
 		// into stdout — IsSudoOutput would false-positive.
-		if sm.GetSudoPassword(idx) == "" && ssh.IsSudoOutput(out) {
+		if !sm.GetSudoPassword(idx) && ssh.IsSudoOutput(out) {
 			return fetchUpdatesMsg{err: fmt.Errorf("%w", ssh.ErrSudoRequired)}
 		}
 		// dnf check-update returns exit 100 when updates are available
@@ -620,7 +620,7 @@ func (m Model) fetchSubscription() func() tea.Msg {
 		// When cached, the rewritten command's stdin-relayed "| sudo -S" still
 		// outputs "[sudo] password for" to stdout (2>&1 overrides 2>/dev/null),
 		// so IsSudoOutput would false-positive on a successful run.
-		if sm.GetSudoPassword(idx) == "" && ssh.IsSudoOutput(out) {
+		if !sm.GetSudoPassword(idx) && ssh.IsSudoOutput(out) {
 			return fetchSubscriptionMsg{err: fmt.Errorf("%w", ssh.ErrSudoRequired)}
 		}
 		if err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/exp/teatest"
 
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
 // baselineModel builds a Model for teatest UI tests.
@@ -18,7 +19,7 @@ import (
 func baselineModel(fleets []config.Fleet) Model {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	appCfg := config.AppConfig{FleetDir: "/tmp/fleetdesk-teatest"}
-	return NewModel(fleets, appCfg, logger, "test", "none")
+	return NewModel(fleets, appCfg, logger, ssh.NewManager(logger), "test", "none")
 }
 
 func TestTeatestBaseline_FleetPickerEmptyState(t *testing.T) {
