@@ -348,6 +348,7 @@ testhost-up: ## Build/(re)start the TAE-98 sshd test host; prints how to reach i
 
 testhost-down: ## Stop/remove the TAE-98 test host and wipe its generated keys and isolated HOME
 	@podman rm -f $(TESTHOST_CONTAINER) >/dev/null 2>&1 || true
+	@chmod -R u+w $(TESTHOST_DIR)/.home >/dev/null 2>&1 || true
 	@rm -rf $(TESTHOST_KEYS_DIR) $(TESTHOST_DIR)/.home
 
 testhost-regen-host-key: ## Delete and regenerate the TAE-98 test host's SSH host keys in place
