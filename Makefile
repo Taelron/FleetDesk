@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression testhost-up testhost-down testhost-regen-host-key testhost-test testhost-sudo-ps testhost-verify-sudo-stdin testhost-run testhost-log-scan
+.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression testhost-up testhost-down testhost-regen-host-key testhost-test testhost-sudo-ps testhost-verify-sudo-stdin testhost-run testhost-run-timeout testhost-log-scan testhost-idle-timeout
 
 # Single pin for golangci-lint, shared by `lint` and `verify` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
@@ -89,6 +89,21 @@ endif
 # Owned by the acceptance suite, not this Makefile; keep in sync if it is
 # renamed or moved.
 TESTHOST_AC2_TEST  := TestTAE20SudoPasswordViaStdinNotInProcessArgsOrEnviron
+
+# TAE-21's idle-timeout measurement — erases a resident credential at its
+# idle deadline, polling up to the 30s granularity the AC allows. Owned by
+# the acceptance suite, not this Makefile; keep in sync if it is renamed or
+# moved. testhost-idle-timeout's own -run flag repeats this name as a
+# literal, not this variable: TestTAE21MakeTargetRunsIdleTimeoutMeasurement
+# scans the Makefile's raw text for the literal substring "-run
+# TestTAE21IdleTimeout", before any $(...) expansion, so the name must
+# appear there verbatim — update both together.
+TESTHOST_TAE21_IDLE_TEST := TestTAE21IdleTimeoutErasesCredentialAtDeadline
+
+# testhost-run-timeout's override: when set, testhost-run writes a
+# credential_timeout line into the isolated config.yaml it generates.
+# Empty by default so plain testhost-run is unaffected.
+TESTHOST_CREDENTIAL_TIMEOUT ?=
 
 ##@ General
 
@@ -369,6 +384,15 @@ testhost-sudo-ps: ## TAE-20 AC2 — resident sudo command; ps aux + /proc/*/cmdl
 		exit 1; \
 	fi
 
+testhost-idle-timeout: ## TAE-21 — idle timeout erases a resident credential at its deadline (measured, not read from the timer)
+	@go test -tags testhost -count=1 -run TestTAE21IdleTimeoutErasesCredentialAtDeadline -v . >$(TESTHOST_DIR)/idle-timeout.out 2>&1; status=$$?; \
+	cat $(TESTHOST_DIR)/idle-timeout.out; \
+	if [ $$status -ne 0 ]; then echo "testhost-idle-timeout FAIL — go test exited $$status"; exit 1; fi; \
+	if ! grep -q -- "--- PASS: $(TESTHOST_TAE21_IDLE_TEST)" $(TESTHOST_DIR)/idle-timeout.out; then \
+		echo "testhost-idle-timeout FAIL — the idle-timeout acceptance test '$(TESTHOST_TAE21_IDLE_TEST)' did not run — renamed, moved, or TESTHOST_TAE21_IDLE_TEST is wrong; go test -run matching nothing exits 0"; \
+		exit 1; \
+	fi
+
 testhost-verify-sudo-stdin: ## Run every TAE-20 acceptance test against the fixture; output goes in the PR (TAE-20 AC2)
 	@go test -tags testhost -count=1 -run TestTAE20 -v . >$(TESTHOST_DIR)/tae20.out 2>&1; status=$$?; \
 	cat $(TESTHOST_DIR)/tae20.out; \
@@ -382,7 +406,11 @@ testhost-run: ## Launch the TUI on the TAE-98 fixture fleet under an isolated HO
 	@$(MAKE) testhost-up
 	@mkdir -p $(TESTHOST_DIR)/.home/.config/fleetdesk
 	@echo 'fleet_dir: $(CURDIR)/$(TESTHOST_DIR)' > $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml
+	@if [ -n "$(TESTHOST_CREDENTIAL_TIMEOUT)" ]; then echo 'credential_timeout: $(TESTHOST_CREDENTIAL_TIMEOUT)' >> $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml; fi
 	HOME=$(CURDIR)/$(TESTHOST_DIR)/.home go run . --debug
+
+testhost-run-timeout: ## TAE-21 — testhost-run with credential_timeout: 30s; wait past it, open a privileged view, confirm the prompt re-appears with no expiry-specific text
+	@$(MAKE) testhost-run TESTHOST_CREDENTIAL_TIMEOUT=30s
 
 testhost-log-scan: ## TAE-20 AC6 — the isolated testhost-run session's logs carry no fixture password
 	@log=$(TESTHOST_DIR)/.home/.local/share/fleetdesk/debug.log; \

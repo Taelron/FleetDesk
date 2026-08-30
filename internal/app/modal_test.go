@@ -239,24 +239,6 @@ func TestNewConfirmModal_NCallsOnCancel(t *testing.T) {
 	}
 }
 
-func TestTextInputContent_Masked(t *testing.T) {
-	ti := NewMaskedTextInputContent("Password:")
-	for _, r := range "secret" {
-		ti, _, _ = ti.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-	}
-	view := ti.View(80)
-	if strings.Contains(view, "secret") {
-		t.Error("masked view should not show raw value")
-	}
-	if !strings.Contains(view, "******") {
-		t.Error("masked view should show asterisks")
-	}
-	// Result still returns raw value
-	if ti.Result().(string) != "secret" {
-		t.Errorf("Result() = %q, want %q", ti.Result(), "secret")
-	}
-}
-
 func TestModalOverlay_SingleStepHidesCounter(t *testing.T) {
 	m := NewModalOverlay("Test", []ModalStep{
 		{Title: "Only step", Content: NewTextInputContent("Input:", nil)},

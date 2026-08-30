@@ -12,7 +12,7 @@ import (
 
 // passwordEnteredMsg is sent when the SSH password modal is completed.
 type passwordEnteredMsg struct {
-	password string
+	password []byte
 	hostIdx  int
 }
 
@@ -23,7 +23,7 @@ type passwordCancelledMsg struct {
 
 // sudoEnteredMsg is sent when the sudo password modal is completed.
 type sudoEnteredMsg struct {
-	password string
+	password []byte
 	hostIdx  int
 	retry    tea.Cmd
 }
@@ -50,9 +50,9 @@ func isPasswordModal(m *ModalOverlay) bool {
 func NewPasswordModal(user, host string, hostIdx int) *ModalOverlay {
 	prompt := fmt.Sprintf("Password for %s@%s:", user, host)
 	m := NewModalOverlay("SSH Password", []ModalStep{
-		{Title: prompt, Content: NewMaskedTextInputContent(prompt)},
+		{Title: prompt, Content: NewSecretInputContent(prompt, nil)},
 	}, func(results []any) tea.Cmd {
-		pw := results[0].(string)
+		pw := results[0].([]byte)
 		idx := hostIdx
 		return func() tea.Msg {
 			return passwordEnteredMsg{password: pw, hostIdx: idx}
@@ -70,9 +70,9 @@ func NewPasswordModal(user, host string, hostIdx int) *ModalOverlay {
 func NewSudoModal(user, host string, hostIdx int, retry tea.Cmd) *ModalOverlay {
 	prompt := fmt.Sprintf("Sudo password for %s:", user)
 	m := NewModalOverlay("Sudo Password", []ModalStep{
-		{Title: prompt, Content: NewMaskedTextInputContentWithValidator(prompt, ssh.ValidateSudoPassword)},
+		{Title: prompt, Content: NewSecretInputContent(prompt, ssh.ValidateSudoPassword)},
 	}, func(results []any) tea.Cmd {
-		pw := results[0].(string)
+		pw := results[0].([]byte)
 		idx := hostIdx
 		r := retry
 		return func() tea.Msg {

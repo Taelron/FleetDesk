@@ -31,11 +31,12 @@ func (l *LoadingContent) Result() any {
 // showLoading sets a loading modal overlay on the model with a tag.
 // The tag identifies the fetch so only the matching dismissLoadingFor clears it.
 func showLoading(m *Model, tag, message string) {
-	m.modal = NewModalOverlay("", []ModalStep{
+	overlay := NewModalOverlay("", []ModalStep{
 		{Title: "", Content: &LoadingContent{message: message, tag: tag}},
 	}, func(_ []any) tea.Cmd { return nil },
 		func() tea.Cmd { return nil })
-	m.modal.FooterFn = func() string { return "" }
+	overlay.FooterFn = func() string { return "" }
+	m.replaceModal(overlay)
 }
 
 // dismissLoadingFor clears the modal only if it is a loading modal with the given tag.
@@ -46,7 +47,7 @@ func dismissLoadingFor(m *Model, tag string) {
 	}
 	if m.modal.current < len(m.modal.steps) {
 		if lc, ok := m.modal.steps[m.modal.current].Content.(*LoadingContent); ok && lc.tag == tag {
-			m.modal = nil
+			m.replaceModal(nil)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/credential"
 )
 
 // ErrSudoDelivery is returned when a sudo password cannot be delivered
@@ -30,8 +32,8 @@ var ErrSudoDelivery = errors.New("sudo password cannot be delivered safely")
 // carry: the relay is a single "read -r" line, so an embedded newline,
 // carriage return or NUL would either truncate the password or spill the
 // remainder into the command stream.
-func ValidateSudoPassword(pw string) error {
-	if strings.ContainsAny(pw, "\n\r\x00") {
+func ValidateSudoPassword(pw []byte) error {
+	if bytes.ContainsAny(pw, "\n\r\x00") {
 		return fmt.Errorf("%w: password contains a line break, which sudo -S cannot accept", ErrSudoDelivery)
 	}
 	return nil
@@ -72,28 +74,235 @@ func sudoDeliveryErrorFromErr(err error) error {
 	return nil
 }
 
-// sudoStdin returns the sudo password relay's entire stdin contract: one
-// line, then EOF.
-func sudoStdin(pw string) io.Reader {
-	return strings.NewReader(pw + "\n")
+// sudoEntry is one resident sudo credential, shared by every host index
+// that currently holds the same accepted value — today's shape is N
+// host-index keys pointing at one backing array (in practice one, or two
+// while a re-prompt candidate coexists with the previously accepted
+// value). refs counts how many host indices reference buf; the buffer is
+// erased only when refs drops to zero, so releasing one sharing host does
+// not erase a value the others still hold.
+//
+// This is not TAE-89's work done early: TAE-89 changes *when* a host is
+// authorised (on demand rather than at broadcast time) and what happens
+// when one host rejects a shared value. Both are the model's broadcast
+// loop and ClearSudoPassword call sites, not this storage — this gives
+// TAE-89 a primitive that supports either answer.
+type sudoEntry struct {
+	buf  []byte
+	refs int
 }
 
-// Manager holds persistent SSH connections for all hosts in a fleet.
+// credKind names the two independent session credentials the idle timer
+// tracks separately — one timer per kind, not per host, per ADR-F007: a
+// per-host timer would re-prompt on an idle host B while host A is in
+// active use.
+type credKind int
+
+const (
+	kindSSH credKind = iota
+	kindSudo
+	credKindCount
+)
+
+// Manager holds persistent SSH connections and cached credentials for all
+// hosts in a fleet.
 type Manager struct {
 	mu             sync.Mutex
 	conns          map[int]*gossh.Client
-	cachedPassword string
-	sudoPasswords  map[int]string // per-host sudo password cache, cleared on Close
-	logger         *slog.Logger
+	cachedPassword []byte // session SSH password; nil when none cached
+	sudoPasswords  map[int]*sudoEntry
+
+	credentialTimeout time.Duration
+	timers            [credKindCount]*time.Timer
+	lastUse           [credKindCount]time.Time
+
+	logger *slog.Logger
 }
 
 // NewManager creates a new SSH manager.
 func NewManager(logger *slog.Logger) *Manager {
 	return &Manager{
 		conns:         make(map[int]*gossh.Client),
-		sudoPasswords: make(map[int]string),
+		sudoPasswords: make(map[int]*sudoEntry),
 		logger:        logger,
 	}
+}
+
+// SetCredentialTimeout sets the idle timeout after which a session
+// credential unused for that long is erased at the deadline (D1: a
+// time.Timer per credential kind, reset on use, firing the erase under
+// sm.mu — not a tea.Tick, since the event loop is blocked during a
+// tea.Exec terminal handover and a Tick could not fire then). 0 disables
+// expiry, which is also the zero-value default.
+func (sm *Manager) SetCredentialTimeout(d time.Duration) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.credentialTimeout = d
+}
+
+// touch records use of the given credential kind and (re)arms its idle
+// timer. Called only for a genuine use — delivery to a host — never for a
+// presence check, Set…, or Share…, except that storing a credential also
+// starts its own idle clock: a credential that is never subsequently
+// delivered still has a well-defined moment its idle window began.
+// Caller must hold sm.mu.
+func (sm *Manager) touch(kind credKind) {
+	sm.lastUse[kind] = time.Now()
+	if sm.credentialTimeout <= 0 {
+		return
+	}
+	if sm.timers[kind] == nil {
+		sm.timers[kind] = time.AfterFunc(sm.credentialTimeout, sm.expire(kind))
+		return
+	}
+	sm.timers[kind].Reset(sm.credentialTimeout)
+}
+
+// expire returns the callback armed for kind's idle timer. It fires on
+// its own goroutine (sm.mu is never held while a timer is scheduled to
+// fire), re-locks, and — if a use slipped in between the timer firing and
+// this callback acquiring the lock — re-arms for the remainder instead of
+// erasing early.
+func (sm *Manager) expire(kind credKind) func() {
+	return func() {
+		sm.mu.Lock()
+		defer sm.mu.Unlock()
+		if sm.credentialTimeout <= 0 {
+			return
+		}
+		elapsed := time.Since(sm.lastUse[kind])
+		if elapsed < sm.credentialTimeout {
+			if sm.timers[kind] != nil {
+				sm.timers[kind].Reset(sm.credentialTimeout - elapsed)
+			}
+			return
+		}
+		switch kind {
+		case kindSSH:
+			sm.eraseCachedPasswordLocked()
+		case kindSudo:
+			sm.eraseAllSudoLocked()
+		}
+		sm.timers[kind] = nil
+	}
+}
+
+// eraseCachedPasswordLocked erases and clears the cached SSH password, if
+// any. Caller must hold sm.mu.
+func (sm *Manager) eraseCachedPasswordLocked() {
+	if sm.cachedPassword == nil {
+		return
+	}
+	credential.Erase(sm.cachedPassword)
+	sm.cachedPassword = nil
+}
+
+// eraseAllSudoLocked erases every distinct sudo entry exactly once —
+// deduped by pointer, since a value shared by several host indices has
+// one backing array — and empties the map. Caller must hold sm.mu.
+func (sm *Manager) eraseAllSudoLocked() {
+	seen := make(map[*sudoEntry]bool, len(sm.sudoPasswords))
+	for _, e := range sm.sudoPasswords {
+		if seen[e] {
+			continue
+		}
+		seen[e] = true
+		credential.Erase(e.buf)
+	}
+	sm.sudoPasswords = make(map[int]*sudoEntry)
+}
+
+// releaseSudoEntryLocked drops idx's reference to its sudo entry, if any,
+// erasing the backing buffer once no host index references it any more.
+// Caller must hold sm.mu.
+func (sm *Manager) releaseSudoEntryLocked(idx int) {
+	e, ok := sm.sudoPasswords[idx]
+	if !ok {
+		return
+	}
+	delete(sm.sudoPasswords, idx)
+	e.refs--
+	if e.refs <= 0 {
+		credential.Erase(e.buf)
+	}
+}
+
+// SetSudoPassword stores idx's candidate sudo password, taking ownership
+// of pw — the caller must not reuse or erase it afterward. Erases
+// whatever idx held before (a rejected candidate is erased before the
+// next attempt is stored) without touching a value still shared with
+// other host indices, which is still theirs.
+func (sm *Manager) SetSudoPassword(idx int, pw []byte) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.releaseSudoEntryLocked(idx)
+	sm.sudoPasswords[idx] = &sudoEntry{buf: pw, refs: 1}
+	sm.touch(kindSudo)
+}
+
+// ClearSudoPassword releases idx's sudo entry: erased if idx held the
+// last reference to it, left alone if other host indices still share it.
+func (sm *Manager) ClearSudoPassword(idx int) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.releaseSudoEntryLocked(idx)
+}
+
+// GetSudoPassword reports whether a sudo password is currently cached for
+// idx. A presence check, not a use: it must not reset the idle timer, so
+// idling in the host list cannot hold a credential open indefinitely — and
+// it never returns the credential itself.
+func (sm *Manager) GetSudoPassword(idx int) bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	_, ok := sm.sudoPasswords[idx]
+	return ok
+}
+
+// ShareSudoPassword makes host index to reference the same accepted sudo
+// value as from, releasing whatever to held before. Called for every
+// other host once one host's sudo password is confirmed, so the fleet
+// shares one backing array instead of N copies.
+func (sm *Manager) ShareSudoPassword(from, to int) bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	src, ok := sm.sudoPasswords[from]
+	if !ok {
+		return false
+	}
+	sm.releaseSudoEntryLocked(to)
+	src.refs++
+	sm.sudoPasswords[to] = src
+	return true
+}
+
+// SeedSudoFromCachedPassword copies the cached SSH password as idx's sudo
+// candidate, refusing — without storing anything — an SSH password
+// ValidateSudoPassword cannot accept for delivery. Reports whether a
+// candidate was stored.
+func (sm *Manager) SeedSudoFromCachedPassword(idx int) bool {
+	sm.mu.Lock()
+	src := sm.cachedPassword
+	sm.mu.Unlock()
+	if src == nil || ValidateSudoPassword(src) != nil {
+		return false
+	}
+	cp, err := credential.Clone(src)
+	if err != nil {
+		return false
+	}
+	sm.SetSudoPassword(idx, cp)
+	return true
+}
+
+// EraseCredentials erases every cached credential — the cached SSH
+// password and every resident sudo entry — without touching live
+// connections. Called on every path by which the program quits.
+func (sm *Manager) EraseCredentials() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.eraseCachedPasswordLocked()
+	sm.eraseAllSudoLocked()
 }
 
 // HostProbeResult is sent when an SSH probe completes for a host.
@@ -158,30 +367,12 @@ func (sm *Manager) ConnectAndProbe(idx int, h config.Host) HostProbeResult {
 	return HostProbeResult{Index: idx, Info: info}
 }
 
-// GetCachedPassword returns the SSH connection password, if the user authenticated via password.
-func (sm *Manager) GetCachedPassword() string {
+// HasCachedPassword reports whether an SSH connection password is
+// currently cached. A presence check — never returns the credential.
+func (sm *Manager) HasCachedPassword() bool {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	return sm.cachedPassword
-}
-
-// SetSudoPassword caches a sudo password for a specific host index.
-// Pass an empty string to clear the cached password for that host.
-func (sm *Manager) SetSudoPassword(idx int, password string) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	if password == "" {
-		delete(sm.sudoPasswords, idx)
-	} else {
-		sm.sudoPasswords[idx] = password
-	}
-}
-
-// GetSudoPassword returns the cached sudo password for a host (empty if none).
-func (sm *Manager) GetSudoPassword(idx int) string {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	return sm.sudoPasswords[idx]
+	return sm.cachedPassword != nil
 }
 
 // RunSudoCommand executes a command on the given host, wrapping sudo invocations
@@ -194,15 +385,27 @@ func (sm *Manager) GetSudoPassword(idx int) string {
 // must be given one through a parameter that does not yet exist — the
 // relay consumes the session's stdin before the wrapped command runs.
 func (sm *Manager) RunSudoCommand(idx int, cmd string) (string, error) {
-	pw := sm.GetSudoPassword(idx)
-	if pw == "" || !strings.Contains(cmd, "sudo ") {
+	sm.mu.Lock()
+	e, ok := sm.sudoPasswords[idx]
+	if !ok || !strings.Contains(cmd, "sudo ") {
+		sm.mu.Unlock()
 		return sm.runCommand(idx, cmd, nil)
 	}
-	if err := ValidateSudoPassword(pw); err != nil {
+	if err := ValidateSudoPassword(e.buf); err != nil {
+		sm.mu.Unlock()
 		return "", err
 	}
+	r, err := credential.NewReader(e.buf, "\n")
+	if err != nil {
+		sm.mu.Unlock()
+		return "", err
+	}
+	sm.touch(kindSudo)
+	sm.mu.Unlock()
+
+	defer r.Erase()
 	rewritten := rewriteSudoCmd(cmd)
-	out, err := sm.runCommand(idx, rewritten, sudoStdin(pw))
+	out, err := sm.runCommand(idx, rewritten, r)
 	if delivErr := sudoDeliveryErrorFromErr(err); delivErr != nil {
 		err = delivErr
 	}
@@ -319,35 +522,57 @@ func stripShellWarnings(s string) string {
 	return s
 }
 
-// SetCachedPassword stores a password temporarily for batch retries.
-func (sm *Manager) SetCachedPassword(password string) {
+// SetCachedPassword stores the session's SSH password, taking ownership
+// of pw — the caller must not reuse or erase it afterward. Erases
+// whatever was cached before it.
+func (sm *Manager) SetCachedPassword(pw []byte) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	sm.cachedPassword = password
+	sm.eraseCachedPasswordLocked()
+	sm.cachedPassword = pw
+	sm.touch(kindSSH)
 }
 
-// ClearPassword zeroes out the cached password.
+// ClearPassword erases the cached SSH password.
 func (sm *Manager) ClearPassword() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	sm.cachedPassword = ""
+	sm.eraseCachedPasswordLocked()
 }
 
-// RetryWithCachedPassword uses the temporarily cached password to connect a host.
-func (sm *Manager) RetryWithCachedPassword(idx int, h config.Host) PasswordRetryResult {
+// ConnectWithCachedPassword connects to a host using the cached SSH
+// password, through a fresh per-operation copy that is erased when the
+// dial (and its probe) finishes, regardless of outcome. Counts as a use
+// of the cached credential.
+func (sm *Manager) ConnectWithCachedPassword(idx int, h config.Host) PasswordRetryResult {
 	sm.mu.Lock()
-	pw := sm.cachedPassword
+	src := sm.cachedPassword
+	if src != nil {
+		sm.touch(kindSSH)
+	}
 	sm.mu.Unlock()
 
-	if pw == "" {
+	if src == nil {
 		return PasswordRetryResult{Index: idx, Err: fmt.Errorf("no cached password")}
 	}
 
-	return sm.ConnectWithPassword(idx, h, pw)
+	cp, err := credential.Clone(src)
+	if err != nil {
+		return PasswordRetryResult{Index: idx, Err: err}
+	}
+	res := sm.ConnectWithPassword(idx, h, cp)
+	credential.Erase(cp) // no-op if ConnectWithPassword already erased it on auth failure
+	return res
 }
 
-// ConnectWithPassword connects to a host using password auth and probes it.
-func (sm *Manager) ConnectWithPassword(idx int, h config.Host, password string) PasswordRetryResult {
+// ConnectWithPassword connects to a host using password auth and probes
+// it. pw is read for this dial only — the manager does not store it. On
+// an authentication rejection (never on a network or probe failure), pw
+// is erased in place before this returns (a rejected password is erased
+// before the next attempt is stored). The string password auth itself
+// constructs at the moment it authenticates is outside this package's
+// reach — it is referenced by nothing FleetDesk holds afterward.
+func (sm *Manager) ConnectWithPassword(idx int, h config.Host, pw []byte) PasswordRetryResult {
 	entry := h.Entry
 	hostname := entry.Hostname
 	port := entry.Port
@@ -358,11 +583,11 @@ func (sm *Manager) ConnectWithPassword(idx int, h config.Host, password string) 
 	sshConfig := &gossh.ClientConfig{
 		User: entry.User,
 		Auth: []gossh.AuthMethod{
-			gossh.Password(password),
+			gossh.PasswordCallback(func() (string, error) { return string(pw), nil }),
 			gossh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
 				answers := make([]string, len(questions))
 				for i := range questions {
-					answers[i] = password
+					answers[i] = string(pw)
 				}
 				return answers, nil
 			}),
@@ -377,7 +602,11 @@ func (sm *Manager) ConnectWithPassword(idx int, h config.Host, password string) 
 	client, err := gossh.Dial("tcp", addr, sshConfig)
 	if err != nil {
 		sm.logger.Error("password dial failed", "addr", addr, "idx", idx, "err", err, "elapsed", time.Since(start))
-		return PasswordRetryResult{Index: idx, Err: fmt.Errorf("password auth: %w", err)}
+		wrapped := fmt.Errorf("password auth: %w", err)
+		if IsAuthError(wrapped) {
+			credential.Erase(pw)
+		}
+		return PasswordRetryResult{Index: idx, Err: wrapped}
 	}
 	sm.logger.Debug("password dial success", "addr", addr, "idx", idx, "elapsed", time.Since(start))
 
@@ -401,16 +630,29 @@ func (sm *Manager) ConnectWithPassword(idx int, h config.Host, password string) 
 // unchanged. If the cached password cannot be delivered safely
 // (ValidateSudoPassword), returns ("", nil, err) before anything is
 // rewritten or sent. Otherwise returns the rewritten command and the
-// reader the caller must set as the session's stdin before starting it.
-func (sm *Manager) RewriteSudoInCmd(idx int, cmd string) (string, io.Reader, error) {
-	pw := sm.GetSudoPassword(idx)
-	if pw == "" || !strings.Contains(cmd, "sudo ") {
+// reader the caller must set as the session's stdin before starting it —
+// assigning it only when non-nil, since a nil *credential.Reader boxed in
+// an io.Reader is a non-nil interface — and erase (Reader.Erase) once the
+// stream it feeds ends.
+func (sm *Manager) RewriteSudoInCmd(idx int, cmd string) (string, *credential.Reader, error) {
+	sm.mu.Lock()
+	e, ok := sm.sudoPasswords[idx]
+	if !ok || !strings.Contains(cmd, "sudo ") {
+		sm.mu.Unlock()
 		return cmd, nil, nil
 	}
-	if err := ValidateSudoPassword(pw); err != nil {
+	if err := ValidateSudoPassword(e.buf); err != nil {
+		sm.mu.Unlock()
 		return "", nil, err
 	}
-	return rewriteSudoCmd(cmd), sudoStdin(pw), nil
+	r, err := credential.NewReader(e.buf, "\n")
+	if err != nil {
+		sm.mu.Unlock()
+		return "", nil, err
+	}
+	sm.touch(kindSudo)
+	sm.mu.Unlock()
+	return rewriteSudoCmd(cmd), r, nil
 }
 
 // GetConnection returns the SSH client for the given host index, or nil if not connected.
@@ -427,7 +669,7 @@ func (sm *Manager) HasConnection(idx int) bool {
 	return sm.conns[idx] != nil
 }
 
-// Close shuts down all SSH connections and clears all cached credentials.
+// Close shuts down all SSH connections and erases every cached credential.
 func (sm *Manager) Close() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -437,8 +679,14 @@ func (sm *Manager) Close() {
 		}
 	}
 	sm.conns = make(map[int]*gossh.Client)
-	sm.cachedPassword = ""
-	sm.sudoPasswords = make(map[int]string)
+	sm.eraseCachedPasswordLocked()
+	sm.eraseAllSudoLocked()
+	for i, t := range sm.timers {
+		if t != nil {
+			t.Stop()
+			sm.timers[i] = nil
+		}
+	}
 }
 
 // Probe runs a single SSH command to gather all host info in one roundtrip.

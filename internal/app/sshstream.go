@@ -91,7 +91,7 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 		defer func() { _ = session.Close() }()
 
 		// Rewrite sudo if password is cached
-		finalCmd, sudoStdin, err := sm.RewriteSudoInCmd(idx, cmd)
+		finalCmd, sudoReader, err := sm.RewriteSudoInCmd(idx, cmd)
 		if err != nil {
 			ch <- "ERROR: " + err.Error()
 			return
@@ -105,7 +105,13 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 		}
 		logger.Debug("ssh stream start", "cmd_prefix", logCmd[:min(len(logCmd), 60)])
 
-		session.Stdin = sudoStdin
+		// Assign only when non-nil: a nil *credential.Reader boxed in the
+		// io.Reader interface field is a non-nil interface, and the library
+		// would call Read on it.
+		if sudoReader != nil {
+			session.Stdin = sudoReader
+			defer sudoReader.Erase()
+		}
 
 		stdout, err := session.StdoutPipe()
 		if err != nil {
@@ -137,10 +143,10 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 				*exitCode = -1
 			}
 		}
-		// Only meaningful when the command was actually rewritten (sudoStdin
+		// Only meaningful when the command was actually rewritten (sudoReader
 		// != nil) — otherwise a plain command that happens to exit 96/97 is
 		// not a sudo delivery failure and must not be reported as one.
-		if sudoStdin != nil {
+		if sudoReader != nil {
 			if delivErr := fdssh.SudoDeliveryError(*exitCode); delivErr != nil {
 				ch <- delivErr.Error()
 			}

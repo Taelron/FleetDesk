@@ -11,6 +11,7 @@ import (
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/app"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/logging"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
 var (
@@ -65,7 +66,11 @@ func main() {
 	defer logging.CloseAll()
 	logger.Info("fleetdesk starting", "version", version, "debug", debug, "fleets", len(fleets))
 
-	m := app.NewModel(fleets, appCfg, logger, version, commit)
+	sm := ssh.NewManager(logger)
+	sm.SetCredentialTimeout(appCfg.CredentialTimeout)
+	defer sm.Close()
+
+	m := app.NewModel(fleets, appCfg, logger, sm, version, commit)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {

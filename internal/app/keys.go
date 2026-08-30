@@ -12,7 +12,11 @@ import (
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// modal overlay -- intercept all keys
+	// modal overlay -- intercept all keys. Every m.modal assignment below
+	// this point (the per-view "q" arms included) is a direct assignment,
+	// not routed through replaceModal: none of them can fire while a modal
+	// is open, since this interception hands every key to the modal first,
+	// so there is nothing open for them to silently drop.
 	if m.modal != nil && !m.modal.Done() {
 		cmd := m.modal.HandleKey(msg)
 		return m, cmd
@@ -171,6 +175,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		m.azure.Close()
+		m.ssh.EraseCredentials()
 		return m, tea.Quit
 	case "?":
 		text := helpForView(m.view)

@@ -26,9 +26,9 @@ func TestSudoModalKeyCapture(t *testing.T) {
 	t.Run("rune accumulates in masked input", func(t *testing.T) {
 		modal := NewSudoModal("alice", "host1", 0, nil)
 		modal.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
-		ti := modal.steps[0].Content.(*TextInputContent)
-		if ti.Value() != "a" {
-			t.Errorf("value = %q, want %q", ti.Value(), "a")
+		sic := modal.steps[0].Content.(*SecretInputContent)
+		if string(sic.buf) != "a" {
+			t.Errorf("value = %q, want %q", sic.buf, "a")
 		}
 	})
 
@@ -38,9 +38,9 @@ func TestSudoModalKeyCapture(t *testing.T) {
 			modal.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		}
 		modal.HandleKey(tea.KeyMsg{Type: tea.KeyBackspace})
-		ti := modal.steps[0].Content.(*TextInputContent)
-		if ti.Value() != "ab" {
-			t.Errorf("value = %q, want %q", ti.Value(), "ab")
+		sic := modal.steps[0].Content.(*SecretInputContent)
+		if string(sic.buf) != "ab" {
+			t.Errorf("value = %q, want %q", sic.buf, "ab")
 		}
 	})
 
@@ -50,9 +50,9 @@ func TestSudoModalKeyCapture(t *testing.T) {
 			modal.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		}
 		modal.HandleKey(tea.KeyMsg{Type: tea.KeyBackspace})
-		ti := modal.steps[0].Content.(*TextInputContent)
-		if ti.Value() != "pàs" {
-			t.Errorf("value = %q, want %q", ti.Value(), "pàs")
+		sic := modal.steps[0].Content.(*SecretInputContent)
+		if string(sic.buf) != "pàs" {
+			t.Errorf("value = %q, want %q", sic.buf, "pàs")
 		}
 	})
 
@@ -128,7 +128,7 @@ func TestHandleSudoOrFlash(t *testing.T) {
 	t.Run("sudo error with cached SSH password returns test cmd", func(t *testing.T) {
 		m := newTestModel()
 		m.hosts = []config.Host{{Entry: config.HostEntry{Name: "host1"}}}
-		m.ssh.SetCachedPassword("sshpw")
+		m.ssh.SetCachedPassword([]byte("sshpw"))
 		err := ssh.ErrSudoRequired
 		m2, cmd, ok := m.handleSudoOrFlash(err, retryCmd)
 		if !ok {
@@ -145,7 +145,7 @@ func TestHandleSudoOrFlash(t *testing.T) {
 	t.Run("sudo error with wrong cached sudo password clears and shows modal", func(t *testing.T) {
 		m := newTestModel()
 		m.hosts = []config.Host{{Entry: config.HostEntry{Name: "host1"}}}
-		m.ssh.SetSudoPassword(0, "wrongpw")
+		m.ssh.SetSudoPassword(0, []byte("wrongpw"))
 		err := ssh.ErrSudoRequired
 		m2, cmd, ok := m.handleSudoOrFlash(err, retryCmd)
 		if !ok {
@@ -157,7 +157,7 @@ func TestHandleSudoOrFlash(t *testing.T) {
 		if cmd != nil {
 			t.Error("expected cmd=nil when showing prompt")
 		}
-		if m2.ssh.GetSudoPassword(0) != "" {
+		if m2.ssh.GetSudoPassword(0) {
 			t.Error("expected sudo password to be cleared")
 		}
 	})

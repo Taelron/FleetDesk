@@ -197,13 +197,14 @@ type fetchAzureActivityLogMsg struct {
 // sudoTestMsg is sent after silently testing whether the SSH password works for sudo.
 // Err is set only when the password could not be delivered safely
 // (ssh.ErrSudoDelivery) — never for a wrong password, which still reports
-// via Success=false.
+// via Success=false. Carries no credential: on success, the accepted
+// password is already resident in the manager under HostIdx and is
+// broadcast to other hosts via ShareSudoPassword.
 type sudoTestMsg struct {
-	Password string
-	Success  bool
-	Retry    tea.Cmd
-	HostIdx  int
-	Err      error
+	Success bool
+	Retry   tea.Cmd
+	HostIdx int
+	Err     error
 }
 
 // sudoProbeMsg is sent after testing sudo availability on a host during probe.
@@ -536,13 +537,16 @@ type Model struct {
 	noteLastCreated string         // path of just-created note; delete on exit if still empty
 }
 
-// NewModel builds the initial Model from loaded fleets and app configuration.
-func NewModel(fleets []config.Fleet, appCfg config.AppConfig, logger *slog.Logger, version, commit string) Model {
+// NewModel builds the initial Model from loaded fleets and app
+// configuration. sm is constructed by the caller (main, so it can call
+// SetCredentialTimeout and defer Close before the model exists) rather
+// than here.
+func NewModel(fleets []config.Fleet, appCfg config.AppConfig, logger *slog.Logger, sm *ssh.Manager, version, commit string) Model {
 	m := Model{
 		view:          viewFleetPicker,
 		fleets:        fleets,
 		appCfg:        appCfg,
-		ssh:           ssh.NewManager(logger),
+		ssh:           sm,
 		azure:         azure.NewManager(logger),
 		k8s:           k8s.NewManager(logger),
 		probesManager: probes.NewManager(logger),
@@ -607,35 +611,35 @@ func (m Model) handleSudoOrFlash(err error, retry tea.Cmd) (Model, tea.Cmd, bool
 	m.logger.Debug("sudo required", "host_idx", idx, "host", host, "user", user)
 
 	// Wrong cached password: it was tried and failed — clear and re-prompt.
-	if m.ssh.GetSudoPassword(idx) != "" {
+	if m.ssh.GetSudoPassword(idx) {
 		m.logger.Debug("sudo cached password failed, re-prompting", "host_idx", idx)
-		m.ssh.SetSudoPassword(idx, "")
-		m.modal = NewSudoModal(user, host, idx, retry)
+		m.ssh.ClearSudoPassword(idx)
+		m.replaceModal(NewSudoModal(user, host, idx, retry))
 		return m, nil, true
 	}
 
 	// Try the SSH connection password silently if available. The user never
 	// entered it *as* a sudo password, so one sudo -S can't accept (e.g. a
-	// multi-line paste) must not surface as a flash here — skip straight to
-	// the prompt instead of silently testing an undeliverable password.
-	sshPw := m.ssh.GetCachedPassword()
-	if sshPw != "" && ssh.ValidateSudoPassword(sshPw) == nil {
+	// multi-line paste) must not surface as a flash here — SeedSudoFromCachedPassword
+	// refuses an undeliverable password instead of silently testing it.
+	if m.ssh.SeedSudoFromCachedPassword(idx) {
 		m.logger.Debug("sudo trying SSH password silently", "host_idx", idx)
 		sm := m.ssh
 		r := retry
 		testCmd := func() tea.Msg {
-			sm.SetSudoPassword(idx, sshPw)
 			out, runErr := sm.RunSudoCommand(idx, "sudo true")
-			sm.SetSudoPassword(idx, "") // always clear — model Update sets it on success
 			success := runErr == nil && !ssh.IsSudoOutput(out)
-			return sudoTestMsg{Password: sshPw, Success: success, Retry: r, HostIdx: idx, Err: sudoDeliveryErr(runErr)}
+			if !success {
+				sm.ClearSudoPassword(idx)
+			}
+			return sudoTestMsg{Success: success, Retry: r, HostIdx: idx, Err: sudoDeliveryErr(runErr)}
 		}
 		return m, testCmd, true
 	}
 
 	// No SSH password cached (key auth): show prompt directly.
 	m.logger.Debug("sudo no SSH password cached, showing prompt", "host_idx", idx)
-	m.modal = NewSudoModal(user, host, idx, retry)
+	m.replaceModal(NewSudoModal(user, host, idx, retry))
 	return m, nil, true
 }
 
@@ -660,7 +664,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case wizardCompleteMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		m.appCfg = msg.appCfg
 		m.fleets = msg.fleets
 		m.view = viewFleetPicker
@@ -668,18 +672,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case wizardCancelMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		m.wizardCancelled = true
+		m.ssh.EraseCredentials()
 		return m, tea.Quit
 
 	case wizardErrorMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		m.wizardCancelled = true
 		m.wizardExitError = msg.err
+		m.ssh.EraseCredentials()
 		return m, tea.Quit
 
 	case wizardNeedCustomEditorMsg:
-		m.modal = newCustomEditorWizard(msg.fleetDir)
+		m.replaceModal(newCustomEditorWizard(msg.fleetDir))
 		return m, nil
 
 	case aboutFieldMsg:
@@ -702,7 +708,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// (sudo, loading, etc.) but don't replace another password modal
 					if m.modal == nil || m.modal.Done() || !isPasswordModal(m.modal) {
 						h := m.hosts[msg.Index]
-						m.modal = NewPasswordModal(h.Entry.User, h.Entry.Name, msg.Index)
+						m.replaceModal(NewPasswordModal(h.Entry.User, h.Entry.Name, msg.Index))
 					}
 					return m, nil
 				}
@@ -715,7 +721,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case sudoProbeMsg:
-		if !msg.needsPw || m.ssh.GetSudoPassword(msg.hostIdx) != "" {
+		if !msg.needsPw || m.ssh.GetSudoPassword(msg.hostIdx) {
 			// Sudo ready — navigate to resource picker
 			m.logger.Debug("sudo ready, navigating", "host_idx", msg.hostIdx)
 			if msg.hostIdx < len(m.hosts) {
@@ -746,20 +752,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Try SSH password silently first. The user never entered it *as* a
 		// sudo password, so one sudo -S can't accept must not surface as a
-		// flash here — skip straight to the wizard instead.
+		// flash here — SeedSudoFromCachedPassword refuses an undeliverable
+		// password instead of silently testing it.
 		idx := msg.hostIdx
-		sshPw := m.ssh.GetCachedPassword()
-		if sshPw != "" && ssh.ValidateSudoPassword(sshPw) == nil {
+		if m.ssh.SeedSudoFromCachedPassword(idx) {
 			m.logger.Debug("sudo trying SSH password silently", "host_idx", idx)
 			sm := m.ssh
 			return m, func() tea.Msg {
-				sm.SetSudoPassword(idx, sshPw)
 				out, runErr := sm.RunSudoCommand(idx, "sudo true")
 				if runErr == nil && !ssh.IsSudoOutput(out) {
 					// Leave password cached — sudoWizardResultMsg handler will propagate
 					return sudoWizardResultMsg{hostIdx: idx, success: true}
 				}
-				sm.SetSudoPassword(idx, "") // wrong — clear
+				sm.ClearSudoPassword(idx) // wrong — clear
 				return sudoWizardResultMsg{hostIdx: idx, success: false, err: sudoDeliveryErr(runErr)}
 			}
 		}
@@ -772,7 +777,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			host = m.hosts[idx].Entry.Name
 		}
 		m.logger.Debug("sudo wizard opening", "host_idx", idx)
-		m.modal = NewSudoWizard(user, host, idx, m.ssh)
+		m.replaceModal(NewSudoWizard(user, host, idx, m.ssh))
 		return m, nil
 
 	case sudoWizardTestMsg:
@@ -785,24 +790,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg {
 			sm.SetSudoPassword(idx, pw)
 			out, err := sm.RunSudoCommand(idx, "sudo true")
-			sm.SetSudoPassword(idx, "")
 			success := err == nil && !ssh.IsSudoOutput(out)
-			return sudoWizardResultMsg{hostIdx: idx, password: pw, success: success, err: sudoDeliveryErr(err)}
+			if !success {
+				sm.ClearSudoPassword(idx) // rejected candidate — erase before the next attempt
+			}
+			return sudoWizardResultMsg{hostIdx: idx, tested: true, success: success, err: sudoDeliveryErr(err)}
 		}
 
 	case sudoWizardResultMsg:
 		if errors.Is(msg.err, ssh.ErrSudoDelivery) {
 			m.flash = msg.err.Error()
 			m.flashError = true
-			m.modal = nil
+			m.replaceModal(nil)
 			return m, nil
 		}
 		if msg.success {
-			m.modal = nil
+			m.replaceModal(nil)
 			m.logger.Debug("sudo wizard success", "host_idx", msg.hostIdx)
-			// Cache password for all hosts
+			// Share the accepted password (already stored under hostIdx) with
+			// every other host — no result message carries the credential.
 			for i := range m.hosts {
-				m.ssh.SetSudoPassword(i, msg.password)
+				if i != msg.hostIdx {
+					m.ssh.ShareSudoPassword(msg.hostIdx, i)
+				}
 				if m.hosts[i].Status == config.HostOnline {
 					m.hosts[i].SudoReady = true
 				}
@@ -812,7 +822,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return sudoProbeMsg{hostIdx: msg.hostIdx, needsPw: false}
 			}
 		}
-		if msg.password != "" {
+		if msg.tested {
 			// Password was tested and failed — re-show wizard
 			m.logger.Debug("sudo wizard failed, re-prompting", "host_idx", msg.hostIdx)
 			idx := msg.hostIdx
@@ -824,11 +834,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.flash = "Wrong sudo password"
 			m.flashError = true
-			m.modal = NewSudoWizard(user, host, idx, m.ssh)
+			m.replaceModal(NewSudoWizard(user, host, idx, m.ssh))
 			return m, nil
 		}
 		// Cancelled
-		m.modal = nil
+		m.replaceModal(nil)
 		return m, nil
 
 	case azure.SubscriptionProbeResult:
@@ -1246,9 +1256,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case startCommandStreamMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		// If the command contains sudo and no password is cached, prompt first
-		if strings.Contains(msg.cfg.Command, "sudo") && m.ssh.GetSudoPassword(msg.cfg.HostIdx) == "" {
+		if strings.Contains(msg.cfg.Command, "sudo") && !m.ssh.GetSudoPassword(msg.cfg.HostIdx) {
 			cfg := msg.cfg
 			retry := func() tea.Msg { return startCommandStreamMsg{cfg: cfg} }
 			user := ""
@@ -1257,7 +1267,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				user = m.hosts[cfg.HostIdx].Entry.User
 				host = m.hosts[cfg.HostIdx].Entry.Name
 			}
-			m.modal = NewSudoModal(user, host, cfg.HostIdx, retry)
+			m.replaceModal(NewSudoModal(user, host, cfg.HostIdx, retry))
 			return m, nil
 		}
 		return m, m.startSSHStream(msg.cfg)
@@ -1374,13 +1384,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if errors.Is(msg.Err, ssh.ErrSudoDelivery) {
 			m.flash = msg.Err.Error()
 			m.flashError = true
-			m.modal = nil
+			m.replaceModal(nil)
 			return m, nil
 		}
 		if msg.Success {
-			// Cache sudo password and mark all online hosts as sudo-ready
+			// Share the accepted password (already stored under HostIdx) with
+			// every other host — no result message carries the credential.
 			for i := range m.hosts {
-				m.ssh.SetSudoPassword(i, msg.Password)
+				if i != msg.HostIdx {
+					m.ssh.ShareSudoPassword(msg.HostIdx, i)
+				}
 				if m.hosts[i].Status == config.HostOnline {
 					m.hosts[i].SudoReady = true
 				}
@@ -1402,11 +1415,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Retry: re-test sudo after password entry, which will trigger navigation
 		retryNavigate := func() tea.Msg { return sudoProbeMsg{hostIdx: idx, needsPw: false} }
-		m.modal = NewSudoModal(user, host, idx, retryNavigate)
+		m.replaceModal(NewSudoModal(user, host, idx, retryNavigate))
 		return m, nil
 
 	case passwordEnteredMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		m.ssh.SetCachedPassword(msg.password)
 		var cmds []tea.Cmd
 		for i, h := range m.hosts {
@@ -1415,16 +1428,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				ii := i
 				hh := h
 				sm := m.ssh
-				pw := msg.password
 				cmds = append(cmds, func() tea.Msg {
-					return sm.ConnectWithPassword(ii, hh, pw)
+					return sm.ConnectWithCachedPassword(ii, hh)
 				})
 			}
 		}
 		return m, tea.Batch(cmds...)
 
 	case passwordCancelledMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		if msg.hostIdx < len(m.hosts) {
 			m.hosts[msg.hostIdx].Status = config.HostUnreachable
 			m.hosts[msg.hostIdx].Error = "password prompt cancelled"
@@ -1432,7 +1444,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case sudoEnteredMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		// Test the password before caching
 		m.logger.Debug("sudo password entered, testing", "host_idx", msg.hostIdx)
 		idx := msg.hostIdx
@@ -1442,19 +1454,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sm.SetSudoPassword(idx, pw)
 		return m, func() tea.Msg {
 			out, runErr := sm.RunSudoCommand(idx, "sudo true")
-			sm.SetSudoPassword(idx, "") // clear — sudoTestMsg sets it on success
 			success := runErr == nil && !ssh.IsSudoOutput(out)
-			return sudoTestMsg{Password: pw, Success: success, Retry: retry, HostIdx: idx, Err: sudoDeliveryErr(runErr)}
+			if !success {
+				sm.ClearSudoPassword(idx) // rejected candidate — erase before the next attempt
+			}
+			return sudoTestMsg{Success: success, Retry: retry, HostIdx: idx, Err: sudoDeliveryErr(runErr)}
 		}
 
 	case sudoCancelledMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		m.flash = "Sudo password prompt cancelled"
 		m.flashError = true
 		return m, nil
 
 	case transitionConfirmedMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		t := msg.t
 		key := t.ResourceType + "/" + t.ResourceName
 		if m.transitions == nil {
@@ -1470,7 +1484,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, execCmd
 
 	case confirmCancelledMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		m.flash = "Cancelled"
 		return m, nil
 
@@ -1898,7 +1912,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case noteDeleteConfirmedMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		return m, m.deleteNoteCmd(msg.path)
 
 	case noteDeletedMsg:
@@ -1918,7 +1932,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case sshHandoverFinishedMsg:
-		m.modal = nil
+		m.replaceModal(nil)
 		// refresh list after terminal handover returns
 		switch m.view {
 		case viewServiceList:
