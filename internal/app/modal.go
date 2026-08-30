@@ -80,6 +80,7 @@ func (m *ModalOverlay) HandleKey(msg tea.KeyMsg) tea.Cmd {
 		// Content did not handle Esc — fall through to overlay Esc behavior
 		if m.current == 0 {
 			m.done = true
+			m.Erase()
 			if m.OnCancel != nil {
 				return m.OnCancel()
 			}

@@ -110,17 +110,30 @@ func (r *Reader) Read(p []byte) (int, error) {
 
 // WriteTo implements io.WriterTo. Held under the same lock as Read and
 // Erase for the whole call, so a concurrent Erase cannot observe or
-// produce a torn view of the buffer this writes from.
+// produce a torn view of the buffer this writes from. Loops until every
+// remaining byte is written or w.Write errors: io.Copy trusts a nil-error
+// WriteTo to mean the full count was delivered, so erasing after a single
+// short Write would silently hand the host a truncated password with
+// nothing left to retry from.
 func (r *Reader) WriteTo(w io.Writer) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.buf == nil {
 		return 0, nil
 	}
-	n, err := w.Write(r.buf[r.off:])
-	r.off += n
+	var written int64
+	var err error
+	for r.off < len(r.buf) {
+		var n int
+		n, err = w.Write(r.buf[r.off:])
+		r.off += n
+		written += int64(n)
+		if err != nil {
+			break
+		}
+	}
 	r.eraseLocked()
-	return int64(n), err
+	return written, err
 }
 
 // Erase zeroes the buffer immediately, whether or not delivery has

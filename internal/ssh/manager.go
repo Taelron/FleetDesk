@@ -262,8 +262,17 @@ func (sm *Manager) GetSudoPassword(idx int) bool {
 // ShareSudoPassword makes host index to reference the same accepted sudo
 // value as from, releasing whatever to held before. Called for every
 // other host once one host's sudo password is confirmed, so the fleet
-// shares one backing array instead of N copies.
+// shares one backing array instead of N copies. from == to is a no-op
+// success, not an error: releasing to's entry before re-sharing from's
+// would otherwise erase the very buffer being shared, since they are the
+// same entry.
 func (sm *Manager) ShareSudoPassword(from, to int) bool {
+	if from == to {
+		sm.mu.Lock()
+		_, ok := sm.sudoPasswords[from]
+		sm.mu.Unlock()
+		return ok
+	}
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	src, ok := sm.sudoPasswords[from]
@@ -281,14 +290,18 @@ func (sm *Manager) ShareSudoPassword(from, to int) bool {
 // ValidateSudoPassword cannot accept for delivery. Reports whether a
 // candidate was stored.
 func (sm *Manager) SeedSudoFromCachedPassword(idx int) bool {
+	// Clone while holding the lock: releasing it between reading
+	// sm.cachedPassword and copying out of it would let a concurrent
+	// idle-timeout erasure zero the backing array mid-copy.
 	sm.mu.Lock()
-	src := sm.cachedPassword
-	sm.mu.Unlock()
-	if src == nil || ValidateSudoPassword(src) != nil {
-		return false
+	var cp []byte
+	var err error
+	if sm.cachedPassword != nil {
+		cp, err = credential.Clone(sm.cachedPassword)
 	}
-	cp, err := credential.Clone(src)
-	if err != nil {
+	sm.mu.Unlock()
+	if cp == nil || err != nil || ValidateSudoPassword(cp) != nil {
+		credential.Erase(cp)
 		return false
 	}
 	sm.SetSudoPassword(idx, cp)
@@ -543,25 +556,37 @@ func (sm *Manager) ClearPassword() {
 // ConnectWithCachedPassword connects to a host using the cached SSH
 // password, through a fresh per-operation copy that is erased when the
 // dial (and its probe) finishes, regardless of outcome. Counts as a use
-// of the cached credential.
+// of the cached credential. On an authentication rejection, the cached
+// password itself is erased — not just the per-operation copy — so a
+// wrong password is never retried against another host (TAE-21 Erasure
+// AC: "a rejected password is erased before the next attempt is stored";
+// this is the SSH instance the AC names).
 func (sm *Manager) ConnectWithCachedPassword(idx int, h config.Host) PasswordRetryResult {
+	// Clone while holding the lock: releasing it between reading
+	// sm.cachedPassword and copying out of it would let a concurrent
+	// idle-timeout erasure (or EraseCredentials/Close) zero the backing
+	// array mid-copy.
 	sm.mu.Lock()
-	src := sm.cachedPassword
-	if src != nil {
+	hadCached := sm.cachedPassword != nil
+	var cp []byte
+	var err error
+	if hadCached {
 		sm.touch(kindSSH)
+		cp, err = credential.Clone(sm.cachedPassword)
 	}
 	sm.mu.Unlock()
 
-	if src == nil {
+	if !hadCached {
 		return PasswordRetryResult{Index: idx, Err: fmt.Errorf("no cached password")}
 	}
-
-	cp, err := credential.Clone(src)
 	if err != nil {
 		return PasswordRetryResult{Index: idx, Err: err}
 	}
 	res := sm.ConnectWithPassword(idx, h, cp)
 	credential.Erase(cp) // no-op if ConnectWithPassword already erased it on auth failure
+	if res.Err != nil && IsAuthError(res.Err) {
+		sm.ClearPassword()
+	}
 	return res
 }
 
