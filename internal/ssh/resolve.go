@@ -26,30 +26,47 @@ var ErrSSHBinaryMissing = errors.New("ssh binary not found on PATH")
 // ProxyJump or ProxyCommand. The library dial cannot honour either, so the
 // host is reachable only by handing the terminal over to ssh.
 type ErrHandoverOnly struct {
-	// Jump is the ProxyJump host, or the ProxyCommand when no ProxyJump is
-	// set.
+	// Jump is the ProxyJump host. Empty when the host uses a ProxyCommand,
+	// whose text is deliberately not carried: it can hold anything.
 	Jump string
 }
 
-func (e ErrHandoverOnly) Error() string { return "ProxyJump via " + e.Jump }
+func (e ErrHandoverOnly) Error() string {
+	if e.Jump == "" {
+		return "ProxyCommand"
+	}
+	return "ProxyJump via " + e.Jump
+}
 
 // Target is where an ssh invocation for one fleet entry ends up, as
 // `ssh -G` resolves it. Every path — both library dials and the terminal
 // handover — reaches the same machine because they all start from this.
 type Target struct {
-	Alias            string
-	Hostname         string
-	User             string
-	Port             int
-	IdentityFiles    []string
-	ProxyJump        string
-	ProxyCommand     string
+	Alias         string
+	Hostname      string
+	User          string
+	Port          int
+	IdentityFiles []string
+	ProxyJump     string
+	ProxyCommand  string
+	// HostKeyAlias, when set, is the name ssh looks the host key up and
+	// records it under instead of the host name.
+	HostKeyAlias     string
 	UserKnownHosts   []string
 	GlobalKnownHosts []string
 }
 
 // Addr is the host:port the library dials.
 func (t Target) Addr() string { return fmt.Sprintf("%s:%d", t.Hostname, t.Port) }
+
+// KeyAddr is the host:port a host key is looked up and recorded under in
+// known_hosts: the address, or HostKeyAlias:port when ssh would use an alias.
+func (t Target) KeyAddr() string {
+	if t.HostKeyAlias != "" {
+		return fmt.Sprintf("%s:%d", t.HostKeyAlias, t.Port)
+	}
+	return t.Addr()
+}
 
 // SSHArgs is the single source of the argument list for every ssh
 // invocation FleetDesk makes for a fleet entry: the handover, the
@@ -165,6 +182,10 @@ func parseSSHG(out []byte) (Target, error) {
 			if val != "none" {
 				t.ProxyCommand = val
 			}
+		case "hostkeyalias":
+			if val != "none" {
+				t.HostKeyAlias = val
+			}
 		case "userknownhostsfile":
 			t.UserKnownHosts = append(t.UserKnownHosts, splitPaths(val)...)
 		case "globalknownhostsfile":
@@ -193,7 +214,7 @@ func (t Target) handoverOnly() error {
 	case t.ProxyJump != "":
 		return ErrHandoverOnly{Jump: t.ProxyJump}
 	case t.ProxyCommand != "":
-		return ErrHandoverOnly{Jump: t.ProxyCommand}
+		return ErrHandoverOnly{}
 	}
 	return nil
 }

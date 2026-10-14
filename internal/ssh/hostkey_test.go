@@ -302,3 +302,41 @@ func TestTrustPendingHostKey_RefusesAKeyThatWasNotShown(t *testing.T) {
 		t.Error("a recorded key is no longer pending")
 	}
 }
+
+// With HostKeyAlias, ssh looks the key up and records it under the alias; so
+// does the library, or the two would disagree about what is trusted.
+func TestHostKeyAlias(t *testing.T) {
+	key := newEd25519Signer(t)
+	host, port := startSSHServer(t, key)
+	tg, kh := targetFor(t, host, port)
+	tg.HostKeyAlias = "pinned-name"
+	if want := "pinned-name:" + itoa(port); tg.KeyAddr() != want {
+		t.Fatalf("KeyAddr = %q, want %q", tg.KeyAddr(), want)
+	}
+	if tg.Addr() != host+":"+itoa(port) {
+		t.Errorf("Addr is still the dialled address: %q", tg.Addr())
+	}
+	sm := NewManager(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	_, err := dialTarget(tg)
+	var unk ErrUnknownHostKey
+	if !errors.As(err, &unk) || unk.Addr != tg.KeyAddr() {
+		t.Fatalf("first contact: %v (addr %q)", err, unk.Addr)
+	}
+	if err := recordHostKey(sm, tg, unk.Key); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(kh)
+	if !strings.Contains(string(b), "pinned-name") || strings.Contains(string(b), host) {
+		t.Errorf("recorded under the alias, not the address: %q", b)
+	}
+	c, err := dialTarget(tg)
+	if err != nil {
+		t.Fatalf("trusted under the alias: %v", err)
+	}
+	_ = c.Close()
+	// the same server without the alias is a different, unknown name
+	tg.HostKeyAlias = ""
+	if _, err := dialTarget(tg); !errors.As(err, &unk) {
+		t.Errorf("without the alias the address is unknown: %v", err)
+	}
+}

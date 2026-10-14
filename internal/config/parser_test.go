@@ -676,3 +676,36 @@ func TestParseFleetFile_ActivationKeyFieldRemoved(t *testing.T) {
 		})
 	}
 }
+
+// A probes fleet is a fleet: an unsupported secrets provider is refused at
+// load there too.
+func TestParseFleetFile_ProbesFleetSecretsValidated(t *testing.T) {
+	body := "name: p\ntype: probes\nsecrets:\n  provider: hashicorp\n  vault: v\nprobes:\n  - name: a\n    url: http://x\n"
+	if _, err := ParseFleetFile(writeTempYAML(t, body)); err == nil || !strings.Contains(err.Error(), "is not supported (supported: azure-keyvault)") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestCheckOwner(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("running as root: every file is the owner's")
+	}
+	fi, err := os.Stat("/etc/passwd") // root's, readable by all
+	if err != nil {
+		t.Skip("no /etc/passwd")
+	}
+	if err := checkOwner(fi, "/etc/passwd", false); err == nil || !strings.Contains(err.Error(), "owned by uid 0") {
+		t.Errorf("config.yaml must be the user's own: %v", err)
+	}
+	if err := checkOwner(fi, "/etc/passwd", true); err != nil {
+		t.Errorf("a fleet file owned by root is safe: %v", err)
+	}
+	own := filepath.Join(t.TempDir(), "f")
+	if err := os.WriteFile(own, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ofi, _ := os.Stat(own)
+	if err := checkOwner(ofi, own, false); err != nil {
+		t.Errorf("own file: %v", err)
+	}
+}

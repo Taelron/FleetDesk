@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,17 +60,27 @@ func (c AppConfig) Editor() string {
 // LoadAppConfig reads and validates config.yaml from the given config directory.
 func LoadAppConfig(configDir string) (AppConfig, error) {
 	path := filepath.Join(configDir, "config.yaml")
-	info, err := os.Stat(path)
+	// Open once and check the handle that is then read: a stat of the path
+	// followed by a read of the path leaves a window to swap the file.
+	f, err := os.Open(path) //nolint:gosec // G304: constant config dir
 	if err != nil {
 		if os.IsNotExist(err) {
 			return AppConfig{}, ErrNoConfig
 		}
 		return AppConfig{}, fmt.Errorf("reading config: %w", err)
 	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return AppConfig{}, fmt.Errorf("reading config: %w", err)
+	}
 	if err := checkConfigMode(path, info.Mode().Perm()); err != nil {
 		return AppConfig{}, err
 	}
-	data, err := os.ReadFile(path) //nolint:gosec // G304: constant config dir
+	if err := checkOwner(info, path, false); err != nil {
+		return AppConfig{}, err
+	}
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return AppConfig{}, fmt.Errorf("reading config: %w", err)
 	}

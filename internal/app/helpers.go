@@ -1709,6 +1709,15 @@ func (m *Model) resolveHostKey(msg hostKeyDecidedMsg) tea.Cmd {
 // configuration needs a ProxyJump: the in-app views cannot reach it.
 const handoverOnlyFlash = "Needs ProxyJump \u2014 only shell, reboot and deploy-key work on this host"
 
+// handoverOnlyFlashFor is the flash for a handover-only host: it names what
+// the host actually uses, a ProxyJump or a ProxyCommand.
+func handoverOnlyFlashFor(h config.Host) string {
+	if strings.HasPrefix(h.Error, "ProxyJump") {
+		return handoverOnlyFlash
+	}
+	return strings.Replace(handoverOnlyFlash, "Needs ProxyJump", "Needs a ProxyCommand", 1)
+}
+
 // hostAllowsHandover reports whether a terminal handover (shell, reboot,
 // deploy key) may be started on h: it must be reachable, in-app or only by
 // handover.

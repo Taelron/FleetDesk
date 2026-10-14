@@ -230,3 +230,30 @@ func mustClone(t *testing.T, s string) []byte {
 	}
 	return b
 }
+
+// A host that rejected a verification of another host's password is not
+// offered that same verification again; a fresh verification is offered once more.
+func TestSudoCandidateRejectionMemory(t *testing.T) {
+	sm := NewManager(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	sm.SetSudoPassword(0, mustClone(t, "pw0"))
+	sm.MarkSudoVerified(0)
+	if from, ok := sm.SudoCandidateFor(1); !ok || from != 0 {
+		t.Fatalf("candidate = %d %v, want host 0", from, ok)
+	}
+	sm.RecordSudoRejected(1, 0)
+	if _, ok := sm.SudoCandidateFor(1); ok {
+		t.Error("host 1 already rejected this verification of host 0's password")
+	}
+	if from, ok := sm.SudoCandidateFor(2); !ok || from != 0 {
+		t.Error("another host is still offered it")
+	}
+	sm.MarkSudoVerified(0) // verified afresh: a new verification
+	if from, ok := sm.SudoCandidateFor(1); !ok || from != 0 {
+		t.Errorf("a fresh verification may be offered again: %d %v", from, ok)
+	}
+	sm.RecordSudoRejected(1, 5) // nothing verified on 5: no-op, no panic
+	sm.EraseCredentials()
+	if _, ok := sm.SudoCandidateFor(1); ok {
+		t.Error("erasure leaves nothing to offer")
+	}
+}

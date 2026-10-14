@@ -80,7 +80,8 @@ func hostKeyCallback(t Target) (gossh.HostKeyCallback, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading known_hosts: %w", err)
 	}
-	return func(hostname string, remote net.Addr, key gossh.PublicKey) error {
+	return func(_ string, remote net.Addr, key gossh.PublicKey) error {
+		hostname := t.KeyAddr() // the name ssh itself would look the key up under, not the dialled address
 		err := cb(hostname, remote, key)
 		if err == nil {
 			return nil
@@ -240,7 +241,7 @@ func recordHostKey(sm *Manager, t Target, key gossh.PublicKey) error {
 	if err := ensureKnownHostsFile(path); err != nil {
 		return err
 	}
-	line := knownhosts.Line([]string{knownhosts.Normalize(t.Addr())}, key)
+	line := knownhosts.Line([]string{knownhosts.Normalize(t.KeyAddr())}, key)
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec // G304: the known_hosts path ssh -G resolved
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", path, err)
@@ -299,8 +300,8 @@ func (sm *Manager) TrustPendingHostKey(idx int, e config.HostEntry, shownFingerp
 	if err != nil {
 		return err
 	}
-	if t.Addr() != k.Addr {
-		return fmt.Errorf("%s now resolves to %s, not %s that the key was seen at; nothing was recorded", e.Hostname, t.Addr(), k.Addr)
+	if t.KeyAddr() != k.Addr {
+		return fmt.Errorf("%s now resolves to %s, not %s that the key was seen at; nothing was recorded", e.Hostname, t.KeyAddr(), k.Addr)
 	}
 	if err := recordHostKey(sm, t, k.Key); err != nil {
 		return err

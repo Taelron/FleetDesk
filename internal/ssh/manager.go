@@ -116,6 +116,10 @@ type Manager struct {
 	// from another host, or is a candidate under test, has no entry.
 	sudoVerified map[int]uint64
 	sudoSeq      uint64
+	// sudoRejected remembers, per host index, which verification of another
+	// host's password it has already rejected (from -> that verification's
+	// sequence), so the same candidate is never offered to it twice.
+	sudoRejected map[int]map[int]uint64
 
 	// pendingHostKeys holds, per host index, a first-contact host key
 	// awaiting the user's accept/decline (never a credential).
@@ -134,6 +138,7 @@ func NewManager(logger *slog.Logger) *Manager {
 		conns:           make(map[int]*gossh.Client),
 		sudoPasswords:   make(map[int]*sudoEntry),
 		sudoVerified:    make(map[int]uint64),
+		sudoRejected:    make(map[int]map[int]uint64),
 		pendingHostKeys: make(map[int]ErrUnknownHostKey),
 		logger:          logger,
 	}
@@ -230,6 +235,7 @@ func (sm *Manager) eraseAllSudoLocked() {
 	}
 	sm.sudoPasswords = make(map[int]*sudoEntry)
 	sm.sudoVerified = make(map[int]uint64)
+	sm.sudoRejected = make(map[int]map[int]uint64)
 }
 
 // releaseSudoEntryLocked drops idx's reference to its sudo entry, if any,
@@ -329,10 +335,29 @@ func (sm *Manager) HasVerifiedSudo(idx int) bool {
 	return held && sm.sudoVerified[idx] > 0
 }
 
-// MostRecentVerifiedSudo returns the host, other than exclude, whose sudo
-// password was verified most recently. One candidate, never several: a host
-// offered a foreign secret receives at most one, and so suffers at most one
-// failed authentication for it.
+// SudoCandidateFor returns the host, other than idx, whose verified sudo
+// password was verified most recently and that idx has not already rejected.
+// One candidate, never several, and each verification at most once per host:
+// a host offered a foreign secret receives at most one, suffers at most one
+// failed authentication for it, and is not asked again until that password
+// is verified afresh somewhere.
+func (sm *Manager) SudoCandidateFor(idx int) (int, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	best, bestSeq := -1, uint64(0)
+	for from, seq := range sm.sudoVerified {
+		if from == idx || seq <= bestSeq || sm.sudoRejected[idx][from] == seq {
+			continue
+		}
+		if _, held := sm.sudoPasswords[from]; !held {
+			continue
+		}
+		best, bestSeq = from, seq
+	}
+	return best, best >= 0
+}
+
+// MostRecentVerifiedSudo is SudoCandidateFor without the rejection memory.
 func (sm *Manager) MostRecentVerifiedSudo(exclude int) (int, bool) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -347,6 +372,21 @@ func (sm *Manager) MostRecentVerifiedSudo(exclude int) (int, bool) {
 		best, bestSeq = idx, seq
 	}
 	return best, best >= 0
+}
+
+// RecordSudoRejected notes that idx rejected from's current verified
+// password, so SudoCandidateFor will not offer that verification to idx again.
+func (sm *Manager) RecordSudoRejected(idx, from int) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	seq := sm.sudoVerified[from]
+	if seq == 0 {
+		return
+	}
+	if sm.sudoRejected[idx] == nil {
+		sm.sudoRejected[idx] = make(map[int]uint64)
+	}
+	sm.sudoRejected[idx][from] = seq
 }
 
 // SeedSudoFromCachedPassword copies the cached SSH password as idx's sudo
@@ -559,17 +599,24 @@ func rewriteSudoOccurrences(cmd string) string {
 // secret line on its stdin.
 var ErrSecretDelivery = errors.New("secret cannot be delivered safely")
 
-// secretMissingStatus is the exit status of a rewritten command whose remote
-// shell found no secret line on stdin before EOF.
-const secretMissingStatus = 95
+// Exit statuses of the secret preamble itself: 95, the remote shell found no
+// secret line on stdin before EOF; 93, it could not make the private FIFO the
+// secret travels through.
+const (
+	secretMissingStatus = 95
+	secretChannelStatus = 93
+)
 
 // SecretDeliveryError maps a rewritten command's exit status to
 // ErrSecretDelivery when it is the secret preamble's own: 95. Like
 // SudoDeliveryError it is only meaningful for a command RewriteSudoWithSecret
 // produced.
 func SecretDeliveryError(status int) error {
-	if status == secretMissingStatus {
+	switch status {
+	case secretMissingStatus:
 		return fmt.Errorf("%w: no secret line reached the remote shell", ErrSecretDelivery)
+	case secretChannelStatus:
+		return fmt.Errorf("%w: the remote host could not make a private pipe (mktemp, mkfifo)", ErrSecretDelivery)
 	}
 	return nil
 }
@@ -579,25 +626,38 @@ func SecretDeliveryError(status int) error {
 var secretTag = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
 // RewriteSudoWithSecret builds the command that runs consumer as root with a
-// secret delivered over stdin, together with the sudo password, and the
-// reader that is the session's stdin. Neither the password nor the secret
-// appears in the command string, in any argv on the target (the shell, sudo,
-// the consumer) or in the environment: both travel as lines of stdin and are
-// held only in shell variables that are not exported, then re-sent through a
-// builtin printf into sudo -S and on to the consumer's stdin.
+// secret delivered to its stdin, and the reader that is the session's stdin.
+// Neither the sudo password nor the secret appears in the command string, in
+// any argv on the target (the shell, sudo, the consumer) or in the
+// environment: both travel as lines of this session's stdin and are held only
+// in shell variables that are not exported.
+//
+// The secret never shares a stream with a sudo that is reading a password.
+// sudo -S answers a rejected password by reading the next stdin line as a
+// second attempt, so a secret behind the password on one stream would be
+// submitted to PAM — and so to sssd, IdM or AD — and cost a second failed
+// attempt toward faillock. And it cannot be authenticate-then-run under two
+// sudos, because a host with timestamp_timeout=0 keeps no ticket between
+// them. So sudo's stdin carries the password line only, and the secret
+// reaches the root consumer through a FIFO in a private (0700) directory the
+// shell makes: a pipe, not a file — no secret byte is ever on disk — which
+// the consumer opens as its stdin. If sudo refuses, nothing ever opens the
+// FIFO and the secret is never written anywhere.
 //
 //	<preamble: read the sudo password, check printf>
 //	IFS= read -r FLEETDESK_SECRET || exit 95;
-//	<prefix, every "sudo " rewritten to the relay> &&
-//	printf '%s\n%s\n' "$FLEETDESK_SUDO_PW" "<tag>=$FLEETDESK_SECRET" |
-//	    sudo -S 2>/dev/null sh -c '<consumer>'
+//	{ <prefix, every "sudo " rewritten to the relay>; } || exit $?;
+//	d=$(mktemp -d) || exit 93; mkfifo "$d/s" || { rm -rf "$d"; exit 93; };
+//	( printf '%s\n' "<tag>=$FLEETDESK_SECRET" > "$d/s" ) & w=$!;
+//	printf '%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null sh -c 'exec <"$0"; <consumer>' "$d/s";
+//	rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc
 //
-// The consumer reads stdin up to its "<tag>=" line; if sudo asks for no
-// password it does not read the password line, which the consumer skips.
-// prefix may be empty. The caller owns secret and must erase it once this
-// returns: the reader holds its own copy, erased when the last byte is
-// delivered or on Reader.Erase, which the caller must call when the stream
-// ends. consumer is run through "sh -c", so it may be a compound command.
+// The consumer reads its stdin up to its "<tag>=" line. prefix may be empty.
+// A host that needs no password is given an empty password line, which sudo
+// never reads. The caller owns secret and must erase it once this returns:
+// the reader holds its own copy, erased when the last byte is delivered or on
+// Reader.Erase, which the caller must call when the stream ends. consumer is
+// run through "sh -c", so it may be a compound command.
 func (sm *Manager) RewriteSudoWithSecret(idx int, prefix string, secret []byte, tag, consumer string) (string, *credential.Reader, error) {
 	if !secretTag.MatchString(tag) {
 		return "", nil, fmt.Errorf("invalid secret tag %q", tag)
@@ -606,32 +666,32 @@ func (sm *Manager) RewriteSudoWithSecret(idx int, prefix string, secret []byte, 
 		return "", nil, fmt.Errorf("%w: the secret contains a line break", ErrSecretDelivery)
 	}
 	sm.mu.Lock()
-	e, ok := sm.sudoPasswords[idx]
-	if !ok {
-		sm.mu.Unlock()
-		return "", nil, fmt.Errorf("%w: no sudo password is held for this host", ErrSudoDelivery)
+	var pw []byte
+	if e, ok := sm.sudoPasswords[idx]; ok {
+		if err := ValidateSudoPassword(e.buf); err != nil {
+			sm.mu.Unlock()
+			return "", nil, err
+		}
+		pw = e.buf
+		sm.touch(kindSudo)
 	}
-	if err := ValidateSudoPassword(e.buf); err != nil {
-		sm.mu.Unlock()
-		return "", nil, err
-	}
-	r, err := credential.NewMultiReader("\n", e.buf, secret)
-	if err != nil {
-		sm.mu.Unlock()
-		return "", nil, err
-	}
-	sm.touch(kindSudo)
+	r, err := credential.NewMultiReader("\n", pw, secret)
 	sm.mu.Unlock()
+	if err != nil {
+		return "", nil, err
+	}
 
 	var b strings.Builder
 	b.WriteString(sudoPreamble)
 	b.WriteString(`IFS= read -r FLEETDESK_SECRET || exit 95; `)
 	if prefix != "" {
-		b.WriteString(rewriteSudoOccurrences(prefix))
-		b.WriteString(" && ")
+		b.WriteString("{ " + rewriteSudoOccurrences(prefix) + "; } || exit $?; ")
 	}
-	fmt.Fprintf(&b, `printf '%%s\n%%s\n' "$FLEETDESK_SUDO_PW" "%s=$FLEETDESK_SECRET" | sudo -S 2>/dev/null sh -c '%s'`,
-		tag, strings.ReplaceAll(consumer, "'", `'\''`))
+	b.WriteString(`d=$(mktemp -d) || exit 93; mkfifo "$d/s" || { rm -rf "$d"; exit 93; }; `)
+	fmt.Fprintf(&b, `( printf '%%s\n' "%s=$FLEETDESK_SECRET" > "$d/s" ) & w=$!; `, tag)
+	fmt.Fprintf(&b, `printf '%%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null sh -c '%s' "$d/s"; `,
+		strings.ReplaceAll(`exec <"$0"; `+consumer, "'", `'\''`))
+	b.WriteString(`rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc`)
 	return b.String(), r, nil
 }
 

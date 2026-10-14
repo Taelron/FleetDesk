@@ -443,7 +443,7 @@ func (m Model) handleHostListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		h := m.hosts[m.hostCursor]
 		if h.Status == config.HostHandoverOnly {
-			m.flash = handoverOnlyFlash
+			m.flash = handoverOnlyFlashFor(h)
 			m.flashError = false
 			return m, nil
 		}
@@ -478,7 +478,7 @@ func (m Model) handleHostListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
 			if h.Status == config.HostHandoverOnly {
-				m.flash = handoverOnlyFlash
+				m.flash = handoverOnlyFlashFor(h)
 				m.flashError = false
 				return m, nil
 			}
@@ -1120,6 +1120,7 @@ func (m Model) handleSubscriptionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				Consumer: ssh.RegisterConsumer(orgID),
 				ExitErrors: map[int]string{
 					ssh.RegisterExitRHELTooOld: ssh.RegisterRHELTooOldMessage,
+					ssh.RegisterExitNoDBus:     ssh.RegisterNoDBusMessage,
 				},
 			},
 		}

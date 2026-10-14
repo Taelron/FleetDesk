@@ -162,3 +162,48 @@ func TestResourcePickerShowsNAWhenCountUnknown(t *testing.T) {
 		}
 	}
 }
+
+// A sudo stream on a host with no password held first asks whether the host
+// wants one; a NOPASSWD host is neither prompted nor handed another host's.
+func TestStreamSudoCheck(t *testing.T) {
+	m := twoHostModel(t)
+	storePW(t, m, 0, "pwA")
+	m.ssh.MarkSudoVerified(0)
+	cfg := SSHStreamConfig{Command: "sudo true", HostIdx: 1, Sudo: true, ReturnView: viewSubscription}
+
+	out, cmd := m.Update(startCommandStreamMsg{cfg: cfg})
+	m = out.(Model)
+	if cmd == nil || m.modal != nil || m.view == viewSSHStream || m.ssh.GetSudoPassword(1) {
+		t.Fatalf("nothing happens until the host has been asked: cmd=%v modal=%v shared=%v", cmd != nil, m.modal != nil, m.ssh.GetSudoPassword(1))
+	}
+	if msg, ok := cmd().(streamSudoCheckMsg); !ok || msg.noPassword {
+		t.Fatalf("no connection: the check finds a password is needed, got %+v", msg)
+	}
+
+	// needs a password: A's is offered once
+	out, cmd = m.Update(streamSudoCheckMsg{cfg: cfg})
+	m = out.(Model)
+	if cmd == nil || !strings.Contains(m.flash, "reusing the password verified on hostA") {
+		t.Errorf("offer: cmd=%v flash=%q", cmd != nil, m.flash)
+	}
+
+	// needs none: the stream starts, A's password is not shared, no prompt
+	m2 := twoHostModel(t)
+	m2.fleets[0].Name = "f"
+	m2.selectedHost = 1
+	storePW(t, m2, 0, "pwA")
+	m2.ssh.MarkSudoVerified(0)
+	out, _ = m2.Update(streamSudoCheckMsg{cfg: cfg, noPassword: true})
+	m2 = out.(Model)
+	if m2.view != viewSSHStream || m2.modal != nil || m2.ssh.GetSudoPassword(1) || !m2.hosts[1].SudoReady {
+		t.Errorf("NOPASSWD: view=%v modal=%v shared=%v ready=%v", m2.view, m2.modal != nil, m2.ssh.GetSudoPassword(1), m2.hosts[1].SudoReady)
+	}
+}
+
+func TestHandoverOnlyFlashNamesWhatTheHostUses(t *testing.T) {
+	jump := handoverOnlyFlashFor(config.Host{Error: "ProxyJump via j"})
+	cmd := handoverOnlyFlashFor(config.Host{Error: "ProxyCommand"})
+	if !strings.HasPrefix(jump, "Needs ProxyJump") || !strings.HasPrefix(cmd, "Needs a ProxyCommand") || !strings.Contains(cmd, "only shell, reboot and deploy-key work on this host") {
+		t.Errorf("%q / %q", jump, cmd)
+	}
+}

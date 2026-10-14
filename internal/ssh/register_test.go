@@ -42,10 +42,11 @@ func TestRewriteSudoWithSecret_Shape(t *testing.T) {
 	}
 	// both prefix occurrences go through the relay; no bare "sudo " remains
 	if got := strings.Count(cmd, `| sudo -S 2>/dev/null `); got != 3 {
-		t.Errorf("want 3 relays (2 in the prefix, 1 for the consumer), got %d:\n%s", got, cmd)
+		t.Errorf("want 3 password relays (2 in the prefix, 1 for the consumer), got %d:\n%s", got, cmd)
 	}
 	for _, want := range []string{
-		`printf '%s\n%s\n' "$FLEETDESK_SUDO_PW" "FLEETDESK_AK=$FLEETDESK_SECRET" | sudo -S 2>/dev/null sh -c 'python3 -c '\''print(1)'\'' '\''org'\'''`,
+		`( printf '%s\n' "FLEETDESK_AK=$FLEETDESK_SECRET" > "$d/s" ) & w=$!; printf '%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null sh -c 'exec <"$0"; python3 -c '\''print(1)'\'' '\''org'\''' "$d/s"; rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc`,
+		`d=$(mktemp -d) || exit 93; mkfifo "$d/s"`,
 		"subscription-manager clean && ",
 	} {
 		if !strings.Contains(cmd, want) {
@@ -54,6 +55,13 @@ func TestRewriteSudoWithSecret_Shape(t *testing.T) {
 	}
 	if strings.Contains(strings.ReplaceAll(cmd, `| sudo -S`, ""), "sudo ") {
 		t.Errorf("a bare sudo remains:\n%s", cmd)
+	}
+	// the secret is never on a stream a `sudo -S` reads: sudo answers a
+	// rejected password by reading the next line as a second attempt
+	for _, stmt := range strings.Split(cmd, ";") {
+		if strings.Contains(stmt, "sudo -S") && strings.Contains(stmt, "FLEETDESK_SECRET") {
+			t.Errorf("a sudo -S shares a stream with the secret: %s", stmt)
+		}
 	}
 	got, _ := io.ReadAll(r)
 	if string(got) != pw+"\n"+secret+"\n" {
@@ -68,18 +76,24 @@ func TestRewriteSudoWithSecret_NoPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r.Erase()
-	if strings.Contains(cmd, "&&") {
-		t.Errorf("no prefix, nothing to chain:\n%s", cmd)
+	if strings.Contains(cmd, "{ ") && strings.Contains(cmd, "} || exit $?") {
+		t.Errorf("no prefix, no prefix block:\n%s", cmd)
 	}
-	if !strings.HasSuffix(cmd, `"TAG=$FLEETDESK_SECRET" | sudo -S 2>/dev/null sh -c 'true'`) {
+	if !strings.HasSuffix(cmd, `sh -c 'exec <"$0"; true' "$d/s"; rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc`) {
 		t.Errorf("command = %s", cmd)
 	}
 }
 
 func TestRewriteSudoWithSecret_Refusals(t *testing.T) {
 	sm := managerWithSudo(t, 0, "pw")
-	if _, _, err := sm.RewriteSudoWithSecret(1, "", []byte("s"), "TAG", "true"); !errors.Is(err, ErrSudoDelivery) {
-		t.Errorf("no sudo password for the host: %v", err)
+	// a host with no password held (NOPASSWD) is given an empty password line
+	if cmd, r, err := sm.RewriteSudoWithSecret(1, "", []byte("s"), "TAG", "true"); err != nil {
+		t.Errorf("a host holding no sudo password: %v", err)
+	} else {
+		got, _ := io.ReadAll(r)
+		if string(got) != "\ns\n" || !strings.Contains(cmd, "sudo -S") {
+			t.Errorf("stdin %q cmd %s", got, cmd)
+		}
 	}
 	for _, bad := range []string{"a\nb", "a\rb", "a\x00b"} {
 		if _, _, err := sm.RewriteSudoWithSecret(0, "", []byte(bad), "TAG", "true"); !errors.Is(err, ErrSecretDelivery) {
@@ -119,7 +133,10 @@ func TestRewriteSudoWithSecret_RunsEndToEnd(t *testing.T) {
 	out := filepath.Join(dir, "stdin")
 	argv := filepath.Join(dir, "argv")
 	// stand-in sudo: -S reads the password line, checks it, runs the rest
-	sudo := "#!/bin/bash\n[ \"$1\" = -S ] || exit 64\nshift\nread -r p; [ \"$p\" = right ] || exit 1\nexec \"$@\"\n"
+	// -S reads ONE password line and checks it; a second line is the retry real
+	// sudo would make, recorded so the test can fail on it. No ticket is kept
+	// between invocations, as on a host with timestamp_timeout=0.
+	sudo := "#!/bin/bash\n[ \"$1\" = -S ] || exit 64\nshift\nread -r p; [ \"$p\" = right ] || exit 1\nif read -r extra; then echo \"$extra\" > " + filepath.Join(dir, "second-line") + "; fi\nexec \"$@\"\n"
 	if err := os.WriteFile(filepath.Join(dir, "sudo"), []byte(sudo), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -131,10 +148,17 @@ func TestRewriteSudoWithSecret_RunsEndToEnd(t *testing.T) {
 	}
 	defer r.Erase()
 	c := exec.Command("bash", "-c", cmd+" 2>&1") //nolint:gosec // G204: the test runs the rewritten command against a stand-in sudo
-	c.Env = []string{"PATH=" + dir + ":/usr/bin:/bin"}
+	tmpd := filepath.Join(dir, "tmp")
+	if err := os.Mkdir(tmpd, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	c.Env = []string{"PATH=" + dir + ":/usr/bin:/bin", "TMPDIR=" + tmpd}
 	c.Stdin = r
 	if b, err := c.CombinedOutput(); err != nil {
 		t.Fatalf("%v\n%s", err, b)
+	}
+	if left, _ := os.ReadDir(tmpd); len(left) != 0 {
+		t.Errorf("the private directory must be removed afterwards: %v", left)
 	}
 	got, _ := os.ReadFile(out)
 	if string(got) != "FLEETDESK_AK="+secret+"\n" {
@@ -143,6 +167,10 @@ func TestRewriteSudoWithSecret_RunsEndToEnd(t *testing.T) {
 	av, _ := os.ReadFile(argv)
 	if strings.Contains(string(av), "secret") || strings.Contains(string(av), pw) {
 		t.Errorf("argv carries a credential: %q", av)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "second-line")); err == nil {
+		t.Error("sudo -S saw a second stdin line: the secret shares a stream with the password prompt")
 	}
 
 	// a wrong password fails the way sudo does, without running the consumer
@@ -160,6 +188,21 @@ func TestRewriteSudoWithSecret_RunsEndToEnd(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "ran")); err == nil {
 		t.Error("the consumer ran despite sudo refusing")
+	}
+
+	// a rejected password must not let the secret reach sudo as a second attempt
+	_ = os.Remove(filepath.Join(dir, "second-line"))
+	cmdB, rB, err := sm2.RewriteSudoWithSecret(0, "", []byte(secret), "FLEETDESK_AK", "true")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rB.Erase()
+	cB := exec.Command("bash", "-c", cmdB) //nolint:gosec // G204: as above
+	cB.Env = c.Env
+	cB.Stdin = rB
+	_ = cB.Run()
+	if b, err := os.ReadFile(filepath.Join(dir, "second-line")); err == nil {
+		t.Errorf("after a rejected password sudo -S read the secret line as a retry: %q", b)
 	}
 
 	// a stdin with no secret line: exit 95, mapped to ErrSecretDelivery
@@ -217,8 +260,11 @@ func TestRegisterConsumer_ShellSyntax(t *testing.T) {
 	}
 	// exit 98 guards: RHEL < 8 and no python3
 	c := RegisterConsumer("o")
-	if strings.Count(c, "exit 98") != 2 {
-		t.Errorf("want the version and python3 guards:\n%s", c)
+	if !strings.Contains(c, "exit 98") || !strings.Contains(c, "exit 94") {
+		t.Errorf("want the version guard (98) and the D-Bus-binding guard (94):\n%s", c)
+	}
+	if !strings.Contains(c, "/usr/libexec/platform-python") {
+		t.Errorf("a stock RHEL 8 has its D-Bus binding only under platform-python:\n%s", c)
 	}
 }
 
@@ -310,7 +356,7 @@ class Interface:
 
 	// refusal: exit 1, the D-Bus error and no key
 	out, code = run("FLEETDESK_AK=ak-123456\n", "REFUSE=1")
-	if code != 1 || !strings.Contains(out, "registration failed: com.redhat.RHSM1.Error refused") || strings.Contains(out, "ak-123456") {
+	if code != 1 || !strings.Contains(out, "registration failed: com.redhat.RHSM1.Error") || strings.Contains(out, "ak-123456") || strings.Contains(out, "refused") {
 		t.Errorf("refusal: exit %d: %s", code, out)
 	}
 	// no key line: exit 2
@@ -330,8 +376,8 @@ class Interface:
 	c.Stdin = strings.NewReader("FLEETDESK_AK=x\n")
 	out98, err := c.CombinedOutput()
 	var ee *exec.ExitError
-	if !errors.As(err, &ee) || ee.ExitCode() != RegisterExitRHELTooOld {
-		t.Errorf("want exit %d without a D-Bus binding, got %v: %s", RegisterExitRHELTooOld, err, out98)
+	if !errors.As(err, &ee) || ee.ExitCode() != RegisterExitNoDBus {
+		t.Errorf("want exit %d without a D-Bus binding, got %v: %s", RegisterExitNoDBus, err, out98)
 	}
 }
 
@@ -346,7 +392,7 @@ func TestRegisterConsumer_OrgIDIsOneLiteralArgument(t *testing.T) {
 	dir := t.TempDir()
 	argvFile := filepath.Join(dir, "argv")
 	pyStub := "#!/bin/bash\nprintf '%s\\0' \"$@\" > " + argvFile + "\n"
-	sudoStub := "#!/bin/bash\nshift\nread -r p\nexec \"$@\"\n"
+	sudoStub := "#!/bin/bash\n[ \"$1\" = -S ] || exit 64\nshift\nread -r p\nexec \"$@\"\n"
 	for name, body := range map[string]string{"python3": pyStub, "sudo": sudoStub} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o700); err != nil {
 			t.Fatal(err)
@@ -354,7 +400,7 @@ func TestRegisterConsumer_OrgIDIsOneLiteralArgument(t *testing.T) {
 	}
 	for _, org := range []string{"Fluxys", `o'rg; touch ` + dir + `/pwned; echo '`, "$(touch " + dir + "/pwned2)", "`id`", `a"b\c`, "-oProxyCommand=x"} {
 		sm := managerWithSudo(t, 0, "pw")
-		consumer := strings.TrimPrefix(RegisterConsumer(org), registerPreflight)
+		consumer := "py=python3; " + strings.TrimPrefix(RegisterConsumer(org), registerPreflight)
 		if consumer == RegisterConsumer(org) {
 			t.Fatal("the preflight must be a prefix of the consumer")
 		}

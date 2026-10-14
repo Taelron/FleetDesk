@@ -163,8 +163,8 @@ func TestResolve_ProxyIsHandoverOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := tg.handoverOnly(); !errors.As(err, &h) || !strings.Contains(h.Jump, "nc") {
-		t.Errorf("ProxyCommand: got %v, want ErrHandoverOnly", err)
+	if err := tg.handoverOnly(); !errors.As(err, &h) || h.Jump != "" || h.Error() != "ProxyCommand" {
+		t.Errorf("ProxyCommand: got %v, want ErrHandoverOnly{} reading %q (the command text is not carried)", err, "ProxyCommand")
 	}
 }
 
@@ -176,7 +176,7 @@ func TestResolve_MissingBinary(t *testing.T) {
 }
 
 func TestParseSSHG(t *testing.T) {
-	out := "host x\nhostname 10.0.0.9\nuser bob\nport 2022\nidentityfile ~/.ssh/a\nidentityfile /abs/b\nproxyjump none\nproxycommand none\n" +
+	out := "hostkeyalias pinned\nhost x\nhostname 10.0.0.9\nuser bob\nport 2022\nidentityfile ~/.ssh/a\nidentityfile /abs/b\nproxyjump none\nproxycommand none\n" +
 		"globalknownhostsfile /etc/ssh/ssh_known_hosts /etc/ssh/ssh_known_hosts2\nuserknownhostsfile ~/.ssh/known_hosts ~/.ssh/known_hosts2\n"
 	tg, err := parseSSHG([]byte(out))
 	if err != nil {
@@ -187,6 +187,9 @@ func TestParseSSHG(t *testing.T) {
 	}
 	if tg.ProxyJump != "" || tg.ProxyCommand != "" {
 		t.Errorf("'none' must read as unset: %+v", tg)
+	}
+	if tg.HostKeyAlias != "pinned" {
+		t.Errorf("HostKeyAlias = %q", tg.HostKeyAlias)
 	}
 	if len(tg.IdentityFiles) != 2 || tg.IdentityFiles[1] != "/abs/b" {
 		t.Errorf("IdentityFiles = %q", tg.IdentityFiles)

@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -126,14 +127,22 @@ func ParseFleetFile(path string) (Fleet, error) {
 	// FleetDesk executes what a fleet file contains, so a file another user
 	// can write is refused. A merely readable one is fine: fleet files hold
 	// no secrets (ADR-F011) and are meant to be shared.
-	info, err := os.Stat(path)
+	f, err := os.Open(path) //nolint:gosec // G304: the user's fleet directory listing
+	if err != nil {
+		return Fleet{}, fmt.Errorf("reading file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat() // the handle that is read below, not the path again
 	if err != nil {
 		return Fleet{}, fmt.Errorf("reading file: %w", err)
 	}
 	if mode := info.Mode().Perm(); mode&0o022 != 0 {
 		return Fleet{}, fmt.Errorf("fleet file %s is writable by group or others (mode %04o); run: chmod go-w %s", path, mode, path)
 	}
-	data, err := os.ReadFile(path) //nolint:gosec // G304: the user's fleet directory listing
+	if err := checkOwner(info, path, true); err != nil {
+		return Fleet{}, fmt.Errorf("fleet file %w", err)
+	}
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return Fleet{}, fmt.Errorf("reading file: %w", err)
 	}
@@ -155,6 +164,11 @@ func ParseFleetFile(path string) (Fleet, error) {
 	case "vm", "azure", "kubernetes":
 		// valid — parsed below
 	case "probes":
+		// A secrets: block is validated for every fleet type, so an unsupported
+		// provider is refused at load wherever it appears.
+		if _, err := parseSecrets(raw.Secrets); err != nil {
+			return Fleet{}, err
+		}
 		return parseProbeFleetFile(data, name, path)
 	case "":
 		return Fleet{}, fmt.Errorf("missing required field 'type' in %s", path)

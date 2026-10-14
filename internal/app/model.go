@@ -221,6 +221,20 @@ type sudoProbeMsg struct {
 	seedTried bool
 }
 
+// streamSudoCheckMsg reports whether the host a sudo stream is about to run
+// on needs a sudo password at all.
+type streamSudoCheckMsg struct {
+	cfg        SSHStreamConfig
+	noPassword bool
+}
+
+// sudoNeedsNoPassword reports whether sudo runs on host idx without a
+// password (NOPASSWD, or a live timestamp).
+func sudoNeedsNoPassword(sm *ssh.Manager, idx int) bool {
+	out, err := sm.RunCommand(idx, "sudo -n true 2>&1")
+	return err == nil && !ssh.IsSudoOutput(out)
+}
+
 // sudoReuseMsg is the result of offering host hostIdx the sudo password
 // verified on another host (one `sudo true` on hostIdx). It carries no
 // credential: success continues with proceed, failure opens prompt.
@@ -678,7 +692,7 @@ func (m Model) handleSudoOrFlash(err error, retry tea.Cmd) (Model, tea.Cmd, bool
 // password keeps working) and prompt opens. Reports false, having changed
 // nothing, when there is no candidate.
 func (m *Model) offerVerifiedSudo(idx int, proceed tea.Cmd, prompt func(*Model)) (tea.Cmd, bool) {
-	from, ok := m.ssh.MostRecentVerifiedSudo(idx)
+	from, ok := m.ssh.SudoCandidateFor(idx)
 	if !ok || from >= len(m.hosts) || !m.ssh.ShareSudoPassword(from, idx) {
 		return nil, false
 	}
@@ -690,7 +704,8 @@ func (m *Model) offerVerifiedSudo(idx int, proceed tea.Cmd, prompt func(*Model))
 		out, err := sm.RunSudoCommand(idx, "sudo true")
 		success := err == nil && !ssh.IsSudoOutput(out)
 		if !success {
-			sm.ClearSudoPassword(idx) // idx only: the host it came from keeps its own
+			sm.RecordSudoRejected(idx, from) // not offered again until it is verified afresh
+			sm.ClearSudoPassword(idx)        // idx only: the host it came from keeps its own
 		}
 		return sudoReuseMsg{hostIdx: idx, success: success, err: sudoDeliveryErr(err), proceed: proceed, prompt: prompt}
 	}, true
@@ -1361,24 +1376,40 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case startCommandStreamMsg:
 		m.replaceModal(nil)
-		// If the command contains sudo and no password is cached, prompt first
+		// A command that needs sudo and has no password cached: first find out
+		// whether the host wants one at all. A host with NOPASSWD sudo (or a
+		// live timestamp) must neither be asked for a password nor be given
+		// another host's.
 		if (msg.cfg.Sudo || msg.cfg.Secret != nil || strings.Contains(msg.cfg.Command, "sudo")) && !m.ssh.GetSudoPassword(msg.cfg.HostIdx) {
 			cfg := msg.cfg
-			retry := func() tea.Msg { return startCommandStreamMsg{cfg: cfg} }
-			user := ""
-			host := ""
-			if cfg.HostIdx < len(m.hosts) {
-				user = m.hostUser(cfg.HostIdx)
-				host = m.hosts[cfg.HostIdx].Entry.Name
+			sm := m.ssh
+			return m, func() tea.Msg {
+				return streamSudoCheckMsg{cfg: cfg, noPassword: sudoNeedsNoPassword(sm, cfg.HostIdx)}
 			}
-			prompt := func(mm *Model) { mm.replaceModal(NewSudoModal(user, host, cfg.HostIdx, retry)) }
-			if cmd, ok := m.offerVerifiedSudo(cfg.HostIdx, retry, prompt); ok {
-				return m, cmd
-			}
-			prompt(&m)
-			return m, nil
 		}
 		return m, m.startSSHStream(msg.cfg)
+
+	case streamSudoCheckMsg:
+		cfg := msg.cfg
+		if msg.noPassword {
+			if cfg.HostIdx < len(m.hosts) {
+				m.hosts[cfg.HostIdx].SudoReady = true
+			}
+			return m, m.startSSHStream(cfg)
+		}
+		retry := func() tea.Msg { return startCommandStreamMsg{cfg: cfg} }
+		user := ""
+		host := ""
+		if cfg.HostIdx < len(m.hosts) {
+			user = m.hostUser(cfg.HostIdx)
+			host = m.hosts[cfg.HostIdx].Entry.Name
+		}
+		prompt := func(mm *Model) { mm.replaceModal(NewSudoModal(user, host, cfg.HostIdx, retry)) }
+		if cmd, ok := m.offerVerifiedSudo(cfg.HostIdx, retry, prompt); ok {
+			return m, cmd
+		}
+		prompt(&m)
+		return m, nil
 
 	case startProcessActionViewMsg:
 		// Validate action against allowlist
