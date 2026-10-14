@@ -43,6 +43,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -267,7 +268,11 @@ func (h *t116Home) startTUI(env []string, args ...string) *t116TUI {
 	argv = append(argv, args...)
 	// remain-on-exit is set in the same tmux command queue, so a binary that
 	// exits at once (a startup error) still leaves its pane to be read
-	argv = append(argv, ";", "set-option", "-t", u.sess, "remain-on-exit", "on")
+	// tmux 3.2a ignores new-session -x/-y, so the size is forced: window-size
+	// manual, then an explicit resize
+	argv = append(argv, ";", "set-option", "-g", "window-size", "manual",
+		";", "resize-window", "-t", u.sess, "-x", "200", "-y", "50",
+		";", "set-option", "-t", u.sess, "remain-on-exit", "on")
 	if out, err := exec.Command("tmux", argv...).CombinedOutput(); err != nil {
 		h.t.Fatalf("tmux new-session: %v\n%s", err, out)
 	}
@@ -276,7 +281,7 @@ func (h *t116Home) startTUI(env []string, args ...string) *t116TUI {
 }
 
 func (u *t116TUI) pane() string {
-	out, err := exec.Command("tmux", "-L", u.sock, "capture-pane", "-p", "-t", u.sess).Output()
+	out, err := exec.Command("tmux", "-L", u.sock, "capture-pane", "-p", "-S", "-", "-t", u.sess).Output()
 	if err != nil {
 		return ""
 	}
@@ -285,7 +290,7 @@ func (u *t116TUI) pane() string {
 
 // paneJoined is the pane with soft-wrapped lines re-joined (capture-pane -J).
 func (u *t116TUI) paneJoined() string {
-	out, err := exec.Command("tmux", "-L", u.sock, "capture-pane", "-p", "-J", "-t", u.sess).Output()
+	out, err := exec.Command("tmux", "-L", u.sock, "capture-pane", "-p", "-J", "-S", "-", "-t", u.sess).Output()
 	if err != nil {
 		return ""
 	}
@@ -1072,18 +1077,21 @@ func TestTAE116HostKeyChecksNeverDisabledAnywhere(t *testing.T) {
 	// the needles are built from pieces so this file does not match itself
 	insecure := "Insecure" + "IgnoreHostKey"
 	strict := "StrictHostKey" + "Checking=no"
-	const self = ":!tae116_testhost_test.go"
-	if hits := t116GitGrep(t, insecure, "--", ".", self); len(hits) > 0 {
-		t.Errorf("C4: %s must appear nowhere in the codebase, test harness included:\n%s", insecure, strings.Join(hits, "\n"))
+	// Go source, scripts, the Makefile and configuration files: every tracked
+	// file bar prose (*.md) and the committed *.red.txt evidence, which records
+	// the code before the fix
+	scope := []string{"--", ".", ":!tae116_testhost_test.go", ":!*.red.txt", ":!*.md"}
+	if hits := t116GitGrep(t, append([]string{insecure}, scope...)...); len(hits) > 0 {
+		t.Errorf("C4: %s must appear in no Go source, script, Makefile or configuration file, test harness included:\n%s", insecure, strings.Join(hits, "\n"))
 	}
-	if hits := t116GitGrep(t, strict, "--", ".", self); len(hits) > 0 {
+	if hits := t116GitGrep(t, append([]string{strict}, scope...)...); len(hits) > 0 {
 		t.Errorf("C4: %s must be gone from every ssh and ssh-copy-id invocation, the deploy-key script included:\n%s", strict, strings.Join(hits, "\n"))
 	}
-	if hits := t116GitGrep(t, "-E", `nolint:[a-z]+.*TAE-22`, "--", "*.go", self); len(hits) > 0 {
+	if hits := t116GitGrep(t, "-E", `nolint:[a-z]+.*TAE-22`, "--", "*.go", ":!tae116_testhost_test.go"); len(hits) > 0 {
 		t.Errorf("C4: every //nolint tagged TAE-22 must be removed:\n%s", strings.Join(hits, "\n"))
 	}
 	// the test that asserts those suppressions exist is removed too
-	if hits := t116GitGrep(t, "-E", `nolint:gosec.*TAE-22|naming TAE-22`, "--", "*_test.go", self); len(hits) > 0 {
+	if hits := t116GitGrep(t, "-E", `nolint:gosec.*TAE-22|naming TAE-22`, "--", "*_test.go", ":!tae116_testhost_test.go"); len(hits) > 0 {
 		t.Errorf("C4: the test asserting the TAE-22 suppressions exist must be removed:\n%s", strings.Join(hits, "\n"))
 	}
 	mk, err := os.ReadFile("Makefile")
@@ -1462,6 +1470,51 @@ func TestTAE116FleetFileWritabilityCheckedOnLoad(t *testing.T) {
 		h.writeFleet("shareable.yaml", t116OneHost("th-g2r", "127.0.0.1", testUser1), 0o644)
 		u := h.startTUI(h.env())
 		u.wait(15*time.Second, "the Fleet Picker with a 0644 fleet file", "tae116")
+	})
+}
+
+// G2: ownership. A file owned by anyone else can be rewritten by that person
+// whatever its mode. A foreign owner is made without root: inside
+// `podman unshare`, uid 1 maps to a sub-uid that is not the invoking user.
+func TestTAE116FileOwnershipCheckedOnLoad(t *testing.T) {
+	me := os.Getuid()
+	foreign := func(t *testing.T, p string) int {
+		t.Helper()
+		if out, err := exec.Command("podman", "unshare", "chown", "1:1", p).CombinedOutput(); err != nil {
+			t.Fatalf("podman unshare chown: %v\n%s", err, out)
+		}
+		st, err := os.Stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		uid := int(st.Sys().(*syscall.Stat_t).Uid)
+		if uid == me {
+			t.Fatalf("fixture: %s is still owned by the invoking user", p)
+		}
+		return uid
+	}
+	check := func(t *testing.T, h *t116Home, p string, uid int) {
+		t.Helper()
+		out, code := h.runStartup(h.env())
+		if code != 1 {
+			t.Errorf("G2: want exit 1 for %s owned by uid %d, got %d\n%s", p, uid, code, out)
+		}
+		for _, want := range []string{p, fmt.Sprintf("is owned by uid %d, not by you (uid %d)", uid, me), fmt.Sprintf("chown %d %s", me, p)} {
+			if !strings.Contains(out, want) {
+				t.Errorf("G2: stderr should contain %q; got:\n%s", want, out)
+			}
+		}
+	}
+	t.Run("config.yaml-owned-by-someone-else", func(t *testing.T) {
+		h := t116NewHome(t)
+		h.writeFleet("ok.yaml", t116OneHost("th-g2o", "127.0.0.1", testUser1), 0o644)
+		cfg := h.writeConfig("fleet_dir: " + h.fleet + "\n")
+		check(t, h, cfg, foreign(t, cfg))
+	})
+	t.Run("fleet-file-owned-by-someone-else", func(t *testing.T) {
+		h := t116NewHome(t)
+		p := h.writeFleet("theirs.yaml", t116OneHost("th-g2f", "127.0.0.1", testUser1), 0o644)
+		check(t, h, p, foreign(t, p))
 	})
 }
 
