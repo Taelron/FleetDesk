@@ -394,38 +394,34 @@ func (m Model) handleHostListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "x":
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
-			if h.Status != config.HostOnline {
+			if !hostAllowsHandover(h) {
 				m.flash = "Host is not reachable"
 				m.flashError = true
 				return m, nil
 			}
-			return m, sshHandover(h, []string{}, fmt.Sprintf("shell %s@%s", h.Entry.User, h.Entry.Name))
+			return m, sshHandover(h, []string{}, fmt.Sprintf("shell %s@%s", m.hostUser(m.hostCursor), h.Entry.Name))
 		}
 	case "K":
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
-			if h.Status != config.HostOnline {
+			if !hostAllowsHandover(h) {
 				m.flash = "Host is not reachable"
 				m.flashError = true
 				return m, nil
 			}
 			m.selectedHost = m.hostCursor
-			sshTarget := shellQuote(h.Entry.User) + "@" + shellQuote(h.Entry.Hostname)
-			portStr := fmt.Sprintf("%d", h.Entry.Port)
-			script := fmt.Sprintf(
-				"ssh -t -o StrictHostKeyChecking=no -p %s '%s' 'sudo mkdir -p $HOME/.ssh && sudo chown -R $(id -u):$(id -g) $HOME && chmod 700 $HOME/.ssh' && ssh-copy-id -o StrictHostKeyChecking=no -p %s '%s'",
-				portStr, sshTarget, portStr, sshTarget)
+			script := deployKeyScript(h.Entry)
 			handover := cmdHandover("bash",
 				[]string{"-c", script},
-				fmt.Sprintf("deploy key to %s@%s", h.Entry.User, h.Entry.Name))
+				fmt.Sprintf("deploy key to %s@%s", m.hostUser(m.hostCursor), h.Entry.Name))
 			m.modal = NewConfirmModal("Confirm",
-				fmt.Sprintf("Deploy SSH key to %s@%s? [Y/n]", h.Entry.User, h.Entry.Name),
+				fmt.Sprintf("Deploy SSH key to %s@%s? [Y/n]", m.hostUser(m.hostCursor), h.Entry.Name),
 				handover)
 		}
 	case "R":
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
-			if h.Status != config.HostOnline {
+			if !hostAllowsHandover(h) {
 				m.flash = "Host is not reachable"
 				m.flashError = true
 				return m, nil
@@ -445,6 +441,11 @@ func (m Model) handleHostListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		h := m.hosts[m.hostCursor]
+		if h.Status == config.HostHandoverOnly {
+			m.flash = handoverOnlyFlash
+			m.flashError = false
+			return m, nil
+		}
 		if h.Status != config.HostOnline {
 			m.flash = "Host is not reachable"
 			m.flashError = true
@@ -475,6 +476,11 @@ func (m Model) handleHostListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
+			if h.Status == config.HostHandoverOnly {
+				m.flash = handoverOnlyFlash
+				m.flashError = false
+				return m, nil
+			}
 			if h.Status != config.HostOnline {
 				m.flash = "Host is not reachable"
 				m.flashError = true

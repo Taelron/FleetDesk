@@ -1,0 +1,14 @@
+#!/bin/bash
+# Inert dnf stub (TAE-116). The container has no usable repositories, and the
+# real `dnf check-update` that FleetDesk's host probe runs spends 5-50 CPU-bound
+# seconds failing to find any -- long enough that a host stays "connecting..."
+# past every acceptance-test wait, and overlapping periodic re-probes make it
+# worse. This answers at once with "nothing to update" (exit 0, no output),
+# which is also what the probe's `grep -c '^\S' || echo 0` expects.
+#
+# It is deliberately not a package manager: any other invocation fails, so
+# nothing can mistake the container for a host where dnf works.
+case "$1" in
+check-update) exit 0 ;;
+*) echo "dnf: the TAE-98 test host has no package manager (stub)" >&2; exit 1 ;;
+esac

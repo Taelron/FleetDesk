@@ -8,12 +8,10 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/kevinburke/ssh_config"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
@@ -112,6 +110,10 @@ type Manager struct {
 	cachedPassword []byte // session SSH password; nil when none cached
 	sudoPasswords  map[int]*sudoEntry
 
+	// pendingHostKeys holds, per host index, a first-contact host key
+	// awaiting the user's accept/decline (never a credential).
+	pendingHostKeys map[int]ErrUnknownHostKey
+
 	credentialTimeout time.Duration
 	timers            [credKindCount]*time.Timer
 	lastUse           [credKindCount]time.Time
@@ -122,9 +124,10 @@ type Manager struct {
 // NewManager creates a new SSH manager.
 func NewManager(logger *slog.Logger) *Manager {
 	return &Manager{
-		conns:         make(map[int]*gossh.Client),
-		sudoPasswords: make(map[int]*sudoEntry),
-		logger:        logger,
+		conns:           make(map[int]*gossh.Client),
+		sudoPasswords:   make(map[int]*sudoEntry),
+		pendingHostKeys: make(map[int]ErrUnknownHostKey),
+		logger:          logger,
 	}
 }
 
@@ -331,6 +334,9 @@ type HostProbeResult struct {
 	Index int
 	Info  ProbeInfo
 	Err   error
+	// User is the account ssh resolved for the host, for display when the
+	// fleet file sets none.
+	User string
 }
 
 // PasswordRetryResult is sent after retrying connection with a password.
@@ -338,6 +344,8 @@ type PasswordRetryResult struct {
 	Index int
 	Info  ProbeInfo
 	Err   error
+	// User is the account ssh resolved for the host.
+	User string
 }
 
 // ConnectAndProbe connects to a single host and runs the probe command.
@@ -367,17 +375,18 @@ func (sm *Manager) ConnectAndProbe(idx int, h config.Host) HostProbeResult {
 	}
 
 	// establish new connection
-	client, err := sm.dial(h)
+	client, target, err := sm.dial(h)
+	sm.notePendingHostKey(idx, err)
 	if err != nil {
 		sm.logger.Error("probe failed", "host", h.Entry.Name, "err", err)
-		return HostProbeResult{Index: idx, Err: err}
+		return HostProbeResult{Index: idx, Err: err, User: target.User}
 	}
 
 	info, err := Probe(client, h.Entry.SystemdMode, h.ErrorLogSince)
 	if err != nil {
 		_ = client.Close()
 		sm.logger.Error("probe failed", "host", h.Entry.Name, "err", err)
-		return HostProbeResult{Index: idx, Err: fmt.Errorf("probe: %w", err)}
+		return HostProbeResult{Index: idx, Err: fmt.Errorf("probe: %w", err), User: target.User}
 	}
 
 	sm.mu.Lock()
@@ -385,7 +394,7 @@ func (sm *Manager) ConnectAndProbe(idx int, h config.Host) HostProbeResult {
 	sm.mu.Unlock()
 
 	sm.logger.Debug("probe complete", "host", h.Entry.Name, "reused", false, "elapsed", time.Since(start))
-	return HostProbeResult{Index: idx, Info: info}
+	return HostProbeResult{Index: idx, Info: info, User: target.User}
 }
 
 // HasCachedPassword reports whether an SSH connection password is
@@ -615,39 +624,41 @@ func (sm *Manager) ConnectWithCachedPassword(idx int, h config.Host) PasswordRet
 // reach — it is referenced by nothing FleetDesk holds afterward.
 func (sm *Manager) ConnectWithPassword(idx int, h config.Host, pw []byte) PasswordRetryResult {
 	entry := h.Entry
-	hostname := entry.Hostname
-	port := entry.Port
-	if port == 0 {
-		port = 22
+	t, err := Resolve(entry)
+	if err == nil {
+		err = t.handoverOnly()
+	}
+	if err != nil {
+		sm.logger.Error("password dial failed", "host", entry.Name, "idx", idx, "err", err)
+		return PasswordRetryResult{Index: idx, Err: err}
 	}
 
-	sshConfig := &gossh.ClientConfig{
-		User: entry.User,
-		Auth: []gossh.AuthMethod{
-			gossh.PasswordCallback(func() (string, error) { return string(pw), nil }),
-			gossh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
-				answers := make([]string, len(questions))
-				for i := range questions {
-					answers[i] = string(pw)
-				}
-				return answers, nil
-			}),
-		},
-		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // G106: no host-key verification yet — TAE-22
-		Timeout:         entry.Timeout,
+	auths := []gossh.AuthMethod{
+		gossh.PasswordCallback(func() (string, error) { return string(pw), nil }),
+		gossh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			answers := make([]string, len(questions))
+			for i := range questions {
+				answers[i] = string(pw)
+			}
+			return answers, nil
+		}),
 	}
 
-	addr := fmt.Sprintf("%s:%d", hostname, port)
+	addr := t.Addr()
 	start := time.Now()
 	sm.logger.Debug("password dial start", "addr", addr, "idx", idx)
-	client, err := gossh.Dial("tcp", addr, sshConfig)
+	client, err := dialVerified(t, auths, t.User, entry.Timeout)
 	if err != nil {
 		sm.logger.Error("password dial failed", "addr", addr, "idx", idx, "err", err, "elapsed", time.Since(start))
+		if isHostKeyError(err) {
+			sm.notePendingHostKey(idx, err)
+			return PasswordRetryResult{Index: idx, Err: err, User: t.User}
+		}
 		wrapped := fmt.Errorf("password auth: %w", err)
 		if IsAuthError(wrapped) {
 			credential.Erase(pw)
 		}
-		return PasswordRetryResult{Index: idx, Err: wrapped}
+		return PasswordRetryResult{Index: idx, Err: wrapped, User: t.User}
 	}
 	sm.logger.Debug("password dial success", "addr", addr, "idx", idx, "elapsed", time.Since(start))
 
@@ -658,11 +669,11 @@ func (sm *Manager) ConnectWithPassword(idx int, h config.Host, pw []byte) Passwo
 	info, err := Probe(client, entry.SystemdMode, h.ErrorLogSince)
 	if err != nil {
 		sm.logger.Error("password probe failed", "addr", addr, "idx", idx, "err", err)
-		return PasswordRetryResult{Index: idx, Err: fmt.Errorf("probe: %w", err)}
+		return PasswordRetryResult{Index: idx, Err: fmt.Errorf("probe: %w", err), User: t.User}
 	}
 
 	sm.logger.Debug("password probe success", "addr", addr, "idx", idx)
-	return PasswordRetryResult{Index: idx, Info: info}
+	return PasswordRetryResult{Index: idx, Info: info, User: t.User}
 }
 
 // RewriteSudoInCmd rewrites sudo commands so the cached password for the
@@ -720,6 +731,7 @@ func (sm *Manager) Close() {
 		}
 	}
 	sm.conns = make(map[int]*gossh.Client)
+	sm.pendingHostKeys = make(map[int]ErrUnknownHostKey)
 	sm.eraseCachedPasswordLocked()
 	sm.eraseAllSudoLocked()
 	for i, t := range sm.timers {
@@ -781,36 +793,22 @@ func Probe(client *gossh.Client, systemdMode string, errorLogSince string) (Prob
 	return ParseProbeOutput(string(out), systemdMode)
 }
 
-// dial establishes an SSH connection to a host.
-func (sm *Manager) dial(h config.Host) (*gossh.Client, error) {
+// dial establishes an SSH connection to a host. The target comes from
+// `ssh -G` (Resolve), the same place the handover gets it, and the host key
+// is verified against known_hosts on every attempt.
+func (sm *Manager) dial(h config.Host) (*gossh.Client, Target, error) {
 	entry := h.Entry
-	hostname := entry.Hostname
-	port := entry.Port
-	user := entry.User
+	t, err := Resolve(entry)
+	if err == nil {
+		err = t.handoverOnly()
+	}
+	if err != nil {
+		return nil, t, err
+	}
+
 	timeout := entry.Timeout
-
-	if user == "" {
-		user = ssh_config.Get(hostname, "User")
-	}
-	if user == "" {
-		user = os.Getenv("USER")
-	}
-
-	configPort := ssh_config.Get(hostname, "Port")
-	if port == 0 && configPort != "" {
-		_, _ = fmt.Sscanf(configPort, "%d", &port)
-	}
-	if port == 0 {
-		port = 22
-	}
-
 	if timeout == 0 {
 		timeout = 10 * time.Second
-	}
-
-	configHost := ssh_config.Get(hostname, "Hostname")
-	if configHost != "" {
-		hostname = configHost
 	}
 
 	var authMethods []gossh.AuthMethod
@@ -822,52 +820,45 @@ func (sm *Manager) dial(h config.Host) (*gossh.Client, error) {
 		authNames = append(authNames, "agent")
 	}
 
-	identityFile := ssh_config.Get(entry.Hostname, "IdentityFile")
-	if identityFile != "" {
-		if key := publicKeyFile(ExpandPath(identityFile)); key != nil {
-			authMethods = append(authMethods, key)
-			authNames = append(authNames, "identity:"+identityFile)
+	seen := make(map[string]bool)
+	for _, path := range t.IdentityFiles {
+		if seen[path] || !fileExists(path) {
+			continue
 		}
-	}
-
-	home, _ := os.UserHomeDir()
-	if home != "" {
-		for _, name := range []string{"id_ed25519", "id_rsa", "id_ecdsa"} {
-			path := filepath.Join(home, ".ssh", name)
-			if _, err := os.Stat(path); err != nil {
-				continue // skip non-existent keys
-			}
-			if key := publicKeyFile(path); key != nil {
-				authMethods = append(authMethods, key)
-				authNames = append(authNames, "key:"+name)
-			}
+		seen[path] = true
+		if key := publicKeyFile(path); key != nil {
+			authMethods = append(authMethods, key)
+			authNames = append(authNames, "identity:"+path)
 		}
 	}
 
 	if len(authMethods) == 0 {
-		return nil, fmt.Errorf("no SSH auth methods available")
+		return nil, t, fmt.Errorf("no SSH auth methods available")
 	}
 
-	addr := fmt.Sprintf("%s:%d", hostname, port)
+	addr := t.Addr()
 	start := time.Now()
-	sm.logger.Debug("dial start", "addr", addr, "user", user)
+	sm.logger.Debug("dial start", "addr", addr, "user", t.User)
 
 	var lastErr error
 	for i, auth := range authMethods {
 		sm.logger.Debug("dial trying", "auth", authNames[i], "addr", addr)
-		sshConfig := &gossh.ClientConfig{
-			User:            user,
-			Auth:            []gossh.AuthMethod{auth},
-			HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // G106: trusted fleet network, no host-key verification yet — TAE-22
-			Timeout:         timeout,
-		}
-		client, err := gossh.Dial("tcp", addr, sshConfig)
+		client, err := dialVerified(t, []gossh.AuthMethod{auth}, t.User, timeout)
 		if err == nil {
 			if agentConn != nil {
 				_ = agentConn.Close()
 			}
 			sm.logger.Debug("dial success", "addr", addr, "elapsed", time.Since(start))
-			return client, nil
+			return client, t, nil
+		}
+		if isHostKeyError(err) {
+			// Not an authentication failure: the host was never verified, so no
+			// further method is tried and no password may be offered to it.
+			if agentConn != nil {
+				_ = agentConn.Close()
+			}
+			sm.logger.Error("dial refused", "addr", addr, "err", err, "elapsed", time.Since(start))
+			return nil, t, err
 		}
 		lastErr = err
 	}
@@ -878,7 +869,7 @@ func (sm *Manager) dial(h config.Host) (*gossh.Client, error) {
 	}
 
 	sm.logger.Error("dial failed", "addr", addr, "err", lastErr, "elapsed", time.Since(start))
-	return nil, fmt.Errorf("dial %s: %w", addr, lastErr)
+	return nil, t, fmt.Errorf("dial %s: %w", addr, lastErr)
 }
 
 // sshAgentAuth returns an auth method from the SSH agent and the underlying

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/azure"
@@ -39,14 +40,23 @@ func (m Model) renderHintBar(hints [][]string) string {
 		parts = append(parts, hintKeyStyle.Render("<"+h[0]+">")+" "+hintActionStyle.Render(h[1]))
 	}
 	left := strings.Join(parts, "  ")
-	if m.flash != "" {
-		style := flashStyle
-		if m.flashError {
-			style = flashErrorStyle
-		}
-		left += "  " + style.Render(m.flash)
+	hintsOnly := hintBarStyle.Width(m.width).Render(left)
+	if m.flash == "" {
+		return hintsOnly
 	}
-	return hintBarStyle.Width(m.width).Render(left)
+	style := flashStyle
+	if m.flashError {
+		style = flashErrorStyle
+	}
+	fl := style.Render(m.flash)
+	// The flash follows the hints on the same line when it fits there whole;
+	// word-wrapping it mid-sentence across the end of the hint line makes it
+	// unreadable, so otherwise it starts a line of its own.
+	combined := hintBarStyle.Width(m.width).Render(left + "  " + fl)
+	if strings.Contains(ansi.Strip(combined), m.flash) {
+		return combined
+	}
+	return hintsOnly + "\n" + hintBarStyle.Width(m.width).Render(fl)
 }
 
 // borderedRow wraps content with | on each side, clamped to exactly w display columns.

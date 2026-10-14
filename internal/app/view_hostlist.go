@@ -76,6 +76,8 @@ func (m Model) renderHostList() string {
 					reason = "unknown"
 				}
 				return fmt.Sprintf("%-*s  unreachable (%s)", nameCol, h.Entry.Name, reason)
+			case config.HostHandoverOnly:
+				return fmt.Sprintf("%-*s  handover only (%s; in-app views unavailable)", nameCol, h.Entry.Name, h.Error)
 			}
 			return ""
 		},

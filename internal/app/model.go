@@ -605,7 +605,7 @@ func (m Model) handleSudoOrFlash(err error, retry tea.Cmd) (Model, tea.Cmd, bool
 	user := ""
 	host := ""
 	if idx < len(m.hosts) {
-		user = m.hosts[idx].Entry.User
+		user = m.hostUser(idx)
 		host = m.hosts[idx].Entry.Name
 	}
 	m.logger.Debug("sudo required", "host_idx", idx, "host", host, "user", user)
@@ -655,8 +655,19 @@ func (m Model) testSudo(idx int) tea.Cmd {
 	}
 }
 
-// Update implements tea.Model.
+// Update implements tea.Model. After every message it opens the next
+// pending first-contact host-key prompt if no modal is in the way, so the
+// prompts appear one host at a time, whatever order the probes finish in.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	next, cmd := m.update(msg)
+	if nm, ok := next.(Model); ok {
+		nm.openNextHostKeyModal()
+		return nm, cmd
+	}
+	return next, cmd
+}
+
+func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -698,7 +709,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ssh.HostProbeResult:
 		if msg.Index < len(m.hosts) {
+			if msg.User != "" {
+				m.hosts[msg.Index].ResolvedUser = msg.User
+			}
 			if msg.Err != nil {
+				if m.applyDialError(msg.Index, msg.Err) {
+					return m, nil
+				}
 				if ssh.IsAuthError(msg.Err) {
 					// mark as needing password
 					m.hosts[msg.Index].Status = config.HostUnreachable
@@ -707,8 +724,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// show prompt — SSH password takes priority over other modals
 					// (sudo, loading, etc.) but don't replace another password modal
 					if m.modal == nil || m.modal.Done() || !isPasswordModal(m.modal) {
-						h := m.hosts[msg.Index]
-						m.replaceModal(NewPasswordModal(h.Entry.User, h.Entry.Name, msg.Index))
+						m.replaceModal(NewPasswordModal(m.hostUser(msg.Index), m.hosts[msg.Index].Entry.Name, msg.Index))
 					}
 					return m, nil
 				}
@@ -719,6 +735,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	case hostKeyDecidedMsg:
+		m.replaceModal(nil)
+		return m, m.resolveHostKey(msg)
 
 	case sudoProbeMsg:
 		if !msg.needsPw || m.ssh.GetSudoPassword(msg.hostIdx) {
@@ -773,7 +793,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		user := ""
 		host := ""
 		if idx < len(m.hosts) {
-			user = m.hosts[idx].Entry.User
+			user = m.hostUser(idx)
 			host = m.hosts[idx].Entry.Name
 		}
 		m.logger.Debug("sudo wizard opening", "host_idx", idx)
@@ -829,7 +849,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			user := ""
 			host := ""
 			if idx < len(m.hosts) {
-				user = m.hosts[idx].Entry.User
+				user = m.hostUser(idx)
 				host = m.hosts[idx].Entry.Name
 			}
 			m.flash = "Wrong sudo password"
@@ -1264,7 +1284,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			user := ""
 			host := ""
 			if cfg.HostIdx < len(m.hosts) {
-				user = m.hosts[cfg.HostIdx].Entry.User
+				user = m.hostUser(cfg.HostIdx)
 				host = m.hosts[cfg.HostIdx].Entry.Name
 			}
 			m.replaceModal(NewSudoModal(user, host, cfg.HostIdx, retry))
@@ -1369,9 +1389,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ssh.PasswordRetryResult:
 		if msg.Index < len(m.hosts) {
+			if msg.User != "" {
+				m.hosts[msg.Index].ResolvedUser = msg.User
+			}
 			if msg.Err != nil {
-				m.hosts[msg.Index].Status = config.HostUnreachable
-				m.hosts[msg.Index].Error = msg.Err.Error()
+				if !m.applyDialError(msg.Index, msg.Err) {
+					m.hosts[msg.Index].Status = config.HostUnreachable
+					m.hosts[msg.Index].Error = msg.Err.Error()
+				}
 			} else {
 				m.hosts[msg.Index].NeedsPassword = false
 				m.applyProbeInfo(msg.Index, msg.Info)
@@ -1410,7 +1435,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		user := ""
 		host := ""
 		if idx < len(m.hosts) {
-			user = m.hosts[idx].Entry.User
+			user = m.hostUser(idx)
 			host = m.hosts[idx].Entry.Name
 		}
 		// Retry: re-test sudo after password entry, which will trigger navigation

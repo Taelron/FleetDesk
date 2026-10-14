@@ -26,11 +26,11 @@ GOLANGCI_LINT_SHA256_darwin_arm64  := 02db2a2dae8b26812e53b0688a6f617e3ef1f48979
 # issue that removes a suppression decrements the matching count here in the
 # same change — a mismatch is the point, not a bug.
 NOLINT_ERRCHECK_TAE82_WANT := 13
-NOLINT_GOSEC_TAE22_WANT    := 2
-NOLINT_GOSEC_TAE23_WANT    := 3
+NOLINT_GOSEC_TAE22_WANT    := 0
+NOLINT_GOSEC_TAE23_WANT    := 0
 NOLINT_GOSEC_TAE42_WANT    := 4
-NOLINT_GOSEC_CASE1_WANT    := 19
-NOLINT_TOTAL_WANT          := 41
+NOLINT_GOSEC_CASE1_WANT    := 22
+NOLINT_TOTAL_WANT          := 39
 
 # verify-lint-baseline's negative control. BASELINE_EXPECT is a function of
 # BOTH BASELINE_REF and this file's *current* enabled linter set, not of the
@@ -405,7 +405,7 @@ testhost-verify-sudo-stdin: ## Run every TAE-20 acceptance test against the fixt
 testhost-run: ## Launch the TUI on the TAE-98 fixture fleet under an isolated HOME (never touches ~/.config/fleetdesk)
 	@$(MAKE) testhost-up
 	@mkdir -p $(TESTHOST_DIR)/.home/.config/fleetdesk
-	@echo 'fleet_dir: $(CURDIR)/$(TESTHOST_DIR)' > $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml
+	@(umask 077; echo 'fleet_dir: $(CURDIR)/$(TESTHOST_DIR)' > $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml); chmod 0600 $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml
 	@if [ -n "$(TESTHOST_CREDENTIAL_TIMEOUT)" ]; then echo 'credential_timeout: $(TESTHOST_CREDENTIAL_TIMEOUT)' >> $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml; fi
 	HOME=$(CURDIR)/$(TESTHOST_DIR)/.home go run . --debug
 

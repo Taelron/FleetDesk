@@ -106,6 +106,16 @@ type probeEntryFile struct {
 
 // ParseFleetFile reads and parses a single fleet YAML file.
 func ParseFleetFile(path string) (Fleet, error) {
+	// FleetDesk executes what a fleet file contains, so a file another user
+	// can write is refused. A merely readable one is fine: fleet files hold
+	// no secrets (ADR-F011) and are meant to be shared.
+	info, err := os.Stat(path)
+	if err != nil {
+		return Fleet{}, fmt.Errorf("reading file: %w", err)
+	}
+	if mode := info.Mode().Perm(); mode&0o022 != 0 {
+		return Fleet{}, fmt.Errorf("fleet file %s is writable by group or others (mode %04o); run: chmod go-w %s", path, mode, path)
+	}
 	data, err := os.ReadFile(path) //nolint:gosec // G304: the user's fleet directory listing
 	if err != nil {
 		return Fleet{}, fmt.Errorf("reading file: %w", err)
@@ -147,8 +157,11 @@ func ParseFleetFile(path string) (Fleet, error) {
 		RHActivationKey: raw.Defaults.RHActivationKey,
 		SatelliteURL:    raw.Defaults.SatelliteURL,
 	}
-	if defaults.Port == 0 {
-		defaults.Port = 22
+	// Port 0 and User "" mean "let ssh decide" (~/.ssh/config, then ssh's own
+	// defaults); the library dial and the handover both resolve them through
+	// `ssh -G`.
+	if strings.HasPrefix(defaults.User, "-") {
+		return Fleet{}, fmt.Errorf("defaults: user must not begin with %q", "-")
 	}
 	if defaults.SystemdMode == "" {
 		defaults.SystemdMode = "system"
@@ -240,6 +253,13 @@ func parseHosts(raw []hostEntryFile, defaults HostDefaults, groupFilter []string
 		}
 		if r.Hostname == "" {
 			return nil, fmt.Errorf("host %q missing required field 'hostname'", r.Name)
+		}
+		// A value beginning with "-" would be read by ssh as an option.
+		if strings.HasPrefix(r.Hostname, "-") {
+			return nil, fmt.Errorf("host %q: hostname must not begin with %q", r.Name, "-")
+		}
+		if strings.HasPrefix(r.User, "-") {
+			return nil, fmt.Errorf("host %q: user must not begin with %q", r.Name, "-")
 		}
 
 		h := HostEntry{

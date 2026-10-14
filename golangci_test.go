@@ -282,24 +282,3 @@ func TestNoBlanketNolintSuppressions(t *testing.T) {
 		t.Fatalf("walk %s: %v", root, err)
 	}
 }
-
-func TestGosecG106SuppressionsReferenceTAE22(t *testing.T) {
-	path := filepath.Join(repoRoot(t), "internal", "ssh", "manager.go")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("internal/ssh/manager.go: %v", err)
-	}
-	lines := strings.Split(string(data), "\n")
-	for _, lineNo := range []int{636, 861} {
-		if lineNo > len(lines) {
-			t.Errorf("expected a //nolint:gosec suppression naming TAE-22 near line %d, but the file has only %d lines (TAE-80 AC7)", lineNo, len(lines))
-			continue
-		}
-		start := max(0, lineNo-2)
-		end := min(len(lines), lineNo+1)
-		window := strings.Join(lines[start:end], "\n")
-		if !strings.Contains(window, "nolint:gosec") || !strings.Contains(window, "TAE-22") {
-			t.Errorf("expected internal/ssh/manager.go:%d to carry a //nolint:gosec suppression naming TAE-22 as the reason (TAE-80 AC7); got:\n%s", lineNo, window)
-		}
-	}
-}

@@ -19,6 +19,10 @@ by whoever runs it.
 - An inert `subscription-manager` stub on `PATH`: it drains stdin (or a 20s
   cap), then holds a couple seconds more regardless of how it was called,
   before exiting 0. It registers nothing.
+- An inert `dnf` stub on `PATH` that answers `check-update` at once with
+  "nothing to update". The real one spends tens of CPU-bound seconds failing
+  to find repositories, which kept hosts "connecting..." past every
+  acceptance-test wait. Any other `dnf` command fails.
 - A committed fleet file (`fleet.yaml`) pointing at the container, so
   verification never depends on a fleet file someone typed by hand.
 
@@ -58,8 +62,8 @@ beside `.keys/` and is wiped by `testhost-down`.
   Services, Processes, and Security & Audit views need a real RHEL host and
   belong to the VM tier.
 - **Real `podman`, `dnf`, or `subscription-manager` registration.** The
-  fixture ships the inert stub above so there is a process to observe; it
-  does not attempt real registration.
+  fixture ships the inert stubs above so there is a process to observe; it
+  does not attempt real registration or package management.
 - **CI.** This runs locally, behind the `testhost` Go build tag, so
   `go test ./...`, `make test`, `make verify`, and `make regression` never
   start a container.

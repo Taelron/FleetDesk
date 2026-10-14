@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -177,8 +179,11 @@ hosts:
 		t.Fatalf("ParseFleetFile() error = %v", err)
 	}
 
-	if f.Defaults.Port != 22 {
-		t.Errorf("Defaults.Port = %d, want default 22", f.Defaults.Port)
+	if f.Defaults.Port != 0 {
+		t.Errorf("Defaults.Port = %d, want 0 (ssh decides)", f.Defaults.Port)
+	}
+	if f.Hosts[0].Port != 0 || f.Hosts[0].User != "" {
+		t.Errorf("host port/user = %d/%q, want 0/\"\" (ssh decides)", f.Hosts[0].Port, f.Hosts[0].User)
 	}
 	if f.Defaults.SystemdMode != "system" {
 		t.Errorf("Defaults.SystemdMode = %q, want default %q", f.Defaults.SystemdMode, "system")
@@ -479,4 +484,70 @@ func sliceEqual(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func TestParseFleetFile_ModeCheck(t *testing.T) {
+	const body = "name: f\ntype: vm\nhosts:\n  - name: h\n    hostname: 127.0.0.1\n"
+	for _, mode := range []os.FileMode{0o600, 0o640, 0o644} {
+		t.Run("accepted "+mode.String(), func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "f.yaml")
+			if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(p, mode); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ParseFleetFile(p); err != nil {
+				t.Errorf("a fleet file at %04o must be accepted: %v", mode, err)
+			}
+		})
+	}
+	for _, mode := range []os.FileMode{0o664, 0o666, 0o662, 0o646} {
+		t.Run("refused "+mode.String(), func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "f.yaml")
+			if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(p, mode); err != nil {
+				t.Fatal(err)
+			}
+			_, err := ParseFleetFile(p)
+			want := fmt.Sprintf("fleet file %s is writable by group or others (mode %04o); run: chmod go-w %s", p, mode, p)
+			if err == nil || err.Error() != want {
+				t.Errorf("got %v, want %q", err, want)
+			}
+		})
+	}
+}
+
+// The committed TAE-98 fixture fleet is the accepted case: a 0644 copy of it
+// must parse. (A copy, because a checkout's mode depends on the umask.)
+func TestParseFleetFile_FixtureFleetAt0644(t *testing.T) {
+	b, err := os.ReadFile("../../test/testhost/fleet.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(t.TempDir(), "fleet.yaml")
+	if err := os.WriteFile(p, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseFleetFile(p); err != nil {
+		t.Fatalf("fixture fleet at 0644: %v", err)
+	}
+}
+
+func TestParseFleetFile_RejectsDashLedHostnameAndUser(t *testing.T) {
+	cases := map[string]struct{ yaml, want string }{
+		"hostname": {"name: f\ntype: vm\nhosts:\n  - name: h\n    hostname: -oProxyCommand=x\n", `host "h": hostname must not begin with "-"`},
+		"user":     {"name: f\ntype: vm\nhosts:\n  - name: h\n    hostname: a\n    user: -x\n", `host "h": user must not begin with "-"`},
+		"defaults": {"name: f\ntype: vm\ndefaults:\n  user: -x\nhosts:\n  - name: h\n    hostname: a\n", `defaults: user must not begin with "-"`},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := ParseFleetFile(writeTempYAML(t, c.yaml))
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("want error containing %q, got %v", c.want, err)
+			}
+		})
+	}
 }

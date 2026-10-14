@@ -59,11 +59,18 @@ func (c AppConfig) Editor() string {
 // LoadAppConfig reads and validates config.yaml from the given config directory.
 func LoadAppConfig(configDir string) (AppConfig, error) {
 	path := filepath.Join(configDir, "config.yaml")
-	data, err := os.ReadFile(path) //nolint:gosec // G304: constant config dir
+	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return AppConfig{}, ErrNoConfig
 		}
+		return AppConfig{}, fmt.Errorf("reading config: %w", err)
+	}
+	if err := checkConfigMode(path, info.Mode().Perm()); err != nil {
+		return AppConfig{}, err
+	}
+	data, err := os.ReadFile(path) //nolint:gosec // G304: constant config dir
+	if err != nil {
 		return AppConfig{}, fmt.Errorf("reading config: %w", err)
 	}
 
@@ -103,9 +110,23 @@ func LoadAppConfig(configDir string) (AppConfig, error) {
 	}, nil
 }
 
+// checkConfigMode refuses a config.yaml whose mode is anything but 0600.
+// The file names the editor FleetDesk launches, so it is trusted input and
+// must be owner-only.
+func checkConfigMode(path string, mode os.FileMode) error {
+	switch {
+	case mode == 0o600:
+		return nil
+	case mode&0o077 != 0:
+		return fmt.Errorf("config.yaml is too permissive (mode %04o); expected 0600 — run: chmod 0600 %s", mode, path)
+	default:
+		return fmt.Errorf("config.yaml has mode %04o; expected 0600 — run: chmod 0600 %s", mode, path)
+	}
+}
+
 // WriteDefaultAppConfig creates config.yaml with the given values.
 func WriteDefaultAppConfig(configDir, fleetDir, editor string) error {
-	if err := os.MkdirAll(configDir, 0755); err != nil { //nolint:gosec // G301: config dir 0755, known permission defect — TAE-23
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		return fmt.Errorf("creating config dir: %w", err)
 	}
 
@@ -119,7 +140,7 @@ func WriteDefaultAppConfig(configDir, fleetDir, editor string) error {
 	}
 
 	path := filepath.Join(configDir, "config.yaml")
-	if err := os.WriteFile(path, data, 0644); err != nil { //nolint:gosec // G306: config.yaml 0644, known permission defect — TAE-23
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
 	return nil

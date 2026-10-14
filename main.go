@@ -39,7 +39,7 @@ func main() {
 	// Ensure config directory exists
 	configDir := config.ConfigPath()
 	if configDir != "" {
-		if err := os.MkdirAll(configDir, 0755); err != nil { //nolint:gosec // G301: config dir 0755, known permission defect — TAE-23
+		if err := os.MkdirAll(configDir, 0o700); err != nil {
 			fmt.Fprintf(os.Stderr, "error creating config dir: %v\n", err)
 			os.Exit(1)
 		}

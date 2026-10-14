@@ -1,7 +1,9 @@
 package app
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -832,7 +834,7 @@ func (m Model) startProbe() tea.Cmd {
 	var cmds []tea.Cmd
 	for i, h := range m.hosts {
 		// skip hosts that already have an active connection or are awaiting password retry
-		if m.ssh.HasConnection(i) || h.NeedsPassword {
+		if m.ssh.HasConnection(i) || h.NeedsPassword || h.Status == config.HostHandoverOnly {
 			continue
 		}
 		idx := i
@@ -1604,4 +1606,110 @@ func (m Model) probeEntries() []config.ProbeEntry {
 		entries[i] = p.Entry
 	}
 	return entries
+}
+
+// hostUser is the account to show for host idx: the fleet file's user when
+// it sets one, otherwise the account ssh resolved for the host (from
+// ~/.ssh/config), otherwise the local user ssh would default to.
+func (m Model) hostUser(idx int) string {
+	if idx < 0 || idx >= len(m.hosts) {
+		return os.Getenv("USER")
+	}
+	h := m.hosts[idx]
+	switch {
+	case h.Entry.User != "":
+		return h.Entry.User
+	case h.ResolvedUser != "":
+		return h.ResolvedUser
+	}
+	return os.Getenv("USER")
+}
+
+// applyDialError records the outcomes of a connect that are not "needs a
+// password": a host reachable only by handover, a first-contact host key, a
+// changed host key, or no ssh binary. It reports whether err was one of
+// them.
+func (m *Model) applyDialError(idx int, err error) bool {
+	h := &m.hosts[idx]
+	var handover ssh.ErrHandoverOnly
+	var unknown ssh.ErrUnknownHostKey
+	var mismatch ssh.ErrHostKeyMismatch
+	switch {
+	case errors.As(err, &handover):
+		h.Status = config.HostHandoverOnly
+		h.Error = handover.Error()
+	case errors.As(err, &unknown):
+		h.Status = config.HostUnreachable
+		h.Error = "host key not trusted"
+		h.HostKeyPending = true
+	case errors.As(err, &mismatch):
+		h.Status = config.HostUnreachable
+		h.Error = err.Error()
+	case errors.Is(err, ssh.ErrSSHBinaryMissing):
+		h.Status = config.HostUnreachable
+		h.Error = err.Error()
+	default:
+		return false
+	}
+	return true
+}
+
+// openNextHostKeyModal opens the unknown-host-key prompt for the first host
+// awaiting a decision, unless a modal is already open — one host at a time.
+func (m *Model) openNextHostKeyModal() {
+	if m.modal != nil && !m.modal.Done() {
+		return
+	}
+	for i := range m.hosts {
+		if !m.hosts[i].HostKeyPending {
+			continue
+		}
+		key, ok := m.ssh.PendingHostKey(i)
+		if !ok {
+			m.hosts[i].HostKeyPending = false
+			continue
+		}
+		m.replaceModal(NewHostKeyModal(i, m.hosts[i].Entry.Name, key.Addr, key.KeyDescription()))
+		return
+	}
+}
+
+// resolveHostKey acts on the user's answer to the unknown-host-key prompt:
+// accepting records the key in known_hosts and reconnects; declining leaves
+// the host unreachable.
+func (m *Model) resolveHostKey(msg hostKeyDecidedMsg) tea.Cmd {
+	if msg.hostIdx >= len(m.hosts) {
+		return nil
+	}
+	h := &m.hosts[msg.hostIdx]
+	h.HostKeyPending = false
+	if !msg.accepted {
+		m.ssh.DeclinePendingHostKey(msg.hostIdx)
+		h.Status = config.HostUnreachable
+		h.Error = "host key declined"
+		return nil
+	}
+	if err := m.ssh.TrustPendingHostKey(msg.hostIdx, h.Entry); err != nil {
+		h.Status = config.HostUnreachable
+		h.Error = fmt.Sprintf("cannot record host key: %v", err)
+		return nil
+	}
+	h.Status = config.HostConnecting
+	h.Error = ""
+	idx, hh, sm := msg.hostIdx, *h, m.ssh
+	if hh.NeedsPassword && sm.HasCachedPassword() {
+		return func() tea.Msg { return sm.ConnectWithCachedPassword(idx, hh) }
+	}
+	return func() tea.Msg { return sm.ConnectAndProbe(idx, hh) }
+}
+
+// handoverOnlyFlash is what Enter and c say on a host whose ssh
+// configuration needs a ProxyJump: the in-app views cannot reach it.
+const handoverOnlyFlash = "Needs ProxyJump \u2014 only shell, reboot and deploy-key work on this host"
+
+// hostAllowsHandover reports whether a terminal handover (shell, reboot,
+// deploy key) may be started on h: it must be reachable, in-app or only by
+// handover.
+func hostAllowsHandover(h config.Host) bool {
+	return h.Status == config.HostOnline || h.Status == config.HostHandoverOnly
 }

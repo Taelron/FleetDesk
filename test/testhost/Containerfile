@@ -22,8 +22,9 @@ RUN useradd -m -G wheel testuser1 \
 COPY sshd-testhost.conf /etc/ssh/sshd_config.d/99-testhost.conf
 COPY sudoers-testhost /etc/sudoers.d/99-testhost
 COPY subscription-manager /usr/local/bin/subscription-manager
+COPY dnf /usr/local/bin/dnf
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod 0755 /usr/local/bin/subscription-manager /usr/local/bin/entrypoint.sh \
+RUN chmod 0755 /usr/local/bin/subscription-manager /usr/local/bin/dnf /usr/local/bin/entrypoint.sh \
     && chmod 0440 /etc/sudoers.d/99-testhost
 
 EXPOSE 22

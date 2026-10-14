@@ -78,6 +78,14 @@ type Host struct {
 	SudoReady            bool
 	SupervisorctlPresent bool
 	Error                string
+
+	// ResolvedUser is the account ssh resolved for the host, used for display
+	// when the fleet file sets none.
+	ResolvedUser string
+	// HostKeyPending is true while a first-contact host key awaits the
+	// user's decision. The key itself stays in the SSH manager, so this
+	// package does not import x/crypto/ssh.
+	HostKeyPending bool
 }
 
 // HostStatus represents the connection state of a host.
@@ -88,6 +96,10 @@ const (
 	HostConnecting HostStatus = iota
 	HostOnline
 	HostUnreachable
+	// HostHandoverOnly is a host whose ssh configuration requires a
+	// ProxyJump or ProxyCommand: the in-app dial cannot reach it, a terminal
+	// handover can.
+	HostHandoverOnly
 )
 
 // HostMetrics holds live system metrics for a host.

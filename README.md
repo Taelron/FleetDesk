@@ -147,12 +147,59 @@ Fleet Picker --> Host List --> Resource Picker --> View
 
 ## SSH Authentication
 
-FleetDesk uses your existing SSH setup — no additional configuration needed:
+FleetDesk uses your existing SSH setup — no additional configuration needed.
+Every connection FleetDesk makes to a host starts the same way: it asks
+`ssh -G` where the fleet entry leads, so `~/.ssh/config` means the same thing
+to the host list, the metrics and resource views, the password retry and the
+terminal handover (shell, reboot, deploy key). A `Host` block that rewrites
+`Hostname` cannot send two of those paths to different machines.
+
+`user` and `port` in a fleet file win over `~/.ssh/config`. Leave them out
+and ssh decides: `User` and `Port` from `~/.ssh/config`, then ssh's own
+defaults (your login name, port 22).
+
+Which `~/.ssh/config` directives apply to which path:
+
+| Directive | In-app (library dial) | Handover (`ssh`) |
+|---|---|---|
+| `Hostname`, `Port`, `User` | yes | yes |
+| `IdentityFile` | yes, with the default keys | yes |
+| `UserKnownHostsFile`, `GlobalKnownHostsFile` | yes | yes |
+| `ProxyJump`, `ProxyCommand` | no — see below | yes |
+| anything else | no | yes |
+
+In-app authentication tries, one method per connection (so a server's
+`MaxAuthTries` is not used up):
 
 1. SSH agent
-2. `~/.ssh/config` (IdentityFile, User, Port, ProxyJump)
-3. Default keys (~/.ssh/id_ed25519, id_rsa, id_ecdsa)
-4. Password fallback (inline masked prompt)
+2. each `IdentityFile` ssh resolves for the host (including the default keys
+   `~/.ssh/id_ed25519`, `id_rsa`, `id_ecdsa`)
+3. Password fallback (inline masked prompt), used only after the host key has
+   been verified
+
+### Host keys
+
+The host key is verified against `~/.ssh/known_hosts` (and the system
+`known_hosts`) on every connection, in-app and handover alike.
+
+- **First contact.** FleetDesk shows the host's address and fingerprint in an
+  `Unknown host key` prompt, one host at a time. `y` appends the key to
+  `~/.ssh/known_hosts` (created `0600` if missing); `N`, Enter or Esc
+  declines and the host stays unreachable. The handover uses `ssh`'s own
+  prompt.
+- **Changed key.** The connection stops with `host key mismatch for <addr>:
+  known_hosts has … , host presented …`. A changed key is never offered for
+  trust and never accepted silently; fix `known_hosts` yourself once you know
+  why it changed.
+- `@cert-authority` lines are not honoured in-app: a host with a CA-signed key
+  is asked about like any unknown host.
+
+### Hosts that need a ProxyJump
+
+The in-app dial cannot go through a jump host or a `ProxyCommand`. A host whose
+ssh configuration needs one shows `handover only (ProxyJump via <jump>;
+in-app views unavailable)`. Shell (`x`), reboot (`R`) and deploy key (`K`) still
+work on it, because they run `ssh` itself; everything else is unavailable.
 
 ## Development
 

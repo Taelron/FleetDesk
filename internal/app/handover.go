@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
 // sshHandoverFinishedMsg is sent when a terminal handover command completes.
@@ -27,9 +28,7 @@ type editFinishedMsg struct {
 
 // sshExec wraps an SSH command with terminal handover.
 type sshExec struct {
-	host   string
-	user   string
-	port   int
+	entry  config.HostEntry
 	args   []string
 	banner string
 	err    error
@@ -39,12 +38,9 @@ func (s *sshExec) Run() error {
 	sep := strings.Repeat("\u2501", 50)
 	fmt.Printf("\n%s\n\u25b6 %s\n%s\n\n", sep, s.banner, sep)
 
-	sshArgs := []string{
-		"-t",
-		"-o", "StrictHostKeyChecking=no",
-		"-p", fmt.Sprintf("%d", s.port),
-		fmt.Sprintf("%s@%s", s.user, s.host),
-	}
+	// No StrictHostKeyChecking override: ssh's own prompt and known_hosts
+	// decide, exactly as they do for the in-app dials.
+	sshArgs := append([]string{"-t"}, ssh.SSHArgs(s.entry)...)
 	sshArgs = append(sshArgs, s.args...)
 
 	c := exec.Command("ssh", sshArgs...) //nolint:gosec // G204: ssh handover, argv, host/user/port from the user's own fleet YAML
@@ -156,6 +152,21 @@ func (c *cmdExec) SetStdin(_ io.Reader)  {}
 func (c *cmdExec) SetStdout(_ io.Writer) {}
 func (c *cmdExec) SetStderr(_ io.Writer) {}
 
+// deployKeyScript is the bash script of the deploy-key handover: prepare
+// ~/.ssh on the target, then copy the key. Both ssh invocations take their
+// arguments from ssh.SSHArgs, so they reach the same machine as every other
+// path, and neither disables host-key checking.
+func deployKeyScript(e config.HostEntry) string {
+	var quoted []string
+	for _, a := range ssh.SSHArgs(e) {
+		quoted = append(quoted, "'"+shellQuote(a)+"'")
+	}
+	args := strings.Join(quoted, " ")
+	return fmt.Sprintf(
+		"ssh -t %s 'sudo mkdir -p $HOME/.ssh && sudo chown -R $(id -u):$(id -g) $HOME && chmod 700 $HOME/.ssh' && ssh-copy-id %s",
+		args, args)
+}
+
 // cmdHandover creates a tea.Cmd for terminal handover to an arbitrary command.
 func cmdHandover(name string, args []string, banner string) tea.Cmd {
 	e := &cmdExec{name: name, args: args, banner: banner}
@@ -167,9 +178,7 @@ func cmdHandover(name string, args []string, banner string) tea.Cmd {
 // sshHandover creates a tea.Cmd for terminal handover to an SSH command.
 func sshHandover(h config.Host, args []string, banner string) tea.Cmd {
 	e := &sshExec{
-		host:   h.Entry.Hostname,
-		user:   h.Entry.User,
-		port:   h.Entry.Port,
+		entry:  h.Entry,
 		args:   args,
 		banner: banner,
 	}
