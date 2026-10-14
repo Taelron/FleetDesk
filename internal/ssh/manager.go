@@ -89,6 +89,10 @@ func sudoDeliveryErrorFromErr(err error) error {
 type sudoEntry struct {
 	buf  []byte
 	refs int
+	// id identifies the password, not the host holding it: hosts that reuse
+	// it share the entry, so a rejection recorded against the id covers every
+	// host index it is reachable through.
+	id uint64
 }
 
 // credKind names the two independent session credentials the idle timer
@@ -116,10 +120,8 @@ type Manager struct {
 	// from another host, or is a candidate under test, has no entry.
 	sudoVerified map[int]uint64
 	sudoSeq      uint64
-	// sudoRejected remembers, per host index, which verification of another
-	// host's password it has already rejected (from -> that verification's
-	// sequence), so the same candidate is never offered to it twice.
-	sudoRejected map[int]map[int]uint64
+	sudoRejected map[int]map[uint64]bool // host index -> ids of passwords it rejected
+	entrySeq     uint64
 
 	// pendingHostKeys holds, per host index, a first-contact host key
 	// awaiting the user's accept/decline (never a credential).
@@ -138,7 +140,7 @@ func NewManager(logger *slog.Logger) *Manager {
 		conns:           make(map[int]*gossh.Client),
 		sudoPasswords:   make(map[int]*sudoEntry),
 		sudoVerified:    make(map[int]uint64),
-		sudoRejected:    make(map[int]map[int]uint64),
+		sudoRejected:    make(map[int]map[uint64]bool),
 		pendingHostKeys: make(map[int]ErrUnknownHostKey),
 		logger:          logger,
 	}
@@ -235,7 +237,7 @@ func (sm *Manager) eraseAllSudoLocked() {
 	}
 	sm.sudoPasswords = make(map[int]*sudoEntry)
 	sm.sudoVerified = make(map[int]uint64)
-	sm.sudoRejected = make(map[int]map[int]uint64)
+	sm.sudoRejected = make(map[int]map[uint64]bool)
 }
 
 // releaseSudoEntryLocked drops idx's reference to its sudo entry, if any,
@@ -263,7 +265,8 @@ func (sm *Manager) SetSudoPassword(idx int, pw []byte) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.releaseSudoEntryLocked(idx)
-	sm.sudoPasswords[idx] = &sudoEntry{buf: pw, refs: 1}
+	sm.entrySeq++
+	sm.sudoPasswords[idx] = &sudoEntry{buf: pw, refs: 1, id: sm.entrySeq}
 	sm.touch(kindSudo)
 }
 
@@ -337,19 +340,18 @@ func (sm *Manager) HasVerifiedSudo(idx int) bool {
 
 // SudoCandidateFor returns the host, other than idx, whose verified sudo
 // password was verified most recently and that idx has not already rejected.
-// One candidate, never several, and each verification at most once per host:
-// a host offered a foreign secret receives at most one, suffers at most one
-// failed authentication for it, and is not asked again until that password
-// is verified afresh somewhere.
+// One candidate, never several, and each password at most once per host: a
+// host offered a foreign secret receives at most one, suffers at most one
+// failed authentication for it, and is not asked again with the same password
+// however many other hosts came to share it. A password typed afresh is a new
+// password and may be offered.
 func (sm *Manager) SudoCandidateFor(idx int) (int, bool) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	best, bestSeq := -1, uint64(0)
 	for from, seq := range sm.sudoVerified {
-		if from == idx || seq <= bestSeq || sm.sudoRejected[idx][from] == seq {
-			continue
-		}
-		if _, held := sm.sudoPasswords[from]; !held {
+		e, held := sm.sudoPasswords[from]
+		if from == idx || seq <= bestSeq || !held || sm.sudoRejected[idx][e.id] {
 			continue
 		}
 		best, bestSeq = from, seq
@@ -374,19 +376,19 @@ func (sm *Manager) MostRecentVerifiedSudo(exclude int) (int, bool) {
 	return best, best >= 0
 }
 
-// RecordSudoRejected notes that idx rejected from's current verified
-// password, so SudoCandidateFor will not offer that verification to idx again.
+// RecordSudoRejected notes that idx rejected the password currently held for
+// from, so SudoCandidateFor will not offer that password to idx again.
 func (sm *Manager) RecordSudoRejected(idx, from int) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	seq := sm.sudoVerified[from]
-	if seq == 0 {
+	e, held := sm.sudoPasswords[from]
+	if !held {
 		return
 	}
 	if sm.sudoRejected[idx] == nil {
-		sm.sudoRejected[idx] = make(map[int]uint64)
+		sm.sudoRejected[idx] = make(map[uint64]bool)
 	}
-	sm.sudoRejected[idx][from] = seq
+	sm.sudoRejected[idx][e.id] = true
 }
 
 // SeedSudoFromCachedPassword copies the cached SSH password as idx's sudo
@@ -647,9 +649,10 @@ var secretTag = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 //	<preamble: read the sudo password, check printf>
 //	IFS= read -r FLEETDESK_SECRET || exit 95;
 //	{ <prefix, every "sudo " rewritten to the relay>; } || exit $?;
-//	d=$(mktemp -d) || exit 93; mkfifo "$d/s" || { rm -rf "$d"; exit 93; };
+//	d=$(mktemp -d) || exit 93; trap '<kill the writer, remove $d>' EXIT; trap 'exit 129' HUP; ...;
+//	mkfifo "$d/s" || exit 93;
 //	( printf '%s\n' "<tag>=$FLEETDESK_SECRET" > "$d/s" ) & w=$!;
-//	printf '%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null sh -c 'exec <"$0"; <consumer>' "$d/s";
+//	printf '%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null sh -c 'exec <"$0" 2>&1; <consumer>' "$d/s";
 //	rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc
 //
 // The consumer reads its stdin up to its "<tag>=" line. prefix may be empty.
@@ -687,10 +690,12 @@ func (sm *Manager) RewriteSudoWithSecret(idx int, prefix string, secret []byte, 
 	if prefix != "" {
 		b.WriteString("{ " + rewriteSudoOccurrences(prefix) + "; } || exit $?; ")
 	}
-	b.WriteString(`d=$(mktemp -d) || exit 93; mkfifo "$d/s" || { rm -rf "$d"; exit 93; }; `)
+	b.WriteString(`d=$(mktemp -d) || exit 93; `)
+	b.WriteString(`trap 'kill $w 2>/dev/null; rm -rf "$d"' EXIT; trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM; `)
+	b.WriteString(`mkfifo "$d/s" || exit 93; `)
 	fmt.Fprintf(&b, `( printf '%%s\n' "%s=$FLEETDESK_SECRET" > "$d/s" ) & w=$!; `, tag)
 	fmt.Fprintf(&b, `printf '%%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null sh -c '%s' "$d/s"; `,
-		strings.ReplaceAll(`exec <"$0"; `+consumer, "'", `'\''`))
+		strings.ReplaceAll(`exec <"$0" 2>&1; `+consumer, "'", `'\''`))
 	b.WriteString(`rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc`)
 	return b.String(), r, nil
 }

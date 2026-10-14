@@ -310,7 +310,7 @@ func TestHostKeyAlias(t *testing.T) {
 	host, port := startSSHServer(t, key)
 	tg, kh := targetFor(t, host, port)
 	tg.HostKeyAlias = "pinned-name"
-	if want := "pinned-name:" + itoa(port); tg.KeyAddr() != want {
+	if want := "pinned-name:22"; tg.KeyAddr() != want {
 		t.Fatalf("KeyAddr = %q, want %q", tg.KeyAddr(), want)
 	}
 	if tg.Addr() != host+":"+itoa(port) {
@@ -326,7 +326,7 @@ func TestHostKeyAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(kh)
-	if !strings.Contains(string(b), "pinned-name") || strings.Contains(string(b), host) {
+	if !strings.HasPrefix(string(b), "pinned-name ") || strings.Contains(string(b), host) || strings.Contains(string(b), "[") {
 		t.Errorf("recorded under the alias, not the address: %q", b)
 	}
 	c, err := dialTarget(tg)

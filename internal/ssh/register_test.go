@@ -8,7 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/credential"
 )
@@ -45,8 +47,9 @@ func TestRewriteSudoWithSecret_Shape(t *testing.T) {
 		t.Errorf("want 3 password relays (2 in the prefix, 1 for the consumer), got %d:\n%s", got, cmd)
 	}
 	for _, want := range []string{
-		`( printf '%s\n' "FLEETDESK_AK=$FLEETDESK_SECRET" > "$d/s" ) & w=$!; printf '%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null sh -c 'exec <"$0"; python3 -c '\''print(1)'\'' '\''org'\''' "$d/s"; rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc`,
-		`d=$(mktemp -d) || exit 93; mkfifo "$d/s"`,
+		`( printf '%s\n' "FLEETDESK_AK=$FLEETDESK_SECRET" > "$d/s" ) & w=$!; printf '%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null sh -c 'exec <"$0" 2>&1; python3 -c '\''print(1)'\'' '\''org'\''' "$d/s"; rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc`,
+		`d=$(mktemp -d) || exit 93; trap `,
+		`mkfifo "$d/s" || exit 93;`,
 		"subscription-manager clean && ",
 	} {
 		if !strings.Contains(cmd, want) {
@@ -79,7 +82,7 @@ func TestRewriteSudoWithSecret_NoPrefix(t *testing.T) {
 	if strings.Contains(cmd, "{ ") && strings.Contains(cmd, "} || exit $?") {
 		t.Errorf("no prefix, no prefix block:\n%s", cmd)
 	}
-	if !strings.HasSuffix(cmd, `sh -c 'exec <"$0"; true' "$d/s"; rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc`) {
+	if !strings.HasSuffix(cmd, `sh -c 'exec <"$0" 2>&1; true' "$d/s"; rc=$?; kill $w 2>/dev/null; rm -rf "$d"; exit $rc`) {
 		t.Errorf("command = %s", cmd)
 	}
 }
@@ -425,5 +428,78 @@ func TestRegisterConsumer_OrgIDIsOneLiteralArgument(t *testing.T) {
 				t.Errorf("org %q: injected command ran (%s)", org, f)
 			}
 		}
+	}
+}
+
+func standInSudo(t *testing.T, dir, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, "sudo"), []byte("#!/bin/bash\n"+body), 0o700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The consumer's stderr reaches the stream: sudo -S is run with 2>/dev/null to
+// hide its own prompt, and the consumer must not inherit that.
+func TestRewriteSudoWithSecret_ConsumerStderrIsVisible(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available")
+	}
+	dir := t.TempDir()
+	standInSudo(t, dir, "shift; read -r p; exec \"$@\"\n")
+	sm := managerWithSudo(t, 0, "pw")
+	cmd, r, err := sm.RewriteSudoWithSecret(0, "", []byte("k"), "TAG", "echo from-the-consumer >&2; exit 3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Erase()
+	c := exec.Command("bash", "-c", cmd+" 2>&1") //nolint:gosec // G204: the test runs the generated command against a stand-in sudo
+	c.Env = []string{"PATH=" + dir + ":/usr/bin:/bin", "TMPDIR=" + dir}
+	c.Stdin = r
+	out, err := c.CombinedOutput()
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.ExitCode() != 3 || !strings.Contains(string(out), "from-the-consumer") {
+		t.Errorf("exit %v, output %q: the consumer's stderr and status must come through", err, out)
+	}
+}
+
+// A shell killed before sudo opens the FIFO leaves neither the FIFO nor a
+// writer holding the secret.
+func TestRewriteSudoWithSecret_CleansUpWhenKilled(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available")
+	}
+	dir := t.TempDir()
+	tmpd := filepath.Join(dir, "tmp")
+	if err := os.Mkdir(tmpd, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	standInSudo(t, dir, "sleep 30\n") // never authenticates, never opens the FIFO
+	sm := managerWithSudo(t, 0, "pw")
+	cmd, r, err := sm.RewriteSudoWithSecret(0, "", []byte("the-secret-value"), "TAG", "true")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Erase()
+	c := exec.Command("bash", "-c", cmd) //nolint:gosec // G204: as above
+	c.Env = []string{"PATH=" + dir + ":/usr/bin:/bin", "TMPDIR=" + tmpd}
+	c.Stdin = r
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // a closing session signals the whole process group
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if left, _ := os.ReadDir(tmpd); len(left) == 1 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if left, _ := os.ReadDir(tmpd); len(left) != 1 {
+		t.Fatalf("the private directory never appeared: %v", left)
+	}
+	_ = syscall.Kill(-c.Process.Pid, syscall.SIGTERM)
+	_ = c.Wait()
+	if left, _ := os.ReadDir(tmpd); len(left) != 0 {
+		t.Errorf("the FIFO's directory outlived the shell: %v", left)
 	}
 }

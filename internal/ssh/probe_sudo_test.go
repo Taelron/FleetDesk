@@ -247,13 +247,35 @@ func TestSudoCandidateRejectionMemory(t *testing.T) {
 	if from, ok := sm.SudoCandidateFor(2); !ok || from != 0 {
 		t.Error("another host is still offered it")
 	}
-	sm.MarkSudoVerified(0) // verified afresh: a new verification
-	if from, ok := sm.SudoCandidateFor(1); !ok || from != 0 {
-		t.Errorf("a fresh verification may be offered again: %d %v", from, ok)
+	sm.MarkSudoVerified(0) // the same password verified again: still the one 1 rejected
+	if _, ok := sm.SudoCandidateFor(1); ok {
+		t.Error("the same password is not offered again")
 	}
-	sm.RecordSudoRejected(1, 5) // nothing verified on 5: no-op, no panic
+	// a password typed afresh is a new password
+	sm.SetSudoPassword(0, mustClone(t, "typed-afresh"))
+	sm.MarkSudoVerified(0)
+	if from, ok := sm.SudoCandidateFor(1); !ok || from != 0 {
+		t.Errorf("a new password may be offered: %d %v", from, ok)
+	}
+	sm.RecordSudoRejected(1, 5) // nothing held on 5: no-op, no panic
 	sm.EraseCredentials()
 	if _, ok := sm.SudoCandidateFor(1); ok {
 		t.Error("erasure leaves nothing to offer")
+	}
+}
+
+// Hosts that reused a password share it; one rejection covers every route to it.
+func TestSudoRejectionFollowsThePasswordNotTheHost(t *testing.T) {
+	sm := NewManager(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	sm.SetSudoPassword(0, mustClone(t, "pw"))
+	sm.MarkSudoVerified(0)
+	sm.ShareSudoPassword(0, 1) // B reused A's password...
+	sm.MarkSudoVerified(1)     // ...and it worked there (newest verification)
+	if from, _ := sm.SudoCandidateFor(2); from != 1 {
+		t.Fatalf("the newest verification is offered first: %d", from)
+	}
+	sm.RecordSudoRejected(2, 1) // C rejects it
+	if from, ok := sm.SudoCandidateFor(2); ok {
+		t.Errorf("C rejected this password; host %d holds the same one and must not be offered either", from)
 	}
 }

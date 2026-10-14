@@ -60,10 +60,11 @@ type Target struct {
 func (t Target) Addr() string { return fmt.Sprintf("%s:%d", t.Hostname, t.Port) }
 
 // KeyAddr is the host:port a host key is looked up and recorded under in
-// known_hosts: the address, or HostKeyAlias:port when ssh would use an alias.
+// known_hosts. With a HostKeyAlias, ssh uses the bare alias whatever the port,
+// which known_hosts spells without brackets — the form of port 22.
 func (t Target) KeyAddr() string {
 	if t.HostKeyAlias != "" {
-		return fmt.Sprintf("%s:%d", t.HostKeyAlias, t.Port)
+		return t.HostKeyAlias + ":22"
 	}
 	return t.Addr()
 }
