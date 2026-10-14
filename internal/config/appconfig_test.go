@@ -233,3 +233,22 @@ func TestConfigPath_XDG(t *testing.T) {
 		})
 	}
 }
+
+// A config.yaml that is not ours is reported as such, not as the "permission
+// denied" the open of an unreadable foreign file would give.
+func TestLoadAppConfig_ForeignOwnerReportedBeforeOpen(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("running as root")
+	}
+	if _, err := os.Stat("/etc/shadow"); err != nil {
+		t.Skip("no /etc/shadow")
+	}
+	dir := t.TempDir()
+	if err := os.Symlink("/etc/shadow", filepath.Join(dir, "config.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadAppConfig(dir)
+	if err == nil || !strings.Contains(err.Error(), "is owned by uid 0, not by you") {
+		t.Fatalf("got %v, want the ownership message", err)
+	}
+}

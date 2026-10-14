@@ -60,13 +60,25 @@ func (c AppConfig) Editor() string {
 // LoadAppConfig reads and validates config.yaml from the given config directory.
 func LoadAppConfig(configDir string) (AppConfig, error) {
 	path := filepath.Join(configDir, "config.yaml")
-	// Open once and check the handle that is then read: a stat of the path
-	// followed by a read of the path leaves a window to swap the file.
-	f, err := os.Open(path) //nolint:gosec // G304: constant config dir
+	// Look before opening, so a file that is not ours is reported as such
+	// rather than as "permission denied" from the open.
+	pre, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return AppConfig{}, ErrNoConfig
 		}
+		return AppConfig{}, fmt.Errorf("reading config: %w", err)
+	}
+	if err := checkOwner(pre, path, false); err != nil {
+		return AppConfig{}, err
+	}
+	if err := checkConfigMode(path, pre.Mode().Perm()); err != nil {
+		return AppConfig{}, err
+	}
+	// Then open once and check again on the handle that is read: a stat of the
+	// path followed by a read of the path leaves a window to swap the file.
+	f, err := os.Open(path) //nolint:gosec // G304: constant config dir
+	if err != nil {
 		return AppConfig{}, fmt.Errorf("reading config: %w", err)
 	}
 	defer func() { _ = f.Close() }()

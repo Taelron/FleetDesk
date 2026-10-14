@@ -127,6 +127,14 @@ func ParseFleetFile(path string) (Fleet, error) {
 	// FleetDesk executes what a fleet file contains, so a file another user
 	// can write is refused. A merely readable one is fine: fleet files hold
 	// no secrets (ADR-F011) and are meant to be shared.
+	// Look before opening (see LoadAppConfig), then check again on the handle.
+	pre, err := os.Stat(path)
+	if err != nil {
+		return Fleet{}, fmt.Errorf("reading file: %w", err)
+	}
+	if err := checkOwner(pre, path, true); err != nil {
+		return Fleet{}, fmt.Errorf("fleet file %w", err)
+	}
 	f, err := os.Open(path) //nolint:gosec // G304: the user's fleet directory listing
 	if err != nil {
 		return Fleet{}, fmt.Errorf("reading file: %w", err)
