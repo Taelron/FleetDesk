@@ -205,12 +205,31 @@ type sudoTestMsg struct {
 	Retry   tea.Cmd
 	HostIdx int
 	Err     error
+	// Entered is true when the password under test was typed by the user. A
+	// rejected typed password goes straight back to the prompt: offering the
+	// password verified on another host would spend a second authentication
+	// attempt on this one for nothing.
+	Entered bool
 }
 
 // sudoProbeMsg is sent after testing sudo availability on a host during probe.
 type sudoProbeMsg struct {
 	hostIdx int
 	needsPw bool // true if sudo requires a password
+	// seedTried is set once the SSH password has been tried as the sudo
+	// password and failed, so the flow moves on to reuse and the prompt.
+	seedTried bool
+}
+
+// sudoReuseMsg is the result of offering host hostIdx the sudo password
+// verified on another host (one `sudo true` on hostIdx). It carries no
+// credential: success continues with proceed, failure opens prompt.
+type sudoReuseMsg struct {
+	hostIdx int
+	success bool
+	err     error
+	proceed tea.Cmd
+	prompt  func(*Model)
 }
 
 func (m Model) tickCmd() tea.Cmd {
@@ -637,10 +656,43 @@ func (m Model) handleSudoOrFlash(err error, retry tea.Cmd) (Model, tea.Cmd, bool
 		return m, testCmd, true
 	}
 
-	// No SSH password cached (key auth): show prompt directly.
+	// No SSH password cached (key auth): offer a password verified on another
+	// host, else show the prompt.
+	prompt := func(mm *Model) { mm.replaceModal(NewSudoModal(user, host, idx, retry)) }
+	if cmd, ok := m.offerVerifiedSudo(idx, retry, prompt); ok {
+		return m, cmd, true
+	}
 	m.logger.Debug("sudo no SSH password cached, showing prompt", "host_idx", idx)
-	m.replaceModal(NewSudoModal(user, host, idx, retry))
+	prompt(&m)
 	return m, nil, true
+}
+
+// offerVerifiedSudo is the on-demand reuse of a sudo password across hosts
+// (ADR-F007's accepted trade): host idx needs a password, none of its own is
+// verified, and the SSH-password seed has failed or does not exist. If some
+// other host holds a verified one, idx is offered that single candidate — it
+// is shared, the user is told by a flash (no confirmation), and one
+// `sudo true` tests it on idx. On success idx is marked verified and proceed
+// runs; on failure idx's copy is dropped (only idx's — the other host's
+// password keeps working) and prompt opens. Reports false, having changed
+// nothing, when there is no candidate.
+func (m *Model) offerVerifiedSudo(idx int, proceed tea.Cmd, prompt func(*Model)) (tea.Cmd, bool) {
+	from, ok := m.ssh.MostRecentVerifiedSudo(idx)
+	if !ok || from >= len(m.hosts) || !m.ssh.ShareSudoPassword(from, idx) {
+		return nil, false
+	}
+	m.flash = "sudo: reusing the password verified on " + m.hosts[from].Entry.Name
+	m.flashError = false
+	m.logger.Debug("sudo offering verified password", "from_idx", from, "host_idx", idx)
+	sm := m.ssh
+	return func() tea.Msg {
+		out, err := sm.RunSudoCommand(idx, "sudo true")
+		success := err == nil && !ssh.IsSudoOutput(out)
+		if !success {
+			sm.ClearSudoPassword(idx) // idx only: the host it came from keeps its own
+		}
+		return sudoReuseMsg{hostIdx: idx, success: success, err: sudoDeliveryErr(err), proceed: proceed, prompt: prompt}
+	}, true
 }
 
 // testSudo fires a goroutine to test if sudo works on the given host.
@@ -741,7 +793,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.resolveHostKey(msg)
 
 	case sudoProbeMsg:
-		if !msg.needsPw || m.ssh.GetSudoPassword(msg.hostIdx) {
+		if !msg.needsPw || m.ssh.HasVerifiedSudo(msg.hostIdx) {
 			// Sudo ready — navigate to resource picker
 			m.logger.Debug("sudo ready, navigating", "host_idx", msg.hostIdx)
 			if msg.hostIdx < len(m.hosts) {
@@ -775,7 +827,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// flash here — SeedSudoFromCachedPassword refuses an undeliverable
 		// password instead of silently testing it.
 		idx := msg.hostIdx
-		if m.ssh.SeedSudoFromCachedPassword(idx) {
+		if !msg.seedTried && m.ssh.SeedSudoFromCachedPassword(idx) {
 			m.logger.Debug("sudo trying SSH password silently", "host_idx", idx)
 			sm := m.ssh
 			return m, func() tea.Msg {
@@ -785,19 +837,44 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return sudoWizardResultMsg{hostIdx: idx, success: true}
 				}
 				sm.ClearSudoPassword(idx) // wrong — clear
-				return sudoWizardResultMsg{hostIdx: idx, success: false, err: sudoDeliveryErr(runErr)}
+				if delivErr := sudoDeliveryErr(runErr); delivErr != nil {
+					return sudoWizardResultMsg{hostIdx: idx, success: false, err: delivErr}
+				}
+				return sudoProbeMsg{hostIdx: idx, needsPw: true, seedTried: true}
 			}
 		}
 
-		// No SSH password — show sudo wizard
-		user := ""
+		// No SSH password, or it failed as a sudo password: offer a password
+		// verified on another host, else show the sudo wizard.
+		user := m.hostUser(idx)
 		host := ""
 		if idx < len(m.hosts) {
-			user = m.hostUser(idx)
 			host = m.hosts[idx].Entry.Name
 		}
+		prompt := func(mm *Model) { mm.replaceModal(NewSudoWizard(user, host, idx, mm.ssh)) }
+		proceed := func() tea.Msg { return sudoProbeMsg{hostIdx: idx, needsPw: false} }
+		if cmd, ok := m.offerVerifiedSudo(idx, proceed, prompt); ok {
+			return m, cmd
+		}
 		m.logger.Debug("sudo wizard opening", "host_idx", idx)
-		m.replaceModal(NewSudoWizard(user, host, idx, m.ssh))
+		prompt(&m)
+		return m, nil
+
+	case sudoReuseMsg:
+		if msg.hostIdx >= len(m.hosts) {
+			return m, nil
+		}
+		if errors.Is(msg.err, ssh.ErrSudoDelivery) {
+			m.flash = msg.err.Error()
+			m.flashError = true
+			return m, nil
+		}
+		if msg.success {
+			m.ssh.MarkSudoVerified(msg.hostIdx)
+			m.hosts[msg.hostIdx].SudoReady = true
+			return m, msg.proceed
+		}
+		msg.prompt(&m)
 		return m, nil
 
 	case sudoWizardTestMsg:
@@ -827,16 +904,11 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.success {
 			m.replaceModal(nil)
 			m.logger.Debug("sudo wizard success", "host_idx", msg.hostIdx)
-			// Share the accepted password (already stored under hostIdx) with
-			// every other host — no result message carries the credential.
-			for i := range m.hosts {
-				if i != msg.hostIdx {
-					m.ssh.ShareSudoPassword(msg.hostIdx, i)
-				}
-				if m.hosts[i].Status == config.HostOnline {
-					m.hosts[i].SudoReady = true
-				}
-			}
+			// The password was tested on this host and accepted: mark it, and
+			// only it. Another host that needs a password is offered this one
+			// on demand (offerVerifiedSudo) — never in advance.
+			m.ssh.MarkSudoVerified(msg.hostIdx)
+			m.hosts[msg.hostIdx].SudoReady = true
 			// Navigate
 			return m, func() tea.Msg {
 				return sudoProbeMsg{hostIdx: msg.hostIdx, needsPw: false}
@@ -854,7 +926,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.flash = "Wrong sudo password"
 			m.flashError = true
-			m.replaceModal(NewSudoWizard(user, host, idx, m.ssh))
+			m.replaceModal(NewSudoWizardNotice(user, host, idx, m.ssh, "Wrong sudo password"))
 			return m, nil
 		}
 		// Cancelled
@@ -1287,7 +1359,11 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				user = m.hostUser(cfg.HostIdx)
 				host = m.hosts[cfg.HostIdx].Entry.Name
 			}
-			m.replaceModal(NewSudoModal(user, host, cfg.HostIdx, retry))
+			prompt := func(mm *Model) { mm.replaceModal(NewSudoModal(user, host, cfg.HostIdx, retry)) }
+			if cmd, ok := m.offerVerifiedSudo(cfg.HostIdx, retry, prompt); ok {
+				return m, cmd
+			}
+			prompt(&m)
 			return m, nil
 		}
 		return m, m.startSSHStream(msg.cfg)
@@ -1413,15 +1489,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if msg.Success {
-			// Share the accepted password (already stored under HostIdx) with
-			// every other host — no result message carries the credential.
-			for i := range m.hosts {
-				if i != msg.HostIdx {
-					m.ssh.ShareSudoPassword(msg.HostIdx, i)
-				}
-				if m.hosts[i].Status == config.HostOnline {
-					m.hosts[i].SudoReady = true
-				}
+			// Tested on this host and accepted: mark it, and only it.
+			m.ssh.MarkSudoVerified(msg.HostIdx)
+			if msg.HostIdx < len(m.hosts) {
+				m.hosts[msg.HostIdx].SudoReady = true
 			}
 			if msg.Retry != nil {
 				return m, msg.Retry
@@ -1440,7 +1511,17 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Retry: re-test sudo after password entry, which will trigger navigation
 		retryNavigate := func() tea.Msg { return sudoProbeMsg{hostIdx: idx, needsPw: false} }
-		m.replaceModal(NewSudoModal(user, host, idx, retryNavigate))
+		notice := ""
+		if msg.Entered {
+			notice = "Wrong sudo password"
+		}
+		prompt := func(mm *Model) { mm.replaceModal(NewSudoModalNotice(user, host, idx, retryNavigate, notice)) }
+		if !msg.Entered {
+			if cmd, ok := m.offerVerifiedSudo(idx, retryNavigate, prompt); ok {
+				return m, cmd
+			}
+		}
+		prompt(&m)
 		return m, nil
 
 	case passwordEnteredMsg:
@@ -1483,7 +1564,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !success {
 				sm.ClearSudoPassword(idx) // rejected candidate — erase before the next attempt
 			}
-			return sudoTestMsg{Success: success, Retry: retry, HostIdx: idx, Err: sudoDeliveryErr(runErr)}
+			return sudoTestMsg{Success: success, Retry: retry, HostIdx: idx, Err: sudoDeliveryErr(runErr), Entered: true}
 		}
 
 	case sudoCancelledMsg:

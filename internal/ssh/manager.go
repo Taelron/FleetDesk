@@ -109,6 +109,12 @@ type Manager struct {
 	conns          map[int]*gossh.Client
 	cachedPassword []byte // session SSH password; nil when none cached
 	sudoPasswords  map[int]*sudoEntry
+	// sudoVerified records, per host index, that the sudo password held for
+	// it was tested on that host and accepted, as the sequence number of that
+	// verification (0 = not verified). A password that was merely shared
+	// from another host, or is a candidate under test, has no entry.
+	sudoVerified map[int]uint64
+	sudoSeq      uint64
 
 	// pendingHostKeys holds, per host index, a first-contact host key
 	// awaiting the user's accept/decline (never a credential).
@@ -126,6 +132,7 @@ func NewManager(logger *slog.Logger) *Manager {
 	return &Manager{
 		conns:           make(map[int]*gossh.Client),
 		sudoPasswords:   make(map[int]*sudoEntry),
+		sudoVerified:    make(map[int]uint64),
 		pendingHostKeys: make(map[int]ErrUnknownHostKey),
 		logger:          logger,
 	}
@@ -221,6 +228,7 @@ func (sm *Manager) eraseAllSudoLocked() {
 		credential.Erase(e.buf)
 	}
 	sm.sudoPasswords = make(map[int]*sudoEntry)
+	sm.sudoVerified = make(map[int]uint64)
 }
 
 // releaseSudoEntryLocked drops idx's reference to its sudo entry, if any,
@@ -232,6 +240,7 @@ func (sm *Manager) releaseSudoEntryLocked(idx int) {
 		return
 	}
 	delete(sm.sudoPasswords, idx)
+	delete(sm.sudoVerified, idx)
 	e.refs--
 	if e.refs <= 0 {
 		credential.Erase(e.buf)
@@ -290,10 +299,53 @@ func (sm *Manager) ShareSudoPassword(from, to int) bool {
 	if !ok {
 		return false
 	}
-	sm.releaseSudoEntryLocked(to)
+	sm.releaseSudoEntryLocked(to) // also drops to's verified mark: the shared value is untested on to
 	src.refs++
 	sm.sudoPasswords[to] = src
 	return true
+}
+
+// MarkSudoVerified records that the sudo password held for idx was tested on
+// that host and accepted. A no-op when idx holds no password: a host that
+// needs none has nothing to offer another.
+func (sm *Manager) MarkSudoVerified(idx int) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if _, ok := sm.sudoPasswords[idx]; !ok {
+		return
+	}
+	sm.sudoSeq++
+	sm.sudoVerified[idx] = sm.sudoSeq
+}
+
+// HasVerifiedSudo reports whether the sudo password held for idx was
+// verified on idx itself. A presence check, not a use: it does not reset the
+// idle timer and never returns the credential.
+func (sm *Manager) HasVerifiedSudo(idx int) bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	_, held := sm.sudoPasswords[idx]
+	return held && sm.sudoVerified[idx] > 0
+}
+
+// MostRecentVerifiedSudo returns the host, other than exclude, whose sudo
+// password was verified most recently. One candidate, never several: a host
+// offered a foreign secret receives at most one, and so suffers at most one
+// failed authentication for it.
+func (sm *Manager) MostRecentVerifiedSudo(exclude int) (int, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	best, bestSeq := -1, uint64(0)
+	for idx, seq := range sm.sudoVerified {
+		if idx == exclude || seq <= bestSeq {
+			continue
+		}
+		if _, held := sm.sudoPasswords[idx]; !held {
+			continue
+		}
+		best, bestSeq = idx, seq
+	}
+	return best, best >= 0
 }
 
 // SeedSudoFromCachedPassword copies the cached SSH password as idx's sudo
@@ -361,7 +413,7 @@ func (sm *Manager) ConnectAndProbe(idx int, h config.Host) HostProbeResult {
 
 	if ok && client != nil {
 		// test the connection with a probe
-		info, err := Probe(client, h.Entry.SystemdMode, h.ErrorLogSince)
+		info, err := sm.probe(idx, client, h.Entry.SystemdMode, h.ErrorLogSince)
 		if err == nil {
 			sm.logger.Debug("probe complete", "host", h.Entry.Name, "reused", true, "elapsed", time.Since(start))
 			return HostProbeResult{Index: idx, Info: info}
@@ -382,7 +434,7 @@ func (sm *Manager) ConnectAndProbe(idx int, h config.Host) HostProbeResult {
 		return HostProbeResult{Index: idx, Err: err, User: target.User}
 	}
 
-	info, err := Probe(client, h.Entry.SystemdMode, h.ErrorLogSince)
+	info, err := sm.probe(idx, client, h.Entry.SystemdMode, h.ErrorLogSince)
 	if err != nil {
 		_ = client.Close()
 		sm.logger.Error("probe failed", "host", h.Entry.Name, "err", err)
@@ -666,7 +718,7 @@ func (sm *Manager) ConnectWithPassword(idx int, h config.Host, pw []byte) Passwo
 	sm.conns[idx] = client
 	sm.mu.Unlock()
 
-	info, err := Probe(client, entry.SystemdMode, h.ErrorLogSince)
+	info, err := sm.probe(idx, client, entry.SystemdMode, h.ErrorLogSince)
 	if err != nil {
 		sm.logger.Error("password probe failed", "addr", addr, "idx", idx, "err", err)
 		return PasswordRetryResult{Index: idx, Err: fmt.Errorf("probe: %w", err), User: t.User}
@@ -742,20 +794,20 @@ func (sm *Manager) Close() {
 	}
 }
 
-// Probe runs a single SSH command to gather all host info in one roundtrip.
-func Probe(client *gossh.Client, systemdMode string, errorLogSince string) (ProbeInfo, error) {
-	session, err := client.NewSession()
-	if err != nil {
-		return ProbeInfo{}, fmt.Errorf("new session: %w", err)
-	}
-	defer func() { _ = session.Close() }()
-
-	cmd := `echo '---PROBE---' && ` +
+// probeCommand is the host probe's one compound command. sudo is the text
+// of its privileged read's prefix: "sudo -n " (never prompts, so it fails
+// rather than hangs when a password is required) or "sudo " (rewritten into
+// the stdin relay when a verified password is delivered). Line four is the
+// error count: an integer when the read ran, "-" when sudo could not be
+// obtained or the journal could not be read, so that "could not read" never
+// looks like a successful zero.
+func probeCommand(sudo, errorLogSince string) string {
+	return `echo '---PROBE---' && ` +
 		`(hostname -f 2>/dev/null || hostname) | head -1 && ` +
 		`uptime -s 2>/dev/null || echo unknown && ` +
 		`(grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"') || echo unknown && ` +
 		`echo $(( $(crontab -l 2>/dev/null | grep -v '^#' | grep -v '^$' | wc -l) + $(ls /etc/cron.d/ 2>/dev/null | wc -l) )) && ` +
-		fmt.Sprintf(`sudo journalctl -p err --since '%s' --no-pager -q 2>/dev/null | wc -l && `, errorLogSince) +
+		fmt.Sprintf(`if o=$(%sjournalctl -p err --since '%s' --no-pager -q 2>/dev/null); then { printf '%%s' "$o" | grep -c '^' || true; }; else echo -; fi && `, sudo, errorLogSince) +
 		`df -h --output=pcent -x tmpfs -x devtmpfs 2>/dev/null | tail -n+2 | wc -l && ` +
 		`df -h --output=pcent -x tmpfs -x devtmpfs 2>/dev/null | tail -n+2 | awk '{gsub(/%%/,""); if ($1 >= 80) print}' | wc -l && ` +
 		`(getent passwd | awk -F: '$3 >= 1000 && $3 != 65534 {print $1}'; for d in /home/*/; do u=$(basename "$d"); getent passwd "$u" >/dev/null 2>&1 && echo "$u"; done) | sort -u | wc -l && ` +
@@ -764,6 +816,56 @@ func Probe(client *gossh.Client, systemdMode string, errorLogSince string) (Prob
 		`(ss -tlnp 2>/dev/null | tail -n +2 | wc -l || echo 0) && ` +
 		`(dnf check-update --quiet 2>/dev/null | grep -c '^\S' || echo 0) && ` +
 		`(command -v supervisorctl >/dev/null 2>&1 && echo 1 || echo 0)`
+}
+
+// Probe runs a single SSH command to gather all host info in one roundtrip.
+// Its privileged read is `sudo -n`: it uses sudo only when sudo needs no
+// password, and otherwise reports that it could not read (ErrorCountKnown
+// false). The manager's own probe delivers a verified password instead.
+func Probe(client *gossh.Client, systemdMode string, errorLogSince string) (ProbeInfo, error) {
+	return runProbe(client, systemdMode, errorLogSince, "sudo -n ", nil)
+}
+
+// probe is Probe for host idx. When a sudo password was verified on this very
+// host it is delivered to the privileged read over the session's stdin
+// (TAE-20's relay), so the read runs even where sudo wants a password. A
+// password held for another host, or one never verified here, is never
+// offered: the unverified form is used, and it either runs or says it could
+// not. A background probe is not a use of the credential for the idle
+// timeout: it must not keep an idle session's password alive.
+func (sm *Manager) probe(idx int, client *gossh.Client, systemdMode, errorLogSince string) (ProbeInfo, error) {
+	sm.mu.Lock()
+	e, held := sm.sudoPasswords[idx]
+	verified := held && sm.sudoVerified[idx] > 0
+	var r *credential.Reader
+	if verified && ValidateSudoPassword(e.buf) == nil {
+		var err error
+		if r, err = credential.NewReader(e.buf, "\n"); err != nil {
+			r = nil
+		}
+	}
+	sm.mu.Unlock()
+	if r == nil {
+		return runProbe(client, systemdMode, errorLogSince, "sudo -n ", nil)
+	}
+	defer r.Erase()
+	return runProbe(client, systemdMode, errorLogSince, "sudo ", r)
+}
+
+// runProbe runs the probe command; a non-nil stdin means the command's
+// "sudo " is rewritten into the password relay that reads it.
+func runProbe(client *gossh.Client, systemdMode, errorLogSince, sudo string, stdin *credential.Reader) (ProbeInfo, error) {
+	session, err := client.NewSession()
+	if err != nil {
+		return ProbeInfo{}, fmt.Errorf("new session: %w", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	cmd := probeCommand(sudo, errorLogSince)
+	if stdin != nil {
+		cmd = rewriteSudoCmd(cmd)
+		session.Stdin = stdin
+	}
 
 	out, err := session.CombinedOutput(cmd)
 	if err != nil {

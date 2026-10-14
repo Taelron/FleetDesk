@@ -9,11 +9,15 @@ import (
 
 // ProbeInfo holds the results of a host probe.
 type ProbeInfo struct {
-	FQDN                 string
-	OS                   string
-	UpSince              string
-	CronCount            int
-	ErrorCount           int
+	FQDN       string
+	OS         string
+	UpSince    string
+	CronCount  int
+	ErrorCount int
+	// ErrorCountKnown is false when the privileged read behind ErrorCount
+	// did not run — sudo could not be obtained, or the journal could not be
+	// read — so ErrorCount is not a count of zero errors, only an unknown.
+	ErrorCountKnown      bool
 	DiskCount            int
 	DiskHighCount        int
 	UserCount            int
@@ -50,7 +54,7 @@ func FormatDateEU(s string) string {
 //	1: uptime -s
 //	2: OS pretty name
 //	3: cron count
-//	4: error count (journalctl -p err)
+//	4: error count (journalctl -p err); "-" when the read could not run
 //	5: disk count
 //	6: disk high count
 //	7: user count
@@ -78,12 +82,22 @@ func ParseProbeOutput(output string, systemdMode string) (ProbeInfo, error) {
 		return 0
 	}
 
+	// Line 4 is an integer when the privileged read ran and "-" (or absent,
+	// in the short fallback output) when it did not.
+	errorCount, errorCountKnown := 0, false
+	if len(lines) > 4 {
+		if n, err := strconv.Atoi(strings.TrimSpace(lines[4])); err == nil {
+			errorCount, errorCountKnown = n, true
+		}
+	}
+
 	return ProbeInfo{
 		FQDN:                 strings.TrimSpace(lines[0]),
 		UpSince:              FormatDateEU(strings.TrimSpace(lines[1])),
 		OS:                   strings.TrimSpace(lines[2]),
 		CronCount:            getInt(3),
-		ErrorCount:           getInt(4),
+		ErrorCount:           errorCount,
+		ErrorCountKnown:      errorCountKnown,
 		DiskCount:            getInt(5),
 		DiskHighCount:        getInt(6),
 		UserCount:            getInt(7),

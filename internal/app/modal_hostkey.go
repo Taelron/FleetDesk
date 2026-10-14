@@ -13,6 +13,9 @@ import (
 type hostKeyDecidedMsg struct {
 	hostIdx  int
 	accepted bool
+	// fingerprint is the fingerprint the user was shown, so that accepting
+	// can only ever record that key (public data, not a credential).
+	fingerprint string
 }
 
 // hostKeyPrompt is the question the unknown-host-key modal asks.
@@ -59,12 +62,14 @@ func (c *HostKeyContent) Result() any { return c.accepted }
 
 // NewHostKeyModal asks whether to trust a host seen for the first time.
 // Declining — N, Enter or Esc — is the default.
-func NewHostKeyModal(hostIdx int, hostName, addr, key string) *ModalOverlay {
+func NewHostKeyModal(hostIdx int, hostName, addr, key, fingerprint string) *ModalOverlay {
 	m := NewModalOverlay("Unknown host key", []ModalStep{
 		{Title: fmt.Sprintf("%s is not in known_hosts. It presented:", hostName), Content: NewHostKeyContent(addr, key)},
 	}, func(results []any) tea.Cmd {
 		accepted := results[0].(bool)
-		return func() tea.Msg { return hostKeyDecidedMsg{hostIdx: hostIdx, accepted: accepted} }
+		return func() tea.Msg {
+			return hostKeyDecidedMsg{hostIdx: hostIdx, accepted: accepted, fingerprint: fingerprint}
+		}
 	}, func() tea.Cmd {
 		return func() tea.Msg { return hostKeyDecidedMsg{hostIdx: hostIdx, accepted: false} }
 	})

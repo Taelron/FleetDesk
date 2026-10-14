@@ -68,6 +68,7 @@ type Host struct {
 	UpSince              string
 	CronCount            int
 	ErrorCount           int
+	ErrorCountKnown      bool // false: the privileged read behind ErrorCount did not run
 	DiskCount            int
 	DiskHighCount        int
 	UserCount            int

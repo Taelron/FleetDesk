@@ -122,7 +122,7 @@ func TestHostUserFallbacks(t *testing.T) {
 
 func TestHostKeyModal(t *testing.T) {
 	answer := func(k tea.KeyMsg) (hostKeyDecidedMsg, bool) {
-		mod := NewHostKeyModal(2, "th", "127.0.0.1:2222", "ssh-ed25519 SHA256:abc")
+		mod := NewHostKeyModal(2, "th", "127.0.0.1:2222", "ssh-ed25519 SHA256:abc", "SHA256:abc")
 		view := mod.View("bg", 100, 30)
 		for _, want := range []string{"Unknown host key", "127.0.0.1:2222", "ssh-ed25519 SHA256:abc", "Trust this host and add it to known_hosts? [y/N]"} {
 			if !strings.Contains(view, want) {
@@ -136,7 +136,7 @@ func TestHostKeyModal(t *testing.T) {
 		msg, ok := cmd().(hostKeyDecidedMsg)
 		return msg, ok
 	}
-	if msg, ok := answer(keyRune('y')); !ok || !msg.accepted || msg.hostIdx != 2 {
+	if msg, ok := answer(keyRune('y')); !ok || !msg.accepted || msg.hostIdx != 2 || msg.fingerprint != "SHA256:abc" {
 		t.Errorf("y: %+v %v", msg, ok)
 	}
 	for name, k := range map[string]tea.KeyMsg{"n": keyRune('n'), "enter (the default)": {Type: tea.KeyEnter}, "esc": {Type: tea.KeyEsc}} {
@@ -145,7 +145,7 @@ func TestHostKeyModal(t *testing.T) {
 		}
 	}
 	// any other key does nothing
-	mod := NewHostKeyModal(0, "th", "a", "k")
+	mod := NewHostKeyModal(0, "th", "a", "k", "fp")
 	if cmd := mod.HandleKey(keyRune('q')); cmd != nil || mod.Done() {
 		t.Error("stray key must not answer the prompt")
 	}

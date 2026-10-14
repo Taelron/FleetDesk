@@ -278,14 +278,31 @@ func (sm *Manager) PendingHostKey(idx int) (ErrUnknownHostKey, bool) {
 	return k, ok
 }
 
+// ErrPendingKeyChanged is returned when the key awaiting trust is no longer
+// the one the user was shown.
+var ErrPendingKeyChanged = errors.New("the host presented a different key since the prompt; nothing was recorded")
+
 // TrustPendingHostKey records the pending key for host idx, the user having
-// accepted it, and forgets it.
-func (sm *Manager) TrustPendingHostKey(idx int, e config.HostEntry) error {
+// accepted it, and forgets it. shownFingerprint is the fingerprint the user
+// was shown: if the pending key has been replaced since (a later probe saw a
+// different key), or the entry now resolves to a different address, nothing
+// is recorded — a user must never trust a key they were not shown.
+func (sm *Manager) TrustPendingHostKey(idx int, e config.HostEntry, shownFingerprint string) error {
 	k, ok := sm.PendingHostKey(idx)
 	if !ok {
 		return errors.New("no host key is pending for this host")
 	}
-	if err := sm.TrustHostKey(e, k.Key); err != nil {
+	if k.Fingerprint() != shownFingerprint {
+		return ErrPendingKeyChanged
+	}
+	t, err := Resolve(e)
+	if err != nil {
+		return err
+	}
+	if t.Addr() != k.Addr {
+		return fmt.Errorf("%s now resolves to %s, not %s that the key was seen at; nothing was recorded", e.Hostname, t.Addr(), k.Addr)
+	}
+	if err := recordHostKey(sm, t, k.Key); err != nil {
 		return err
 	}
 	sm.mu.Lock()

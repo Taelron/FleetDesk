@@ -32,9 +32,17 @@ type sudoWizardResultMsg struct {
 // After Enter: modal switches to "Testing sudo..." loading overlay,
 // then async tests the password and sends sudoWizardResultMsg.
 func NewSudoWizard(user, host string, hostIdx int, sshMgr *ssh.Manager) *ModalOverlay {
+	return NewSudoWizardNotice(user, host, hostIdx, sshMgr, "")
+}
+
+// NewSudoWizardNotice is NewSudoWizard with a notice shown above the prompt —
+// "Wrong sudo password" when the wizard re-opens after a rejected password. A
+// flash cannot carry that: the modal covers the whole screen, so a flash set
+// behind it is never seen.
+func NewSudoWizardNotice(user, host string, hostIdx int, sshMgr *ssh.Manager, notice string) *ModalOverlay {
 	prompt := fmt.Sprintf("Sudo password for %s@%s:", user, host)
 	m := NewModalOverlay("Sudo Authentication", []ModalStep{
-		{Title: prompt, Content: NewSecretInputContent(prompt, ssh.ValidateSudoPassword)},
+		{Title: noticeTitle(notice, prompt), Content: NewSecretInputContent(prompt, ssh.ValidateSudoPassword)},
 	}, func(results []any) tea.Cmd {
 		pw := results[0].([]byte)
 		idx := hostIdx
@@ -48,4 +56,13 @@ func NewSudoWizard(user, host string, hostIdx int, sshMgr *ssh.Manager) *ModalOv
 		}
 	})
 	return m
+}
+
+// noticeTitle puts an error notice, when there is one, on the line above a
+// prompt.
+func noticeTitle(notice, prompt string) string {
+	if notice == "" {
+		return prompt
+	}
+	return flashErrorStyle.Render(notice) + "\n" + prompt
 }

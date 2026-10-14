@@ -257,7 +257,48 @@ func TestPendingHostKeyLifecycle(t *testing.T) {
 	if _, ok := sm.PendingHostKey(3); ok {
 		t.Error("a later success clears a stale pending key")
 	}
-	if err := sm.TrustPendingHostKey(9, config.HostEntry{}); err == nil {
+	if err := sm.TrustPendingHostKey(9, config.HostEntry{}, "SHA256:x"); err == nil {
 		t.Error("trusting with nothing pending must fail")
+	}
+}
+
+// What is recorded is what was shown: a pending key replaced after the prompt
+// opened is refused, not silently trusted.
+func TestTrustPendingHostKey_RefusesAKeyThatWasNotShown(t *testing.T) {
+	isolatedHome(t, "")
+	sm := NewManager(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	shown := newEd25519Signer(t).PublicKey()
+	other := newEd25519Signer(t).PublicKey()
+	e := config.HostEntry{Hostname: "somewhere.example"}
+	tg, err := Resolve(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sm.notePendingHostKey(0, ErrUnknownHostKey{Addr: tg.Addr(), Key: shown})
+	shownFP := gossh.FingerprintSHA256(shown)
+	// a later probe saw a different key
+	sm.notePendingHostKey(0, ErrUnknownHostKey{Addr: tg.Addr(), Key: other})
+	if err := sm.TrustPendingHostKey(0, e, shownFP); !errors.Is(err, ErrPendingKeyChanged) {
+		t.Fatalf("got %v, want ErrPendingKeyChanged", err)
+	}
+	if b, _ := os.ReadFile(tg.UserKnownHosts[0]); len(b) != 0 {
+		t.Errorf("nothing may be recorded: %q", b)
+	}
+	// the address the key was seen at must still be the address recorded
+	sm.notePendingHostKey(0, ErrUnknownHostKey{Addr: "elsewhere.example:22", Key: shown})
+	if err := sm.TrustPendingHostKey(0, e, shownFP); err == nil || !strings.Contains(err.Error(), "nothing was recorded") {
+		t.Errorf("address changed: got %v", err)
+	}
+	// the key that was shown, at the address it was seen at, is recorded
+	sm.notePendingHostKey(0, ErrUnknownHostKey{Addr: tg.Addr(), Key: shown})
+	if err := sm.TrustPendingHostKey(0, e, shownFP); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(tg.UserKnownHosts[0])
+	if !strings.Contains(string(b), "somewhere.example") || !strings.Contains(string(b), "ssh-ed25519") {
+		t.Errorf("known_hosts = %q", b)
+	}
+	if _, ok := sm.PendingHostKey(0); ok {
+		t.Error("a recorded key is no longer pending")
 	}
 }

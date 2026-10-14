@@ -818,6 +818,7 @@ func (m *Model) applyProbeInfo(idx int, info ssh.ProbeInfo) {
 	m.hosts[idx].UpSince = info.UpSince
 	m.hosts[idx].CronCount = info.CronCount
 	m.hosts[idx].ErrorCount = info.ErrorCount
+	m.hosts[idx].ErrorCountKnown = info.ErrorCountKnown
 	m.hosts[idx].DiskCount = info.DiskCount
 	m.hosts[idx].DiskHighCount = info.DiskHighCount
 	m.hosts[idx].UserCount = info.UserCount
@@ -1669,7 +1670,7 @@ func (m *Model) openNextHostKeyModal() {
 			m.hosts[i].HostKeyPending = false
 			continue
 		}
-		m.replaceModal(NewHostKeyModal(i, m.hosts[i].Entry.Name, key.Addr, key.KeyDescription()))
+		m.replaceModal(NewHostKeyModal(i, m.hosts[i].Entry.Name, key.Addr, key.KeyDescription(), key.Fingerprint()))
 		return
 	}
 }
@@ -1689,7 +1690,7 @@ func (m *Model) resolveHostKey(msg hostKeyDecidedMsg) tea.Cmd {
 		h.Error = "host key declined"
 		return nil
 	}
-	if err := m.ssh.TrustPendingHostKey(msg.hostIdx, h.Entry); err != nil {
+	if err := m.ssh.TrustPendingHostKey(msg.hostIdx, h.Entry, msg.fingerprint); err != nil {
 		h.Status = config.HostUnreachable
 		h.Error = fmt.Sprintf("cannot record host key: %v", err)
 		return nil
