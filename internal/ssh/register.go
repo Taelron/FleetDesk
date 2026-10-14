@@ -82,12 +82,17 @@ sys.exit(status)
 // RegisterExitRHELTooOld, never the CLI), then runs the D-Bus helper. The org
 // ID is not a secret and stays on argv.
 func RegisterConsumer(orgID string) string {
-	const rhelCheck = `v=$(. /etc/os-release 2>/dev/null; echo "${VERSION_ID%%.*}"); ` +
-		`[ -n "$v" ] || v=$(sed -n 's/^.*release \([0-9][0-9]*\).*$/\1/p' /etc/redhat-release 2>/dev/null); ` +
-		`[ "${v:-0}" -ge 8 ] 2>/dev/null || exit 98; ` +
-		`command -v python3 >/dev/null 2>&1 || exit 98; `
-	return rhelCheck + fmt.Sprintf("python3 -c '%s' '%s'", rhsmRegisterHelper, shQuote(orgID))
+	return registerPreflight + fmt.Sprintf("python3 -I -c '%s' '%s'", rhsmRegisterHelper, shQuote(orgID))
 }
+
+// registerPreflight refuses a target older than RHEL 8, or without python3,
+// with exit 98. The helper is then run with -I (isolated mode): it runs as
+// root with the SSH user's home as its working directory, and without -I a
+// dbus.py planted there, or in PYTHONPATH, would be imported by root.
+const registerPreflight = `v=$(. /etc/os-release 2>/dev/null; echo "${VERSION_ID%%.*}"); ` +
+	`[ -n "$v" ] || v=$(sed -n 's/^.*release \([0-9][0-9]*\).*$/\1/p' /etc/redhat-release 2>/dev/null); ` +
+	`[ "${v:-0}" -ge 8 ] 2>/dev/null || exit 98; ` +
+	`command -v python3 >/dev/null 2>&1 || exit 98; `
 
 // RegisterPrefix is what runs before the registration: nothing for the Red
 // Hat CDN, and for Satellite the clean and the katello CA consumer install.

@@ -111,6 +111,52 @@ groups:
   - name: aks-app-prd-green
 ```
 
+### File permissions
+
+FleetDesk executes what its configuration names, so it checks the files it
+reads before starting:
+
+- `config.yaml` (in `$XDG_CONFIG_HOME/fleetdesk/`, or `~/.config/fleetdesk/`
+  when that is not set) must be mode `0600`. FleetDesk writes it that way, in
+  a `0700` directory, and refuses to start on anything else, naming the file
+  and the fix (`chmod 0600 <path>`).
+- A fleet file must not be writable by group or others (`chmod go-w <path>`).
+  A readable one (`0644`) is fine: fleet files hold no secrets, so they can be
+  ordinary shareable configuration.
+
+### Secrets
+
+A fleet file never holds a shared secret's value, only its name. A field that
+holds a name carries the `_secret_name` suffix, and the fleet's `secrets:`
+block says where names are resolved:
+
+```yaml
+secrets:
+  provider: azure-keyvault
+  vault: my-vault
+  subscription: 00000000-0000-0000-0000-000000000000
+
+defaults:
+  rh_org_id: my-org
+  rh_activation_key_secret_name: rhel-activation-key
+```
+
+The name is resolved when the operation that needs it runs (`az keyvault
+secret show`, using your `az login`), never when the fleet loads, so a fleet
+whose vault is unreachable still opens. The value is held in memory only for
+that operation and is never written to disk, logged, or put on a command line.
+`azure-keyvault` is the only provider. A `_secret_name` field in a fleet with
+no `secrets:` block is rejected at load.
+
+`rh_activation_key` is no longer accepted. Removing it from a fleet file does
+not un-commit a key that was stored in one before: **rotate any activation key
+that was ever in a shared fleet file** (in Satellite or the Red Hat portal).
+
+Registration (`g` in the Subscription view) calls RHSM's D-Bus
+`RegisterWithActivationKeys` on the target, which needs RHEL 8 or later, with
+the key delivered on stdin so it appears in no process's arguments. It runs in
+the in-app stream view and keeps its confirmation.
+
 ### Run
 
 ```bash

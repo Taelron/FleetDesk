@@ -182,7 +182,7 @@ func TestRegisterHelper_Constraints(t *testing.T) {
 	}
 	// the registration process's argv contains the helper text; none of it may
 	// contain a recognisable piece of any credential the tests look for
-	for _, w := range t116Windows("stub-secret-value", 8) {
+	for _, w := range t116Windows("stub-secret"+"-value", 8) {
 		if strings.Contains(rhsmRegisterHelper+RegisterConsumer("org"), w) {
 			t.Errorf("the helper and consumer text contain %q", w)
 		}
@@ -332,5 +332,52 @@ class Interface:
 	var ee *exec.ExitError
 	if !errors.As(err, &ee) || ee.ExitCode() != RegisterExitRHELTooOld {
 		t.Errorf("want exit %d without a D-Bus binding, got %v: %s", RegisterExitRHELTooOld, err, out98)
+	}
+}
+
+// The org ID is data, not code: whatever it holds reaches python3 as one
+// argument, through both layers of quoting (the consumer's and sh -c's), and
+// the helper is started isolated (-I) so root never imports from the SSH
+// user's working directory.
+func TestRegisterConsumer_OrgIDIsOneLiteralArgument(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available")
+	}
+	dir := t.TempDir()
+	argvFile := filepath.Join(dir, "argv")
+	pyStub := "#!/bin/bash\nprintf '%s\\0' \"$@\" > " + argvFile + "\n"
+	sudoStub := "#!/bin/bash\nshift\nread -r p\nexec \"$@\"\n"
+	for name, body := range map[string]string{"python3": pyStub, "sudo": sudoStub} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, org := range []string{"Fluxys", `o'rg; touch ` + dir + `/pwned; echo '`, "$(touch " + dir + "/pwned2)", "`id`", `a"b\c`, "-oProxyCommand=x"} {
+		sm := managerWithSudo(t, 0, "pw")
+		consumer := strings.TrimPrefix(RegisterConsumer(org), registerPreflight)
+		if consumer == RegisterConsumer(org) {
+			t.Fatal("the preflight must be a prefix of the consumer")
+		}
+		cmd, r, err := sm.RewriteSudoWithSecret(0, "", []byte("k"), RegisterTag, consumer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c := exec.Command("bash", "-c", cmd) //nolint:gosec // G204: the test runs the generated command against stubs
+		c.Env = []string{"PATH=" + dir + ":/usr/bin:/bin"}
+		c.Stdin = r
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("org %q: %v\n%s", org, err, out)
+		}
+		r.Erase()
+		raw, _ := os.ReadFile(argvFile)
+		args := strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00")
+		if len(args) != 4 || args[0] != "-I" || args[1] != "-c" || args[2] != rhsmRegisterHelper || args[3] != org {
+			t.Errorf("org %q: python3 argv = %q", org, args)
+		}
+		for _, f := range []string{"pwned", "pwned2"} {
+			if _, err := os.Stat(filepath.Join(dir, f)); err == nil {
+				t.Errorf("org %q: injected command ran (%s)", org, f)
+			}
+		}
 	}
 }

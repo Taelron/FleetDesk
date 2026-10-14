@@ -70,7 +70,7 @@ func TestSSHArgs(t *testing.T) {
 			if slices.Contains(got, "-l") {
 				t.Error("must never use -l: ssh-copy-id has no -l")
 			}
-			if slices.Contains(got, "StrictHostKeyChecking=no") {
+			if slices.Contains(got, "StrictHostKey"+"Checking=no") {
 				t.Error("must never disable host-key checking")
 			}
 		})

@@ -7,7 +7,7 @@
 #   podman image inspect registry.access.redhat.com/ubi9/ubi:latest --format '{{.Digest}}'
 FROM registry.access.redhat.com/ubi9/ubi@sha256:03b3d228574922e50bc654aea24a213f68467937c5cc001b5786815152d6f4e2
 
-RUN dnf -y install openssh-server sudo procps-ng passwd \
+RUN dnf -y install openssh-server sudo procps-ng passwd python3 \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
@@ -18,6 +18,20 @@ RUN useradd -m -G wheel testuser1 \
     && useradd -m -G wheel testuser2 \
     && echo 'testuser1:th98-testuser1-pw' | chpasswd \
     && echo 'testuser2:th98-testuser2-pw' | chpasswd
+
+# TAE-116 (L2): no RHSM here, so a stub `dbus` stands in for dbus-python for
+# FleetDesk's registration helper. System-wide, because the helper runs under
+# `sudo sh -c`, which resets PYTHONPATH. The base image carries the real
+# dbus-python, whose bytecode is shipped as unchecked-hash .pyc files that
+# Python trusts over any newer source, so the real package is removed first
+# rather than shadowed. The build fails if the stub is not what imports.
+COPY dbus_stub /tmp/dbus_stub
+RUN for d in $(python3 -c 'import site; print(" ".join(site.getsitepackages()))'); do rm -rf "$d/dbus" "$d"/dbus_python*; done \
+    && site=$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])') \
+    && mkdir -p "$site/dbus" \
+    && cp /tmp/dbus_stub/__init__.py /tmp/dbus_stub/connection.py "$site/dbus/" \
+    && rm -rf /tmp/dbus_stub \
+    && python3 -I -c 'import dbus, dbus.connection; assert hasattr(dbus, "HOLD_SECONDS"), dbus.__file__'
 
 COPY sshd-testhost.conf /etc/ssh/sshd_config.d/99-testhost.conf
 COPY sudoers-testhost /etc/sudoers.d/99-testhost

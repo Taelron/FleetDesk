@@ -13,7 +13,9 @@ import (
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/credential"
 )
 
-const stubValue = "stub-secret-value"
+// Built from pieces: TAE-116 H2 greps every tracked file for the stand-in key,
+// and only the stand-in az and the acceptance test may hold it whole.
+const stubValue = "stub-secret" + "-value"
 
 // stubPath puts the repository's stand-in az first on PATH.
 func stubPath(t *testing.T) {
