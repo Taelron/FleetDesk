@@ -9,6 +9,7 @@ import (
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/azure"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/k8s"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1089,28 +1090,42 @@ func (m Model) handleSubscriptionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			sshHandover(h, []string{cmd}, banner))
 	case "g":
 		h := m.hosts[m.selectedHost]
+		f := m.fleets[m.selectedFleet]
 		orgID := h.Entry.RHOrgID
-		actKey := h.Entry.RHActivationKey
+		secretName := h.Entry.RHActivationKeySecretName
 		satURL := h.Entry.SatelliteURL
-		if orgID == "" || actKey == "" {
-			m.flash = "rh_org_id and rh_activation_key required in config"
+		if orgID == "" || secretName == "" || f.Secrets == nil {
+			m.flash = "rh_org_id and rh_activation_key_secret_name required in config"
 			m.flashError = true
 			return m, nil
 		}
-		var cmd, target string
+		target := "Red Hat CDN"
 		if satURL != "" {
 			target = "Satellite"
-			cmd = fmt.Sprintf("sudo subscription-manager clean && sudo dnf install -y 'http://%s/pub/katello-ca-consumer-latest.noarch.rpm' --disablerepo='*' && sudo subscription-manager register --org='%s' --activationkey='%s' --force",
-				shellQuote(satURL), shellQuote(orgID), shellQuote(actKey))
-		} else {
-			target = "Red Hat CDN"
-			cmd = fmt.Sprintf("sudo subscription-manager register --org='%s' --activationkey='%s'",
-				shellQuote(orgID), shellQuote(actKey))
 		}
-		banner := fmt.Sprintf("register to %s on %s", target, h.Entry.Name)
+		// The confirmation is kept (ADR-F005). Confirming starts the in-TUI
+		// stream, which resolves the activation key by name at that moment —
+		// the key is not read here and no message carries it.
+		cfg := SSHStreamConfig{
+			Command:    ssh.RegisterPrefix(satURL),
+			Title:      "Register to " + target,
+			SourceName: "register",
+			ReturnView: viewSubscription,
+			HostIdx:    m.selectedHost,
+			Sudo:       true,
+			AutoDone:   true,
+			Secret: &SecretConsumer{
+				Resolve:  m.secretResolver(f, secretName),
+				Tag:      ssh.RegisterTag,
+				Consumer: ssh.RegisterConsumer(orgID),
+				ExitErrors: map[int]string{
+					ssh.RegisterExitRHELTooOld: ssh.RegisterRHELTooOldMessage,
+				},
+			},
+		}
 		m.modal = NewConfirmModal("Confirm",
 			fmt.Sprintf("Register to %s? [Y/n]", target),
-			sshHandover(h, []string{cmd}, banner))
+			func() tea.Msg { return startCommandStreamMsg{cfg: cfg} })
 	case "d":
 		if len(m.subscriptions) > 0 {
 			sub := m.subscriptions[m.subscriptionCursor]

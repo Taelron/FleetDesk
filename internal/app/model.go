@@ -405,6 +405,7 @@ type Model struct {
 	streamAutoDone    bool             // true = show "Done" when command finishes
 	streamGeneration  int              // incremented on each start, used to discard stale messages
 	streamExitCode    *int             // shared with goroutine; written before channel close
+	streamErr         *error           // shared with goroutine; written before channel close
 	streamLastConfig  *SSHStreamConfig // saved for pause/resume
 
 	// probes fleet
@@ -1326,6 +1327,17 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.streamChan = nil
 		m.streamStreaming = false
+		if msg.err != nil {
+			// The secret could not be resolved or delivered, or the command's
+			// own exit status means something the user must be told.
+			m.flash = msg.err.Error()
+			m.flashError = true
+			if m.streamAutoDone {
+				m.streamLines = append(m.streamLines, "",
+					ansiColor("✗ Did not run — press Esc to return", "31"))
+			}
+			return m, nil
+		}
 		if m.streamAutoDone {
 			if msg.exitCode == 0 {
 				m.streamLines = append(m.streamLines, "", ansiColor("✓ Done — press Esc to return", "32"))
@@ -1350,7 +1362,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case startCommandStreamMsg:
 		m.replaceModal(nil)
 		// If the command contains sudo and no password is cached, prompt first
-		if strings.Contains(msg.cfg.Command, "sudo") && !m.ssh.GetSudoPassword(msg.cfg.HostIdx) {
+		if (msg.cfg.Sudo || msg.cfg.Secret != nil || strings.Contains(msg.cfg.Command, "sudo")) && !m.ssh.GetSudoPassword(msg.cfg.HostIdx) {
 			cfg := msg.cfg
 			retry := func() tea.Msg { return startCommandStreamMsg{cfg: cfg} }
 			user := ""

@@ -230,3 +230,61 @@ func TestReaderConcurrentEraseAndWriteTo(t *testing.T) {
 		wg.Wait()
 	}
 }
+
+func TestNewMultiReader(t *testing.T) {
+	a := []byte("first")
+	b := []byte("second")
+	r, err := NewMultiReader("\n", a, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "first\nsecond\n" {
+		t.Errorf("stream = %q", got)
+	}
+	if string(a) != "first" || string(b) != "second" {
+		t.Error("the caller's segments are theirs: untouched")
+	}
+	if n, err := r.Read(make([]byte, 4)); n != 0 || err != io.EOF {
+		t.Errorf("after the last byte: %d %v, want EOF", n, err)
+	}
+}
+
+func TestNewMultiReader_ErasesOnDelivery(t *testing.T) {
+	r, err := NewMultiReader("\n", []byte("pw"), []byte("the-secret"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias := r.buf // same package: the test may hold the backing array
+	if _, err := r.Read(make([]byte, 100)); err != nil {
+		t.Fatal(err)
+	}
+	for i := range alias {
+		if alias[i] != 0 {
+			t.Fatalf("byte %d not erased after the last byte was delivered: %q", i, alias)
+		}
+	}
+	// and an explicit Erase mid-delivery
+	r, _ = NewMultiReader("\n", []byte("pw"), []byte("the-secret"))
+	alias = r.buf
+	r.Erase()
+	for i := range alias {
+		if alias[i] != 0 {
+			t.Fatalf("byte %d not erased by Erase: %q", i, alias)
+		}
+	}
+	r.Erase() // idempotent
+}
+
+func TestNewMultiReader_RefusesOversizedSegment(t *testing.T) {
+	if _, err := NewMultiReader("\n", []byte("ok"), make([]byte, MaxLen+1)); err != ErrTooLong {
+		t.Errorf("err = %v, want ErrTooLong", err)
+	}
+	// two maximal segments are fine: the cap is per credential
+	if _, err := NewMultiReader("\n", make([]byte, MaxLen), make([]byte, MaxLen)); err != nil {
+		t.Errorf("two credentials at MaxLen: %v", err)
+	}
+}

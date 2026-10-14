@@ -4,16 +4,20 @@ import "time"
 
 // Fleet represents a parsed fleet configuration file.
 type Fleet struct {
-	Name             string       `yaml:"name"`
-	Type             string       `yaml:"type"`
-	TenantID         string       `yaml:"tenant_id"`
-	ActivityLogHours int          `yaml:"activity_log_hours"`
-	DisplayTags      []string     `yaml:"display_tags"`
-	Path             string       `yaml:"-"`
-	Defaults         HostDefaults `yaml:"defaults"`
-	Groups           []HostGroup  `yaml:"groups"`
-	Hosts            []HostEntry  `yaml:"hosts"`
-	ProbeFleet       *ProbeFleet  `yaml:"-"` // non-nil only when Type == "probes"
+	Name             string   `yaml:"name"`
+	Type             string   `yaml:"type"`
+	TenantID         string   `yaml:"tenant_id"`
+	ActivityLogHours int      `yaml:"activity_log_hours"`
+	DisplayTags      []string `yaml:"display_tags"`
+	// Secrets names where shared secrets are resolved from (ADR-F011). Nil
+	// when the fleet has no secrets: block, which is valid as long as no
+	// field names a secret.
+	Secrets    *SecretsConfig `yaml:"-"`
+	Path       string         `yaml:"-"`
+	Defaults   HostDefaults   `yaml:"defaults"`
+	Groups     []HostGroup    `yaml:"groups"`
+	Hosts      []HostEntry    `yaml:"hosts"`
+	ProbeFleet *ProbeFleet    `yaml:"-"` // non-nil only when Type == "probes"
 }
 
 // HostDefaults holds default values applied to all hosts in a fleet.
@@ -28,9 +32,21 @@ type HostDefaults struct {
 	ErrorLogSince   string
 	RefreshInterval string
 	RHOrgID         string `yaml:"rh_org_id"`
-	RHActivationKey string `yaml:"rh_activation_key"`
-	SatelliteURL    string `yaml:"satellite_url"`
+	// RHActivationKeySecretName names, in the fleet's secret provider, the
+	// activation key used to register. The key itself is never in a fleet file.
+	RHActivationKeySecretName string `yaml:"rh_activation_key_secret_name"`
+	SatelliteURL              string `yaml:"satellite_url"`
 }
+
+// SecretsConfig is a fleet's secrets: block. Each fleet has one provider.
+type SecretsConfig struct {
+	Provider     string
+	Vault        string
+	Subscription string
+}
+
+// SupportedSecretProviders are the providers a secrets: block may name.
+var SupportedSecretProviders = []string{"azure-keyvault"}
 
 // HostGroup provides visual grouping of hosts.
 type HostGroup struct {
@@ -40,18 +56,19 @@ type HostGroup struct {
 
 // HostEntry represents a single host definition in a fleet file.
 type HostEntry struct {
-	Name            string        `yaml:"name"`
-	Hostname        string        `yaml:"hostname"`
-	User            string        `yaml:"user"`
-	Port            int           `yaml:"port"`
-	Timeout         time.Duration `yaml:"timeout"`
-	SystemdMode     string        `yaml:"systemd_mode"`
-	ServiceFilter   []string
-	Logs            []LogEntry     // merged from defaults + group + host
-	Commands        []CommandEntry // merged from defaults + group + host
-	RHOrgID         string         `yaml:"rh_org_id"`
-	RHActivationKey string         `yaml:"rh_activation_key"`
-	SatelliteURL    string         `yaml:"satellite_url"`
+	Name          string        `yaml:"name"`
+	Hostname      string        `yaml:"hostname"`
+	User          string        `yaml:"user"`
+	Port          int           `yaml:"port"`
+	Timeout       time.Duration `yaml:"timeout"`
+	SystemdMode   string        `yaml:"systemd_mode"`
+	ServiceFilter []string
+	Logs          []LogEntry     // merged from defaults + group + host
+	Commands      []CommandEntry // merged from defaults + group + host
+	RHOrgID       string         `yaml:"rh_org_id"`
+	// RHActivationKeySecretName: see HostDefaults.
+	RHActivationKeySecretName string `yaml:"rh_activation_key_secret_name"`
+	SatelliteURL              string `yaml:"satellite_url"`
 }
 
 // Host is the runtime representation of a host with connection state.

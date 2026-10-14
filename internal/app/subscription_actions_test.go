@@ -12,7 +12,8 @@ import (
 func subscriptionModel(regType string, extraSubs ...config.Subscription) Model {
 	m := newTestModel()
 	m.view = viewSubscription
-	m.fleets = []config.Fleet{{Name: "test-fleet", Type: "vm"}}
+	m.fleets = []config.Fleet{{Name: "test-fleet", Type: "vm",
+		Secrets: &config.SecretsConfig{Provider: "azure-keyvault", Vault: "kv", Subscription: "sub"}}}
 	m.selectedFleet = 0
 	m.hosts = []config.Host{{
 		Entry:  config.HostEntry{Name: "host1", Hostname: "10.0.0.1", User: "ansible", Port: 22},
@@ -145,7 +146,7 @@ func TestRegisterCDNAction(t *testing.T) {
 	t.Run("g with CDN config shows confirm modal", func(t *testing.T) {
 		m := subscriptionModel("Unknown")
 		m.hosts[0].Entry.RHOrgID = "12345"
-		m.hosts[0].Entry.RHActivationKey = "ak-cdn"
+		m.hosts[0].Entry.RHActivationKeySecretName = "ak-cdn"
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}}
 		result, cmd := m.handleSubscriptionKeys(msg)
 		m2 := result.(Model)
@@ -160,7 +161,7 @@ func TestRegisterCDNAction(t *testing.T) {
 	t.Run("g with satellite_url shows confirm modal", func(t *testing.T) {
 		m := subscriptionModel("Unknown")
 		m.hosts[0].Entry.RHOrgID = "Fluxys"
-		m.hosts[0].Entry.RHActivationKey = "ak-sat"
+		m.hosts[0].Entry.RHActivationKeySecretName = "ak-sat"
 		m.hosts[0].Entry.SatelliteURL = "flxsatprd01.central.fluxys.int"
 		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}}
 		result, _ := m.handleSubscriptionKeys(msg)
@@ -174,7 +175,7 @@ func TestRegisterCDNAction(t *testing.T) {
 		for _, regType := range []string{"", "Unknown", "Red Hat CDN", "Satellite"} {
 			m := subscriptionModel(regType)
 			m.hosts[0].Entry.RHOrgID = "12345"
-			m.hosts[0].Entry.RHActivationKey = "ak-test"
+			m.hosts[0].Entry.RHActivationKeySecretName = "ak-test"
 			msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}}
 			result, _ := m.handleSubscriptionKeys(msg)
 			m2 := result.(Model)
@@ -187,7 +188,7 @@ func TestRegisterCDNAction(t *testing.T) {
 	t.Run("g confirm yes completes modal", func(t *testing.T) {
 		m := subscriptionModel("Unknown")
 		m.hosts[0].Entry.RHOrgID = "12345"
-		m.hosts[0].Entry.RHActivationKey = "ak-test"
+		m.hosts[0].Entry.RHActivationKeySecretName = "ak-test"
 		result, _ := m.handleSubscriptionKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
 		m2 := result.(Model)
 		if m2.modal == nil {
@@ -205,7 +206,7 @@ func TestRegisterCDNAction(t *testing.T) {
 	t.Run("g confirm no cancels", func(t *testing.T) {
 		m := subscriptionModel("Unknown")
 		m.hosts[0].Entry.RHOrgID = "12345"
-		m.hosts[0].Entry.RHActivationKey = "ak-test"
+		m.hosts[0].Entry.RHActivationKeySecretName = "ak-test"
 		result, _ := m.handleSubscriptionKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
 		m2 := result.(Model)
 		if m2.modal == nil {

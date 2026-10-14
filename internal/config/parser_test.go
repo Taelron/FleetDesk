@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -547,6 +548,130 @@ func TestParseFleetFile_RejectsDashLedHostnameAndUser(t *testing.T) {
 			_, err := ParseFleetFile(writeTempYAML(t, c.yaml))
 			if err == nil || !strings.Contains(err.Error(), c.want) {
 				t.Fatalf("want error containing %q, got %v", c.want, err)
+			}
+		})
+	}
+}
+
+const vaultBlockYAML = "secrets:\n  provider: azure-keyvault\n  vault: kv-prod\n  subscription: 0000-1111\n"
+
+func TestParseFleetFile_SecretsBlock(t *testing.T) {
+	body := "name: f\ntype: vm\n" + vaultBlockYAML + "defaults:\n  rh_org_id: org\n  rh_activation_key_secret_name: ak\nhosts:\n  - name: h\n    hostname: a\n"
+	f, err := ParseFleetFile(writeTempYAML(t, body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Secrets == nil || *f.Secrets != (SecretsConfig{Provider: "azure-keyvault", Vault: "kv-prod", Subscription: "0000-1111"}) {
+		t.Errorf("Secrets = %+v", f.Secrets)
+	}
+	if f.Hosts[0].RHActivationKeySecretName != "ak" || f.Defaults.RHActivationKeySecretName != "ak" {
+		t.Errorf("secret name not inherited: host %q defaults %q", f.Hosts[0].RHActivationKeySecretName, f.Defaults.RHActivationKeySecretName)
+	}
+}
+
+func TestParseFleetFile_SecretNameInheritance(t *testing.T) {
+	body := "name: f\ntype: vm\n" + vaultBlockYAML + `defaults:
+  rh_org_id: org-d
+  rh_activation_key_secret_name: ak-d
+  satellite_url: https://sat.example
+hosts:
+  - name: inherits
+    hostname: a
+  - name: own-org
+    hostname: b
+    rh_org_id: org-h
+  - name: own-org-own-name
+    hostname: c
+    rh_org_id: org-h
+    rh_activation_key_secret_name: ak-h
+`
+	f, err := ParseFleetFile(writeTempYAML(t, body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string][3]string{}
+	for _, h := range f.Hosts {
+		got[h.Name] = [3]string{h.RHOrgID, h.RHActivationKeySecretName, h.SatelliteURL}
+	}
+	want := map[string][3]string{
+		"inherits":         {"org-d", "ak-d", "https://sat.example"},
+		"own-org":          {"org-h", "ak-d", ""}, // a host-level org is a full override: no satellite_url, but the key name falls back
+		"own-org-own-name": {"org-h", "ak-h", ""},
+	}
+	for name, w := range want {
+		if got[name] != w {
+			t.Errorf("%s: %v, want %v", name, got[name], w)
+		}
+	}
+}
+
+func TestParseFleetFile_SecretsRejections(t *testing.T) {
+	host := "hosts:\n  - name: h\n    hostname: a\n"
+	cases := map[string]struct{ body, want string }{
+		"unsupported provider": {"name: f\ntype: vm\nsecrets:\n  provider: hashicorp-vault\n  vault: v\n" + host, `secrets.provider "hashicorp-vault" is not supported (supported: azure-keyvault)`},
+		"empty provider":       {"name: f\ntype: vm\nsecrets:\n  vault: v\n" + host, "secrets.provider is required (supported: azure-keyvault)"},
+		"no vault":             {"name: f\ntype: vm\nsecrets:\n  provider: azure-keyvault\n  subscription: s\n" + host, "secrets.vault is required for provider azure-keyvault"},
+		"no subscription":      {"name: f\ntype: vm\nsecrets:\n  provider: azure-keyvault\n  vault: v\n" + host, "secrets.subscription is required for provider azure-keyvault"},
+		"name on a host, no block": {"name: f\ntype: vm\nhosts:\n  - name: h\n    hostname: a\n    rh_org_id: o\n    rh_activation_key_secret_name: ak\n",
+			`host "h": field "rh_activation_key_secret_name" names a secret but the fleet has no secrets: block`},
+		"name in defaults, no block": {"name: f\ntype: vm\ndefaults:\n  rh_activation_key_secret_name: ak\n" + host,
+			`defaults: field "rh_activation_key_secret_name" names a secret but the fleet has no secrets: block`},
+		"name in a group, no block": {"name: f\ntype: vm\ngroups:\n  - name: g\n    hosts:\n      - name: h\n        hostname: a\n        rh_activation_key_secret_name: ak\n",
+			"has no secrets: block"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := ParseFleetFile(writeTempYAML(t, c.body))
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("want error containing %q, got %v", c.want, err)
+			}
+		})
+	}
+}
+
+// A7: with no _secret_name field, a secrets: block changes nothing.
+func TestParseFleetFile_SecretsBlockWithoutNamesIsInert(t *testing.T) {
+	plain := "name: f\ntype: vm\nhosts:\n  - name: h\n    hostname: a\n    user: u\n    port: 2222\n"
+	withBlock := strings.Replace(plain, "type: vm\n", "type: vm\n"+vaultBlockYAML, 1)
+	a, err := ParseFleetFile(writeTempYAML(t, plain))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ParseFleetFile(writeTempYAML(t, withBlock))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Secrets != nil || b.Secrets == nil {
+		t.Errorf("Secrets: %v / %v", a.Secrets, b.Secrets)
+	}
+	if !reflect.DeepEqual(a.Hosts, b.Hosts) || !reflect.DeepEqual(a.Defaults, b.Defaults) {
+		t.Errorf("a secrets: block with no _secret_name field must change nothing:\n%+v\n%+v", a.Hosts, b.Hosts)
+	}
+}
+
+// B1: the removed field is rejected, naming the field and its replacement,
+// never echoing the value.
+func TestParseFleetFile_ActivationKeyFieldRemoved(t *testing.T) {
+	cases := map[string]string{
+		"defaults":     "name: f\ntype: vm\ndefaults:\n  rh_activation_key: very-secret-key\nhosts:\n  - name: h\n    hostname: a\n",
+		"host":         "name: f\ntype: vm\nhosts:\n  - name: h\n    hostname: a\n    rh_activation_key: very-secret-key\n",
+		"group host":   "name: f\ntype: vm\ngroups:\n  - name: g\n    hosts:\n      - name: h\n        hostname: a\n        rh_activation_key: very-secret-key\n",
+		"empty value":  "name: f\ntype: vm\nhosts:\n  - name: h\n    hostname: a\n    rh_activation_key: \"\"\n",
+		"alongside ok": "name: f\ntype: vm\n" + vaultBlockYAML + "hosts:\n  - name: h\n    hostname: a\n    rh_activation_key: very-secret-key\n    rh_activation_key_secret_name: ak\n",
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := ParseFleetFile(writeTempYAML(t, body))
+			if err == nil {
+				t.Fatal("a fleet still carrying rh_activation_key must be rejected")
+			}
+			for _, want := range []string{"rh_activation_key is no longer accepted", "use rh_activation_key_secret_name with a secrets: block (ADR-F011)"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q lacks %q", err, want)
+				}
+			}
+			if strings.Contains(err.Error(), "very-secret-key") {
+				t.Errorf("the rejected value must not be echoed: %q", err)
 			}
 		})
 	}

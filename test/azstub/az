@@ -1,0 +1,44 @@
+#!/bin/sh
+# Stand-in for `az` on PATH (TAE-116). It answers `az keyvault secret show`
+# and nothing else, keyed on --name and --vault-name; any other invocation
+# fails with exit 2. It never touches the network.
+#
+#   --name stub-ok              prints stub-secret-value, exit 0
+#   --name stub-missing         exit 1, stderr "(SecretNotFound) ..."
+#   --name stub-forbidden       exit 1, stderr "(Forbidden) ..."
+#   --vault-name stub-nologin   exit 1, stderr "Please run 'az login' ..."
+#                               (checked first: the user is not logged in,
+#                               whatever the secret)
+#   any other --name            same as stub-missing
+#
+# The value is a fixture, not a secret: the tests look for it in process
+# lists, files and logs, so it is deliberately recognisable.
+if [ "$1" != keyvault ] || [ "$2" != secret ] || [ "$3" != show ]; then
+    echo "stub: unsupported invocation" >&2
+    exit 2
+fi
+shift 3
+name=
+vault=
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --name) name=$2; shift ;;
+    --vault-name) vault=$2; shift ;;
+    esac
+    shift
+done
+if [ "$vault" = stub-nologin ]; then
+    echo "ERROR: Please run 'az login' to setup account." >&2
+    exit 1
+fi
+case "$name" in
+stub-ok) echo stub-secret-value ;;
+stub-forbidden)
+    echo "(Forbidden) The user, group or application does not have secrets get permission on key vault." >&2
+    exit 1
+    ;;
+*)
+    echo "(SecretNotFound) A secret with (name/id) ${name} was not found in this key vault." >&2
+    exit 1
+    ;;
+esac

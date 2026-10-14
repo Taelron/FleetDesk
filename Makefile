@@ -29,8 +29,8 @@ NOLINT_ERRCHECK_TAE82_WANT := 13
 NOLINT_GOSEC_TAE22_WANT    := 0
 NOLINT_GOSEC_TAE23_WANT    := 0
 NOLINT_GOSEC_TAE42_WANT    := 4
-NOLINT_GOSEC_CASE1_WANT    := 22
-NOLINT_TOTAL_WANT          := 39
+NOLINT_GOSEC_CASE1_WANT    := 23
+NOLINT_TOTAL_WANT          := 40
 
 # verify-lint-baseline's negative control. BASELINE_EXPECT is a function of
 # BOTH BASELINE_REF and this file's *current* enabled linter set, not of the

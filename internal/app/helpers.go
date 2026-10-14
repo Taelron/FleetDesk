@@ -13,6 +13,7 @@ import (
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/k8s"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/probes"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/secrets"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
@@ -1713,4 +1714,22 @@ const handoverOnlyFlash = "Needs ProxyJump \u2014 only shell, reboot and deploy-
 // handover.
 func hostAllowsHandover(h config.Host) bool {
 	return h.Status == config.HostOnline || h.Status == config.HostHandoverOnly
+}
+
+// secretResolver returns a function that resolves the named secret from the
+// fleet's provider. Nothing is resolved here: the function is called at the
+// point of use, by the stream that needs the value, and the caller erases
+// what it returns.
+func (m Model) secretResolver(f config.Fleet, name string) func() ([]byte, error) {
+	logger := m.logger
+	return func() ([]byte, error) {
+		if f.Secrets == nil {
+			return nil, fmt.Errorf("secret %q: the fleet has no secrets: block", name)
+		}
+		r, err := secrets.New(secrets.Config(*f.Secrets), secrets.WithLogger(logger))
+		if err != nil {
+			return nil, fmt.Errorf("secret %q: %w", name, err)
+		}
+		return r.Resolve(name)
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -541,8 +542,97 @@ func rewriteSudoCmd(cmd string) string {
 	if !strings.Contains(cmd, "sudo ") {
 		return cmd
 	}
+	return sudoPreamble + rewriteSudoOccurrences(cmd)
+}
+
+// rewriteSudoOccurrences is rewriteSudoCmd without the preamble, for a
+// command that supplies its own (RewriteSudoWithSecret reads a second line
+// after it, so the preamble must come exactly once, first).
+func rewriteSudoOccurrences(cmd string) string {
 	relay := `printf '%s\n' "$FLEETDESK_SUDO_PW" | sudo -S 2>/dev/null `
-	return sudoPreamble + strings.ReplaceAll(cmd, "sudo ", relay)
+	return strings.ReplaceAll(cmd, "sudo ", relay)
+}
+
+// ErrSecretDelivery is returned when a secret cannot be delivered safely to
+// the remote shell: a malformed secret (a line break, which would truncate
+// it or spill into the command stream) or the remote shell finding no
+// secret line on its stdin.
+var ErrSecretDelivery = errors.New("secret cannot be delivered safely")
+
+// secretMissingStatus is the exit status of a rewritten command whose remote
+// shell found no secret line on stdin before EOF.
+const secretMissingStatus = 95
+
+// SecretDeliveryError maps a rewritten command's exit status to
+// ErrSecretDelivery when it is the secret preamble's own: 95. Like
+// SudoDeliveryError it is only meaningful for a command RewriteSudoWithSecret
+// produced.
+func SecretDeliveryError(status int) error {
+	if status == secretMissingStatus {
+		return fmt.Errorf("%w: no secret line reached the remote shell", ErrSecretDelivery)
+	}
+	return nil
+}
+
+// secretTag is a variable-name-like label for a secret line on the consumer's
+// stdin ("FLEETDESK_AK=<value>").
+var secretTag = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+
+// RewriteSudoWithSecret builds the command that runs consumer as root with a
+// secret delivered over stdin, together with the sudo password, and the
+// reader that is the session's stdin. Neither the password nor the secret
+// appears in the command string, in any argv on the target (the shell, sudo,
+// the consumer) or in the environment: both travel as lines of stdin and are
+// held only in shell variables that are not exported, then re-sent through a
+// builtin printf into sudo -S and on to the consumer's stdin.
+//
+//	<preamble: read the sudo password, check printf>
+//	IFS= read -r FLEETDESK_SECRET || exit 95;
+//	<prefix, every "sudo " rewritten to the relay> &&
+//	printf '%s\n%s\n' "$FLEETDESK_SUDO_PW" "<tag>=$FLEETDESK_SECRET" |
+//	    sudo -S 2>/dev/null sh -c '<consumer>'
+//
+// The consumer reads stdin up to its "<tag>=" line; if sudo asks for no
+// password it does not read the password line, which the consumer skips.
+// prefix may be empty. The caller owns secret and must erase it once this
+// returns: the reader holds its own copy, erased when the last byte is
+// delivered or on Reader.Erase, which the caller must call when the stream
+// ends. consumer is run through "sh -c", so it may be a compound command.
+func (sm *Manager) RewriteSudoWithSecret(idx int, prefix string, secret []byte, tag, consumer string) (string, *credential.Reader, error) {
+	if !secretTag.MatchString(tag) {
+		return "", nil, fmt.Errorf("invalid secret tag %q", tag)
+	}
+	if bytes.ContainsAny(secret, "\n\r\x00") {
+		return "", nil, fmt.Errorf("%w: the secret contains a line break", ErrSecretDelivery)
+	}
+	sm.mu.Lock()
+	e, ok := sm.sudoPasswords[idx]
+	if !ok {
+		sm.mu.Unlock()
+		return "", nil, fmt.Errorf("%w: no sudo password is held for this host", ErrSudoDelivery)
+	}
+	if err := ValidateSudoPassword(e.buf); err != nil {
+		sm.mu.Unlock()
+		return "", nil, err
+	}
+	r, err := credential.NewMultiReader("\n", e.buf, secret)
+	if err != nil {
+		sm.mu.Unlock()
+		return "", nil, err
+	}
+	sm.touch(kindSudo)
+	sm.mu.Unlock()
+
+	var b strings.Builder
+	b.WriteString(sudoPreamble)
+	b.WriteString(`IFS= read -r FLEETDESK_SECRET || exit 95; `)
+	if prefix != "" {
+		b.WriteString(rewriteSudoOccurrences(prefix))
+		b.WriteString(" && ")
+	}
+	fmt.Fprintf(&b, `printf '%%s\n%%s\n' "$FLEETDESK_SUDO_PW" "%s=$FLEETDESK_SECRET" | sudo -S 2>/dev/null sh -c '%s'`,
+		tag, strings.ReplaceAll(consumer, "'", `'\''`))
+	return b.String(), r, nil
 }
 
 // RunCommand executes a command on the given host index and returns stdout.
