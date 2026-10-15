@@ -49,28 +49,34 @@ account and appears only in historical references.
 issue covering it before assuming either one is right.** Several product documents
 are known to lag the shipped code, and which ones is tracked in Linear, not here.
 
-## Your role
+## Taelron AI Build Workflow
 
-You are one of four Claude Code instances in the build loop. Which one is in your
-start prompt.
+This workspace runs the AI Build Workflow (Linear, Taelron Baselines). Read it at
+session start; your role prompt says which phase and steps are yours.
 
-| Role | Model | Does |
-|---|---|---|
-| CC Architect | Fable 5 | Issue check, decisions, plan — one issue, no code. |
-| CC Dev | Sonnet 5 | Code + unit tests against the `APPROVED PLAN` comment. |
-| CC Reviewer | Opus 5 | Reviews the diff and the issue. Never the PR URL. |
-| CC Tester | Sonnet 5 | Acceptance tests from the issue alone — no plan, no code. |
-
-**There is no GitHub review.** CC Reviewer replaced it.
+- The PO is the notification. Claude Web (the PO Assistant) and Claude Code cannot
+  reach each other. Write the details to Linear first, then end your turn with a
+  short, ready-to-paste prompt for the other side: what changed, and where to read
+  it. Never wait for the PO to ask what is next. The PO does not read Linear.
+- Claude Code sessions message each other directly, without the PO.
+- Decisions for the PO are numbered, each with your recommendation and why. The PO
+  answers by number, or writes "ok go" to apply every recommendation.
+- Ask the PO product questions only. Decide technical questions yourself and record
+  them where the next reader will find them. Settle facts by measuring.
+- If it changes the issue or the plan, it goes on the issue, as a comment.
+- When you receive work, from the PO or by a message from another session, your
+  first action, before reading or doing anything else, is a pick-up event:
+  ~/.local/bin/taelron-trace with --event R --name "Picked up", --ball set to your
+  role, the phase and step you are starting, and in --next what you are about to do.
+- Send each trace event your role lists, when its step completes, with
+  ~/.local/bin/taelron-trace (product, milestone and issue come from your
+  handoff prompt). A failed send never blocks the work: say so in your handoff
+  prompt and carry on.
 
 ## Hard rules
 
 - **Never author a Linear document or ADR.** Your Linear writes are issue comments,
   plus review-gated `spec-drift` issue creation. ADRs are Web Claude's.
-- **Every Linear write is shown to Gaetan before it posts.** No exceptions.
-- **If it changes the issue or the plan, it goes on the issue.** The terminal is
-  conversation; Linear is the record. Four things get posted in Step 2: the issue
-  check, the decisions, each plan, each review.
 - **Never silently diverge from an ADR or the SPEC.** Stop, surface, open a
   `spec-drift` issue, resume only once it is resolved.
 - **Evidence, not assertion.** "Tests pass" is not verification; the command and its
