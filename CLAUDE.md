@@ -256,7 +256,7 @@ General threat model: Security & Secret Handling baseline. FleetDesk specifics:
 - SSH auth: try each method individually to avoid `MaxAuthTries` exhaustion
   (ADR-F003).
 - Sudo passwords go to `sudo -S` on **stdin, never argv** (ADR-F004).
-- API keys from `$LINEAR_API_KEY` / `$ANTHROPIC_API_KEY` — never in code.
+- API keys from `pass` (Linear: `taelron/linear/api-key`) or `$ANTHROPIC_API_KEY` — never in code.
 - Flag security implications during review even when the plan does not mention them.
 
 Known security findings are open issues. Read them before reporting one as new.
@@ -272,5 +272,5 @@ issue owns the change — do not do it ad hoc.
 
 ## Linear access
 
-`curl` + GraphQL with `$LINEAR_API_KEY`, not MCP. Fetch documents and issues by ID
+`curl` + GraphQL with the key from `pass` (see the workflow section), not MCP. Fetch documents and issues by ID
 or slug — `list_documents` output is truncated.
