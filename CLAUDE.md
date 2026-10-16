@@ -153,10 +153,11 @@ are yours.
 ### Linear access
 
 Claude Code reads and writes Linear with curl against
-`https://api.linear.app/graphql`, never the Linear MCP. The Architect, Tester, Dev
-and Verifier use the key in `LINEAR_API_KEY`; the Orchestrator reads its key from
-`pass` at each call. The key never goes in a file, in argv or in shell history:
-pass the header on a file descriptor, e.g. `-H @<(printf 'Authorization: %s\n' "$LINEAR_API_KEY")`.
+`https://api.linear.app/graphql`, never the Linear MCP. Every role that reads
+Linear takes the key from the `pass` entry `taelron/linear/api-key` at each call
+and passes the header on a file descriptor:
+`-H @<(printf 'Authorization: %s\n' "$(pass show taelron/linear/api-key | head -n1)")`.
+The key never goes in a file, an exported variable, argv or shell history.
 Fetch documents in full with `document(id:)`, which accepts the URL slug; a list
 response is truncated. Writes are issue comments and review-gated `spec-drift`
 issues; the Orchestrator may also apply an amendment that corrects a fact or names
