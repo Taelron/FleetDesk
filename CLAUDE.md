@@ -88,7 +88,7 @@ session start; your role prompt says which phase and steps are yours.
 ## Architecture
 
 `internal/` is organised by concern — `app` is the Bubble Tea UI, with `config`,
-`ssh`, `azure`, `k8s`, `probes`, `notes`, `fspath` and `logging` as backends. This
+`credential`, `ssh`, `azure`, `k8s`, `probes`, `notes`, `fspath` and `logging` as backends. This
 is a **deliberate deviation** from the baseline's four-layer hexagonal split,
 recorded in Design Notes. Do not "fix" it.
 
