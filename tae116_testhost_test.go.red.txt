@@ -1,0 +1,1786 @@
+Commit 01fbf5b483d5e91a88288a3730b092b533dd46c1 (base; tae116_testhost_test.go uncommitted at run time, committed with this file), 2026-10-14T05:26:35Z -- go test -tags testhost -count=1 -timeout 50m -run TestTAE116 -v .
+
+=== RUN   TestTAE116AzStubBehaviour
+    tae116_testhost_test.go:626: test/azstub/az must exist and be executable (Test interface): stat /home/gaetan/Projects/Taelron/FleetDesk/test/azstub/az: no such file or directory
+--- FAIL: TestTAE116AzStubBehaviour (0.00s)
+=== RUN   TestTAE116SecretsUnsupportedProviderRejectedAtLoad
+    tae116_testhost_test.go:661: A5: want exit 1 for an unsupported secrets provider, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   bad      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:665: A5: stderr should contain "error scanning fleets: parsing"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   bad      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:665: A5: stderr should contain "bad-provider.yaml"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   bad      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:665: A5: stderr should contain "secrets.provider \"hashicorp-vault\" is not supported (supported: azure-keyvault)"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   bad      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+--- FAIL: TestTAE116SecretsUnsupportedProviderRejectedAtLoad (12.14s)
+=== RUN   TestTAE116SecretNameWithoutSecretsBlockRejectedAtLoad
+    tae116_testhost_test.go:676: A6: want exit 1 for a _secret_name field with no secrets: block, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:680: A6: stderr should contain "rh_activation_key_secret_name"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:680: A6: stderr should contain "has no secrets: block"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:680: A6: stderr should contain "error scanning fleets: parsing"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+--- FAIL: TestTAE116SecretNameWithoutSecretsBlockRejectedAtLoad (12.05s)
+=== RUN   TestTAE116FleetWithoutSecretNameBehavesAsToday
+=== RUN   TestTAE116FleetWithoutSecretNameBehavesAsToday/no-secrets-block
+=== RUN   TestTAE116FleetWithoutSecretNameBehavesAsToday/with-secrets-block
+--- PASS: TestTAE116FleetWithoutSecretNameBehavesAsToday (3.19s)
+    --- PASS: TestTAE116FleetWithoutSecretNameBehavesAsToday/no-secrets-block (1.59s)
+    --- PASS: TestTAE116FleetWithoutSecretNameBehavesAsToday/with-secrets-block (1.60s)
+=== RUN   TestTAE116SecretResolutionFailureModes
+=== RUN   TestTAE116SecretResolutionFailureModes/az-missing
+    tae116_testhost_test.go:737: A4: want a message containing "az CLI not found" after registering with secret "stub-ok" (vault "stub-vault"); screen:
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░╭──────────────────────────────────────────────────────────────────────╮░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│    Loading subscription...                                           │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░╰──────────────────────────────────────────────────────────────────────╯░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    tae116_testhost_test.go:740: A4: the message should name the secret as secret "stub-ok"; screen:
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░╭──────────────────────────────────────────────────────────────────────╮░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│    Loading subscription...                                           │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░│                                                                      │░░░░
+        ░░░░╰──────────────────────────────────────────────────────────────────────╯░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+=== RUN   TestTAE116SecretResolutionFailureModes/not-logged-in
+    tae116_testhost_test.go:737: A4: want a message containing "not logged in to Azure" after registering with secret "stub-ok" (vault "stub-nologin"); screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+    tae116_testhost_test.go:740: A4: the message should name the secret as secret "stub-ok"; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+=== RUN   TestTAE116SecretResolutionFailureModes/forbidden
+    tae116_testhost_test.go:737: A4: want a message containing "unreachable or access denied" after registering with secret "stub-forbidden" (vault "stub-vault"); screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+    tae116_testhost_test.go:740: A4: the message should name the secret as secret "stub-forbidden"; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+=== RUN   TestTAE116SecretResolutionFailureModes/not-found
+    tae116_testhost_test.go:737: A4: want a message containing "not found in vault" after registering with secret "stub-missing" (vault "stub-vault"); screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+    tae116_testhost_test.go:740: A4: the message should name the secret as secret "stub-missing"; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+--- FAIL: TestTAE116SecretResolutionFailureModes (162.08s)
+    --- FAIL: TestTAE116SecretResolutionFailureModes/az-missing (87.72s)
+    --- FAIL: TestTAE116SecretResolutionFailureModes/not-logged-in (26.73s)
+    --- FAIL: TestTAE116SecretResolutionFailureModes/forbidden (22.68s)
+    --- FAIL: TestTAE116SecretResolutionFailureModes/not-found (24.95s)
+=== RUN   TestTAE116UnreachableVaultDoesNotStopFleetFromOpening
+--- PASS: TestTAE116UnreachableVaultDoesNotStopFleetFromOpening (1.60s)
+=== RUN   TestTAE116ActivationKeyFieldRemovedFromSchema
+=== RUN   TestTAE116ActivationKeyFieldRemovedFromSchema/on-defaults
+    tae116_testhost_test.go:794: B1: want exit 1 for a fleet still carrying rh_activation_key, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   old      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:798: B1: the error must name the field and its replacement; want "rh_activation_key is no longer accepted" in:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   old      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:798: B1: the error must name the field and its replacement; want "rh_activation_key_secret_name" in:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   old      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+=== RUN   TestTAE116ActivationKeyFieldRemovedFromSchema/on-host
+    tae116_testhost_test.go:794: B1: want exit 1 for a fleet still carrying rh_activation_key, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   old      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:798: B1: the error must name the field and its replacement; want "rh_activation_key is no longer accepted" in:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   old      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:798: B1: the error must name the field and its replacement; want "rh_activation_key_secret_name" in:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET    TYPE    TARGETS                                                 │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   old      vm      1                                                       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+--- FAIL: TestTAE116ActivationKeyFieldRemovedFromSchema (24.09s)
+    --- FAIL: TestTAE116ActivationKeyFieldRemovedFromSchema/on-defaults (12.05s)
+    --- FAIL: TestTAE116ActivationKeyFieldRemovedFromSchema/on-host (12.05s)
+=== RUN   TestTAE116RegistrationRunsInStreamedViewAfterConfirmation
+    tae116_testhost_test.go:814: B2/B6: after confirming, registration must run in the SSH Stream view (status bar LIVE / STOPPED); screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+--- FAIL: TestTAE116RegistrationRunsInStreamedViewAfterConfirmation (25.51s)
+=== RUN   TestTAE116RegistrationKeepsItsConfirmation
+    tae116_testhost_test.go:833: timed out after 10s waiting for the register confirmation (any of ["Register to"]); last screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+--- FAIL: TestTAE116RegistrationKeepsItsConfirmation (24.90s)
+=== RUN   TestTAE116RegistrationRefusedBelowRHEL8
+    tae116_testhost_test.go:863: B3: want a message containing "requires RHEL 8 or later" for a RHEL 7 target; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+--- FAIL: TestTAE116RegistrationRefusedBelowRHEL8 (27.95s)
+=== RUN   TestTAE116RegisterKeyNotInProcessList
+    tae116_testhost_test.go:877: B4: registration never reached the confirmation, so nothing was measured; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+--- FAIL: TestTAE116RegisterKeyNotInProcessList (25.48s)
+=== RUN   TestTAE116ResolvedKeyNeverWrittenLocally
+    tae116_testhost_test.go:892: B5: registration did not run, so there is nothing to scan for; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+--- FAIL: TestTAE116ResolvedKeyNeverWrittenLocally (26.13s)
+=== RUN   TestTAE116HostKeyTOFUAcceptThenSilentReconnect
+    tae116_testhost_test.go:948: timed out after 25s waiting for the Unknown host key modal (any of ["Unknown host key"]); last screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST       OS                                     UP SINCE      UPD      │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-tofu    Red Hat Enterprise Linux 9.8 (Plow)    14/10/2026    58       │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+--- FAIL: TestTAE116HostKeyTOFUAcceptThenSilentReconnect (26.64s)
+=== RUN   TestTAE116HostKeyTOFUDeclineAborts
+    tae116_testhost_test.go:982: timed out after 25s waiting for the Unknown host key modal (any of ["Unknown host key"]); last screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST          OS                                     UP SINCE      UPD   │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-decline    Red Hat Enterprise Linux 9.8 (Plow)    14/10/2026    58    │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+--- FAIL: TestTAE116HostKeyTOFUDeclineAborts (26.61s)
+=== RUN   TestTAE116HostKeyMismatchStopsConnection
+    tae116_testhost_test.go:1010: C3: a changed host key must stop the connection with an error naming the mismatch; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST           OS                                     UP SINCE      UPD  │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-mismatch    Red Hat Enterprise Linux 9.8 (Plow)    14/10/2026    58   │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+--- FAIL: TestTAE116HostKeyMismatchStopsConnection (3.19s)
+=== RUN   TestTAE116PasswordDialVerifiesHostKey
+    tae116_testhost_test.go:1047: C1: the password-auth dial must verify the host key against known_hosts; after the key changed, screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST         OS    UP SINCE    UPD                                       │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-pwdial    connecting...                                               │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+--- FAIL: TestTAE116PasswordDialVerifiesHostKey (3.23s)
+=== RUN   TestTAE116HostKeyChecksNeverDisabledAnywhere
+    tae116_testhost_test.go:1077: C4: InsecureIgnoreHostKey must appear nowhere in the codebase, test harness included:
+        docs/spec-recon.md:689:`IsAuthError`. `HostKeyCallback` is `InsecureIgnoreHostKey()` (flagged in-code
+        golangci_test.go.red.txt:219:                		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+        golangci_test.go.red.txt:223:                			HostKeyCallback: gossh.InsecureIgnoreHostKey(), // trusted fleet network
+        golangci_test.go.red.txt:1590:        		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+        golangci_test.go.red.txt:1594:        			HostKeyCallback: gossh.InsecureIgnoreHostKey(), // trusted fleet network
+        internal/ssh/manager.go:636:		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // G106: no host-key verification yet — TAE-22
+        internal/ssh/manager.go:861:			HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // G106: trusted fleet network, no host-key verification yet — TAE-22
+        testhost_container_test.go:149:		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+    tae116_testhost_test.go:1080: C4: StrictHostKeyChecking=no must be gone from every ssh and ssh-copy-id invocation, the deploy-key script included:
+        docs/spec-recon.md:393:All run through `sshHandover` (`ssh -t -o StrictHostKeyChecking=no -p <port> user@host '<cmd>'`)
+        internal/app/handover.go:44:		"-o", "StrictHostKeyChecking=no",
+        internal/app/keys.go:416:				"ssh -t -o StrictHostKeyChecking=no -p %s '%s' 'sudo mkdir -p $HOME/.ssh && sudo chown -R $(id -u):$(id -g) $HOME && chmod 700 $HOME/.ssh' && ssh-copy-id -o StrictHostKeyChecking=no -p %s '%s'",
+    tae116_testhost_test.go:1083: C4: every //nolint tagged TAE-22 must be removed:
+        golangci_test.go:295:			t.Errorf("expected a //nolint:gosec suppression naming TAE-22 near line %d, but the file has only %d lines (TAE-80 AC7)", lineNo, len(lines))
+        golangci_test.go:301:		if !strings.Contains(window, "nolint:gosec") || !strings.Contains(window, "TAE-22") {
+        golangci_test.go:302:			t.Errorf("expected internal/ssh/manager.go:%d to carry a //nolint:gosec suppression naming TAE-22 as the reason (TAE-80 AC7); got:\n%s", lineNo, window)
+        internal/ssh/manager.go:636:		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // G106: no host-key verification yet — TAE-22
+        internal/ssh/manager.go:861:			HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // G106: trusted fleet network, no host-key verification yet — TAE-22
+    tae116_testhost_test.go:1087: C4: the test asserting the TAE-22 suppressions exist must be removed:
+        golangci_test.go:295:			t.Errorf("expected a //nolint:gosec suppression naming TAE-22 near line %d, but the file has only %d lines (TAE-80 AC7)", lineNo, len(lines))
+        golangci_test.go:301:		if !strings.Contains(window, "nolint:gosec") || !strings.Contains(window, "TAE-22") {
+        golangci_test.go:302:			t.Errorf("expected internal/ssh/manager.go:%d to carry a //nolint:gosec suppression naming TAE-22 as the reason (TAE-80 AC7); got:\n%s", lineNo, window)
+    tae116_testhost_test.go:1094: C4: verify-nolint's expected TAE-22 count must be updated to 0
+--- FAIL: TestTAE116HostKeyChecksNeverDisabledAnywhere (0.04s)
+=== RUN   TestTAE116EverySSHPathReachesTheSameHost
+    tae116_testhost_test.go:1124: timed out after 25s waiting for the SSH Password prompt for the password-only account (any of ["SSH Password"]); last screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST            OS    UP SINCE    UPD                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-alias-key    unreachable (dial testhost-alias:22: dial tcp: lookup te…│
+        │     th-alias-pw     unreachable (dial testhost-alias:22: dial tcp: lookup te…│
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+--- FAIL: TestTAE116EverySSHPathReachesTheSameHost (26.92s)
+=== RUN   TestTAE116ProxyJumpHostIsHandoverOnly
+    tae116_testhost_test.go:1170: D3: the host row should contain "handover only"; row: "│ ▸   th-bastion    unreachable (dial testhost-bastion:2222: dial tcp: lookup …│"
+        screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST          OS    UP SINCE    UPD                                      │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-bastion    unreachable (dial testhost-bastion:2222: dial tcp: lookup …│
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+    tae116_testhost_test.go:1170: D3: the host row should contain "ProxyJump via nowhere.invalid"; row: "│ ▸   th-bastion    unreachable (dial testhost-bastion:2222: dial tcp: lookup …│"
+        screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST          OS    UP SINCE    UPD                                      │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-bastion    unreachable (dial testhost-bastion:2222: dial tcp: lookup …│
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+    tae116_testhost_test.go:1170: D3: the host row should contain "in-app views unavailable"; row: "│ ▸   th-bastion    unreachable (dial testhost-bastion:2222: dial tcp: lookup …│"
+        screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST          OS    UP SINCE    UPD                                      │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-bastion    unreachable (dial testhost-bastion:2222: dial tcp: lookup …│
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+    tae116_testhost_test.go:1177: D3: Enter on it should flash `Needs ProxyJump — only shell, reboot and deploy-key work on this host`; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST          OS    UP SINCE    UPD                                      │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-bastion    unreachable (dial testhost-bastion:2222: dial tcp: lookup …│
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help  Host is not reachable
+    tae116_testhost_test.go:1183: D3: a handover action on a ProxyJump host must still run (ssh should have tried the jump host); screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST          OS    UP SINCE    UPD                                      │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-bastion    unreachable (dial testhost-bastion:2222: dial tcp: lookup …│
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help  Host is not reachable
+--- FAIL: TestTAE116ProxyJumpHostIsHandoverOnly (26.16s)
+=== RUN   TestTAE116ReadmeDescribesEverySSHPath
+    tae116_testhost_test.go:1205: D4: the SSH Authentication section should cover "hostname" (which ~/.ssh/config directives apply to which path); section:
+        
+        
+        FleetDesk uses your existing SSH setup — no additional configuration needed:
+        
+        1. SSH agent
+        2. `~/.ssh/config` (IdentityFile, User, Port, ProxyJump)
+        3. Default keys (~/.ssh/id_ed25519, id_rsa, id_ecdsa)
+        4. Password fallback (inline masked prompt)
+    tae116_testhost_test.go:1205: D4: the SSH Authentication section should cover "known_hosts" (which ~/.ssh/config directives apply to which path); section:
+        
+        
+        FleetDesk uses your existing SSH setup — no additional configuration needed:
+        
+        1. SSH agent
+        2. `~/.ssh/config` (IdentityFile, User, Port, ProxyJump)
+        3. Default keys (~/.ssh/id_ed25519, id_rsa, id_ecdsa)
+        4. Password fallback (inline masked prompt)
+    tae116_testhost_test.go:1205: D4: the SSH Authentication section should cover "handover" (which ~/.ssh/config directives apply to which path); section:
+        
+        
+        FleetDesk uses your existing SSH setup — no additional configuration needed:
+        
+        1. SSH agent
+        2. `~/.ssh/config` (IdentityFile, User, Port, ProxyJump)
+        3. Default keys (~/.ssh/id_ed25519, id_rsa, id_ecdsa)
+        4. Password fallback (inline masked prompt)
+--- FAIL: TestTAE116ReadmeDescribesEverySSHPath (0.00s)
+=== RUN   TestTAE116SudoPasswordReuseIsAnnounced
+    tae116_testhost_test.go:1257: E1: entering B with A's password verified should flash `sudo: reusing the password verified on th-sudo-a`; screen:
+         fleetdesk › tae116 › th-sudo-b                            FleetDesk dev   1/13
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     RESOURCE             TOTAL  RUNNING   FAILED                             │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Services                 0        0        0                             │
+        │     Containers               0        0        0                             │
+        │     Cron Jobs                0        0        0                             │
+        │     System Logs              0        0        0                             │
+        │     Updates                 59        0        0                             │
+        │     Disk                     2        0        0                             │
+        │     Subscription             0        0        0                             │
+        │     Accounts                 2        0        0                             │
+        │     Network                  2        2        0                             │
+        │     Failed Logins            0        0        0                             │
+        │     Sudo Activity            0        0        0                             │
+        │     SELinux Denials          0        0        0                             │
+        │     Audit Summary            0        0        0                             │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Select  <r> Refresh  <Esc> Back  <?> Help  Failed: list
+         services: Process exited with status 1
+--- FAIL: TestTAE116SudoPasswordReuseIsAnnounced (30.60s)
+=== RUN   TestTAE116SudoPasswordStaysWithItsHost
+    tae116_testhost_test.go:1283: E2: SudoReady must reflect a capability tested on that host; B went straight to the Resource Picker on A's strength:
+         fleetdesk › tae116 › th-sudo-b                            FleetDesk dev   1/13
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     RESOURCE             TOTAL  RUNNING   FAILED                             │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Services                 0        0        0                             │
+        │     Containers               0        0        0                             │
+        │     Cron Jobs                0        0        0                             │
+        │     System Logs              0        0        0                             │
+        │     Updates                  0        0        0                             │
+        │     Disk                     2        0        0                             │
+        │     Subscription             0        0        0                             │
+        │     Accounts                 2        0        0                             │
+        │     Network                  2        2        0                             │
+        │     Failed Logins            0        0        0                             │
+        │     Sudo Activity            0        0        0                             │
+        │     SELinux Denials          0        0        0                             │
+        │     Audit Summary            0        0        0                             │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Select  <r> Refresh  <Esc> Back  <?> Help  Failed: list
+         services: Process exited with status 1
+--- FAIL: TestTAE116SudoPasswordStaysWithItsHost (5.37s)
+=== RUN   TestTAE116ProbePrivilegedReadReportsWhenItCouldNotRun
+    tae116_testhost_test.go:1370: F1/F2: the probe's privileged read could not obtain sudo, so the System Logs TOTAL must be `n/a`, not a count that reads as a successful zero; got "0"
+         fleetdesk › tae116 › th-probe                             FleetDesk dev   1/13
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     RESOURCE             TOTAL  RUNNING   FAILED                             │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Services                 0        0        0                             │
+        │     Containers               0        0        0                             │
+        │     Cron Jobs                0        0        0                             │
+        │     System Logs              0        0        0                             │
+        │     Updates                  0        0        0                             │
+        │     Disk                     2        0        0                             │
+        │     Subscription             0        0        0                             │
+        │     Accounts                 2        0        0                             │
+        │     Network                  2        2        0                             │
+        │     Failed Logins            0        0        0                             │
+        │     Sudo Activity            0        0        0                             │
+        │     SELinux Denials          0        0        0                             │
+        │     Audit Summary            0        0        0                             │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Select  <r> Refresh  <Esc> Back  <?> Help  Failed: list
+         services: Process exited with status 1
+--- FAIL: TestTAE116ProbePrivilegedReadReportsWhenItCouldNotRun (17.95s)
+=== RUN   TestTAE116ProbeInfoCarriesErrorCountKnown
+    tae116_testhost_test.go:1378: F1: ProbeInfo must gain ErrorCountKnown (Test interface)
+--- FAIL: TestTAE116ProbeInfoCarriesErrorCountKnown (0.00s)
+=== RUN   TestTAE116ConfigWrittenOwnerOnly
+    tae116_testhost_test.go:1411: G1: config.yaml must be written 0600; got 0644
+    tae116_testhost_test.go:1414: G1: the config directory must be created 0700; got 0755
+--- FAIL: TestTAE116ConfigWrittenOwnerOnly (0.39s)
+=== RUN   TestTAE116ConfigModeCheckedOnLoad
+=== RUN   TestTAE116ConfigModeCheckedOnLoad/0644
+    tae116_testhost_test.go:1430: G2: want exit 1 for config.yaml at 0644, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1434: G2: stderr should contain "config.yaml is too permissive (mode 0644); expected 0600"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1434: G2: stderr should contain "chmod 0600 /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/.config/fleetdesk/config.yaml"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+=== RUN   TestTAE116ConfigModeCheckedOnLoad/0660
+    tae116_testhost_test.go:1430: G2: want exit 1 for config.yaml at 0660, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1434: G2: stderr should contain "config.yaml is too permissive (mode 0660); expected 0600"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1434: G2: stderr should contain "chmod 0600 /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/.config/fleetdesk/config.yaml"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+--- FAIL: TestTAE116ConfigModeCheckedOnLoad (24.12s)
+    --- FAIL: TestTAE116ConfigModeCheckedOnLoad/0644 (12.07s)
+    --- FAIL: TestTAE116ConfigModeCheckedOnLoad/0660 (12.05s)
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0666
+    tae116_testhost_test.go:1450: G2: want exit 1 for a fleet file at 0666, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1454: G2: stderr should contain "fleet file /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/fleets/loose.yaml is writable by group or others"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1454: G2: stderr should contain "(mode 0666); run: chmod go-w /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/fleets/loose.yaml"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0664
+    tae116_testhost_test.go:1450: G2: want exit 1 for a fleet file at 0664, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1454: G2: stderr should contain "fleet file /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/fleets/loose.yaml is writable by group or others"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1454: G2: stderr should contain "(mode 0664); run: chmod go-w /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/fleets/loose.yaml"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0662
+    tae116_testhost_test.go:1450: G2: want exit 1 for a fleet file at 0662, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1454: G2: stderr should contain "fleet file /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/fleets/loose.yaml is writable by group or others"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1454: G2: stderr should contain "(mode 0662); run: chmod go-w /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/fleets/loose.yaml"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad/readable-0644-accepted
+--- FAIL: TestTAE116FleetFileWritabilityCheckedOnLoad (36.33s)
+    --- FAIL: TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0666 (12.05s)
+    --- FAIL: TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0664 (12.05s)
+    --- FAIL: TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0662 (12.05s)
+    --- PASS: TestTAE116FleetFileWritabilityCheckedOnLoad/readable-0644-accepted (0.18s)
+=== RUN   TestTAE116XDGConfigHomeHonoured
+    tae116_testhost_test.go:1483: timed out after 15s waiting for the fleet from $XDG_CONFIG_HOME/fleetdesk/config.yaml (any of ["tae116"]); last screen:
+        ron/FleetDesk/test/testhost/.home/does-not-exist
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        Pane is dead (status 1, Wed Oct 14 05:36:11 2026)
+--- FAIL: TestTAE116XDGConfigHomeHonoured (15.10s)
+=== RUN   TestTAE116ConfigNolintSuppressionsRemoved
+    tae116_testhost_test.go:1489: G4: every //nolint tagged TAE-23 must be removed:
+        internal/config/appconfig.go:108:	if err := os.MkdirAll(configDir, 0755); err != nil { //nolint:gosec // G301: config dir 0755, known permission defect — TAE-23
+        internal/config/appconfig.go:122:	if err := os.WriteFile(path, data, 0644); err != nil { //nolint:gosec // G306: config.yaml 0644, known permission defect — TAE-23
+        main.go:42:		if err := os.MkdirAll(configDir, 0755); err != nil { //nolint:gosec // G301: config dir 0755, known permission defect — TAE-23
+    tae116_testhost_test.go:1496: G4: verify-nolint's expected TAE-23 count must be updated to 0
+--- FAIL: TestTAE116ConfigNolintSuppressionsRemoved (0.01s)
+=== RUN   TestTAE116MakeTargetsExist
+    tae116_testhost_test.go:1513: Test interface: make target testhost-m2 must exist: exit status 2
+        make: *** No rule to make target 'testhost-m2'.  Stop.
+    tae116_testhost_test.go:1513: Test interface: make target testhost-exit-criterion must exist: exit status 2
+        make: *** No rule to make target 'testhost-exit-criterion'.  Stop.
+    tae116_testhost_test.go:1513: Test interface: make target testhost-register-ps must exist: exit status 2
+        make: *** No rule to make target 'testhost-register-ps'.  Stop.
+--- FAIL: TestTAE116MakeTargetsExist (0.01s)
+=== RUN   TestTAE116KeyvaultResolveTarget
+    tae116_testhost_test.go:1537: make keyvault-resolve must succeed against the stand-in az: exit status 2
+        make: *** No rule to make target 'keyvault-resolve'.  Stop.
+--- FAIL: TestTAE116KeyvaultResolveTarget (0.00s)
+=== RUN   TestTAE116ExitRegisterNoCredentialInProcessList
+    tae116_testhost_test.go:1567: timed out after 10s waiting for the register confirmation (any of ["Register to"]); last screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+--- FAIL: TestTAE116ExitRegisterNoCredentialInProcessList (26.80s)
+=== RUN   TestTAE116ExitFleetFileHoldsOnlyAName
+    tae116_testhost_test.go:1587: H2: the registration did not run; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FIELD           VALUE                                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   Registration    Unknown                                                  │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <u> Unregister  <g> Register CDN  <c> Check Repo  <d> Disable
+         Repo  <r> Refresh  <Esc> Back  <?> Help  rh_org_id and rh_activation_key
+         required in config
+--- FAIL: TestTAE116ExitFleetFileHoldsOnlyAName (26.48s)
+=== RUN   TestTAE116ExitConfigFilesOwnerOnly
+    tae116_testhost_test.go:1411: G1: config.yaml must be written 0600; got 0644
+    tae116_testhost_test.go:1414: G1: the config directory must be created 0700; got 0755
+=== RUN   TestTAE116ExitConfigFilesOwnerOnly/0644
+    tae116_testhost_test.go:1430: G2: want exit 1 for config.yaml at 0644, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1434: G2: stderr should contain "config.yaml is too permissive (mode 0644); expected 0600"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1434: G2: stderr should contain "chmod 0600 /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/.config/fleetdesk/config.yaml"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+=== RUN   TestTAE116ExitConfigFilesOwnerOnly/0660
+    tae116_testhost_test.go:1430: G2: want exit 1 for config.yaml at 0660, got -1
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1434: G2: stderr should contain "config.yaml is too permissive (mode 0660); expected 0600"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+    tae116_testhost_test.go:1434: G2: stderr should contain "chmod 0600 /home/gaetan/Projects/Taelron/FleetDesk/test/testhost/.home/.config/fleetdesk/config.yaml"; got:
+         fleetdesk                                                  FleetDesk dev   1/1
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     FLEET     TYPE    TARGETS                                                │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │  ── VM ──                                                                    │
+        │ ▸   tae116    vm      1                                                      │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <Enter> Select  <n> Notes  <a> About  <e> Edit  <c> Config  <r> Reload  <q>
+         Quit  <?> Help
+--- FAIL: TestTAE116ExitConfigFilesOwnerOnly (24.54s)
+    --- FAIL: TestTAE116ExitConfigFilesOwnerOnly/0644 (12.08s)
+    --- FAIL: TestTAE116ExitConfigFilesOwnerOnly/0660 (12.07s)
+=== RUN   TestTAE116ExitHostKeyChangeStopsConnection
+    tae116_testhost_test.go:1010: C3: a changed host key must stop the connection with an error naming the mismatch; screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST           OS                                     UP SINCE      UPD  │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-mismatch    Red Hat Enterprise Linux 9.8 (Plow)    14/10/2026    58   │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+--- FAIL: TestTAE116ExitHostKeyChangeStopsConnection (3.34s)
+=== RUN   TestTAE116ExitSSHPathsReachSameMachine
+    tae116_testhost_test.go:1124: timed out after 25s waiting for the SSH Password prompt for the password-only account (any of ["SSH Password"]); last screen:
+        ┌──────────────────────────────────────────────────────────────────────────────┐
+        │     HOST            OS    UP SINCE    UPD                                    │
+        ├──────────────────────────────────────────────────────────────────────────────┤
+        │ ▸   th-alias-key    unreachable (dial testhost-alias:22: dial tcp: lookup te…│
+        │     th-alias-pw     unreachable (dial testhost-alias:22: dial tcp: lookup te…│
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        │                                                                              │
+        └──────────────────────────────────────────────────────────────────────────────┘
+         <↑↓> Navigate  <Enter> Drill In  <n> Notes  <x> Shell  <c> Commands  <K>
+         Deploy Key  <d> Metrics  <R> Reboot  <r> Refresh  <Esc> Back  <q> Quit  <?>
+         Help
+--- FAIL: TestTAE116ExitSSHPathsReachSameMachine (26.82s)
+FAIL
+FAIL	github.com/Gaetan-Jaminon/fleetdesk	698.307s
+FAIL
+go test exit: 1
+
+=== Notes on this run (Tester) ===
+Reds are all behavioural (binary/TUI/container/Makefile/file assertions); none is a compile error.
+Fixture absence is itself a red: test/azstub/az (TestTAE116AzStubBehaviour, and every A4 case until it exists),
+Make targets testhost-m2 / testhost-exit-criterion / testhost-register-ps / keyvault-resolve.
+
+Tests that PASS at red, on purpose (characterisation of today's behaviour that must survive):
+  TestTAE116FleetWithoutSecretNameBehavesAsToday (A7)
+  TestTAE116UnreachableVaultDoesNotStopFleetFromOpening (A1, load-time half; the run-time half is in SecretResolutionFailureModes)
+  TestTAE116FleetFileWritabilityCheckedOnLoad/readable-0644-accepted (G2: a 0644 fleet file is accepted)
+
+Known limits of what the tests can prove:
+  - F2: only the n/a half is asserted. The integer half needs journalctl in the container, which UBI lacks; Resource Picker `r`
+    stays on "Loading resource counts..." indefinitely on this container today (measured, 180s), so it is not used.
+  - B4/H1 need a registration process to be OBSERVED in ps (argv matching RegisterWithActivationKeys|rhsm|subscription-manager|
+    gdbus|busctl|dbus|register) or the test fails as "measured nothing". The RHSM D-Bus stub (L2) must keep such a process
+    resident long enough for 60ms-interval sampling.
+  - B3 simulates RHEL 7 by replacing /etc/os-release and /etc/redhat-release in the container and restoring them.
+  - E tests give testuser2 key auth (authorized_keys copied from testuser1) and restore it.

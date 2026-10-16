@@ -68,9 +68,15 @@ func NewPasswordModal(user, host string, hostIdx int) *ModalOverlay {
 
 // NewSudoModal creates a 1-step masked input modal for sudo password.
 func NewSudoModal(user, host string, hostIdx int, retry tea.Cmd) *ModalOverlay {
+	return NewSudoModalNotice(user, host, hostIdx, retry, "")
+}
+
+// NewSudoModalNotice is NewSudoModal with a notice above the prompt, for the
+// re-prompt after a rejected password (see NewSudoWizardNotice).
+func NewSudoModalNotice(user, host string, hostIdx int, retry tea.Cmd, notice string) *ModalOverlay {
 	prompt := fmt.Sprintf("Sudo password for %s:", user)
 	m := NewModalOverlay("Sudo Password", []ModalStep{
-		{Title: prompt, Content: NewSecretInputContent(prompt, ssh.ValidateSudoPassword)},
+		{Title: noticeTitle(notice, prompt), Content: NewSecretInputContent(prompt, ssh.ValidateSudoPassword)},
 	}, func(results []any) tea.Cmd {
 		pw := results[0].([]byte)
 		idx := hostIdx

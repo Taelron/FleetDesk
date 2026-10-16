@@ -91,6 +91,31 @@ func NewReader(pw []byte, suffix string) (*Reader, error) {
 	return &Reader{buf: buf}, nil
 }
 
+// NewMultiReader builds a Reader over a single fixed-size copy of segs, each
+// followed by sep: "seg1 sep seg2 sep". It exists for a stdin that carries
+// more than one credential — a sudo password and then a secret the command
+// consumes — where NewReader's string suffix cannot hold the second one
+// (a Go string is immutable and could never be erased). The buffer is
+// allocated once, at the exact total, so nothing is ever grown and abandoned
+// unerased. Refuses any single segment over MaxLen with ErrTooLong; the
+// caller keeps ownership of segs and erases them itself.
+func NewMultiReader(sep string, segs ...[]byte) (*Reader, error) {
+	total := 0
+	for _, seg := range segs {
+		if len(seg) > MaxLen {
+			return nil, ErrTooLong
+		}
+		total += len(seg) + len(sep)
+	}
+	buf := make([]byte, total)
+	n := 0
+	for _, seg := range segs {
+		n += copy(buf[n:], seg)
+		n += copy(buf[n:], sep)
+	}
+	return &Reader{buf: buf}, nil
+}
+
 // Read implements io.Reader. The underlying buffer is erased as soon as
 // its last byte has been copied out, before this call returns — not on
 // a later call that observes EOF.

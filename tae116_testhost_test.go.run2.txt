@@ -1,0 +1,114 @@
+Commit e26b66a1916ab5b8a892d06ec887072c56293141 (tae116_testhost_test.go uncommitted at run time, committed with this file), 2026-10-14 -- make testhost-m2 (run 3; runs 1-2 were disturbed by a concurrent testhost-down from the Dev session; run 1 also showed the G2 ownership red the Dev has since fixed in e26b66a)
+=== RUN   TestTAE116AzStubBehaviour
+--- PASS: TestTAE116AzStubBehaviour (0.01s)
+=== RUN   TestTAE116SecretsUnsupportedProviderRejectedAtLoad
+--- PASS: TestTAE116SecretsUnsupportedProviderRejectedAtLoad (1.32s)
+=== RUN   TestTAE116SecretNameWithoutSecretsBlockRejectedAtLoad
+--- PASS: TestTAE116SecretNameWithoutSecretsBlockRejectedAtLoad (0.17s)
+=== RUN   TestTAE116FleetWithoutSecretNameBehavesAsToday
+=== RUN   TestTAE116FleetWithoutSecretNameBehavesAsToday/no-secrets-block
+=== RUN   TestTAE116FleetWithoutSecretNameBehavesAsToday/with-secrets-block
+--- PASS: TestTAE116FleetWithoutSecretNameBehavesAsToday (3.60s)
+    --- PASS: TestTAE116FleetWithoutSecretNameBehavesAsToday/no-secrets-block (1.80s)
+    --- PASS: TestTAE116FleetWithoutSecretNameBehavesAsToday/with-secrets-block (1.80s)
+=== RUN   TestTAE116SecretResolutionFailureModes
+=== RUN   TestTAE116SecretResolutionFailureModes/az-missing
+=== RUN   TestTAE116SecretResolutionFailureModes/not-logged-in
+=== RUN   TestTAE116SecretResolutionFailureModes/forbidden
+=== RUN   TestTAE116SecretResolutionFailureModes/not-found
+--- PASS: TestTAE116SecretResolutionFailureModes (24.70s)
+    --- PASS: TestTAE116SecretResolutionFailureModes/az-missing (6.09s)
+    --- PASS: TestTAE116SecretResolutionFailureModes/not-logged-in (5.63s)
+    --- PASS: TestTAE116SecretResolutionFailureModes/forbidden (6.85s)
+    --- PASS: TestTAE116SecretResolutionFailureModes/not-found (6.13s)
+=== RUN   TestTAE116UnreachableVaultDoesNotStopFleetFromOpening
+--- PASS: TestTAE116UnreachableVaultDoesNotStopFleetFromOpening (1.81s)
+=== RUN   TestTAE116ActivationKeyFieldRemovedFromSchema
+=== RUN   TestTAE116ActivationKeyFieldRemovedFromSchema/on-defaults
+=== RUN   TestTAE116ActivationKeyFieldRemovedFromSchema/on-host
+--- PASS: TestTAE116ActivationKeyFieldRemovedFromSchema (0.33s)
+    --- PASS: TestTAE116ActivationKeyFieldRemovedFromSchema/on-defaults (0.17s)
+    --- PASS: TestTAE116ActivationKeyFieldRemovedFromSchema/on-host (0.17s)
+=== RUN   TestTAE116RegistrationRunsInStreamedViewAfterConfirmation
+--- PASS: TestTAE116RegistrationRunsInStreamedViewAfterConfirmation (8.78s)
+=== RUN   TestTAE116RegistrationKeepsItsConfirmation
+--- PASS: TestTAE116RegistrationKeepsItsConfirmation (6.51s)
+=== RUN   TestTAE116RegistrationRefusedBelowRHEL8
+--- PASS: TestTAE116RegistrationRefusedBelowRHEL8 (7.57s)
+=== RUN   TestTAE116RegisterKeyNotInProcessList
+--- PASS: TestTAE116RegisterKeyNotInProcessList (11.05s)
+=== RUN   TestTAE116ResolvedKeyNeverWrittenLocally
+--- PASS: TestTAE116ResolvedKeyNeverWrittenLocally (8.69s)
+=== RUN   TestTAE116HostKeyTOFUAcceptThenSilentReconnect
+--- PASS: TestTAE116HostKeyTOFUAcceptThenSilentReconnect (16.46s)
+=== RUN   TestTAE116HostKeyTOFUDeclineAborts
+--- PASS: TestTAE116HostKeyTOFUDeclineAborts (2.99s)
+=== RUN   TestTAE116HostKeyMismatchStopsConnection
+--- PASS: TestTAE116HostKeyMismatchStopsConnection (3.31s)
+=== RUN   TestTAE116PasswordDialVerifiesHostKey
+--- PASS: TestTAE116PasswordDialVerifiesHostKey (3.55s)
+=== RUN   TestTAE116HostKeyChecksNeverDisabledAnywhere
+--- PASS: TestTAE116HostKeyChecksNeverDisabledAnywhere (0.04s)
+=== RUN   TestTAE116EverySSHPathReachesTheSameHost
+--- PASS: TestTAE116EverySSHPathReachesTheSameHost (9.21s)
+=== RUN   TestTAE116ProxyJumpHostIsHandoverOnly
+--- PASS: TestTAE116ProxyJumpHostIsHandoverOnly (3.19s)
+=== RUN   TestTAE116ReadmeDescribesEverySSHPath
+--- PASS: TestTAE116ReadmeDescribesEverySSHPath (0.00s)
+=== RUN   TestTAE116SudoPasswordReuseIsAnnounced
+--- PASS: TestTAE116SudoPasswordReuseIsAnnounced (7.08s)
+=== RUN   TestTAE116SudoPasswordStaysWithItsHost
+--- PASS: TestTAE116SudoPasswordStaysWithItsHost (15.33s)
+=== RUN   TestTAE116ProbePrivilegedReadReportsWhenItCouldNotRun
+--- PASS: TestTAE116ProbePrivilegedReadReportsWhenItCouldNotRun (18.43s)
+=== RUN   TestTAE116ProbeInfoCarriesErrorCountKnown
+--- PASS: TestTAE116ProbeInfoCarriesErrorCountKnown (0.00s)
+=== RUN   TestTAE116ConfigWrittenOwnerOnly
+--- PASS: TestTAE116ConfigWrittenOwnerOnly (0.39s)
+=== RUN   TestTAE116ConfigModeCheckedOnLoad
+=== RUN   TestTAE116ConfigModeCheckedOnLoad/0644
+=== RUN   TestTAE116ConfigModeCheckedOnLoad/0660
+--- PASS: TestTAE116ConfigModeCheckedOnLoad (0.33s)
+    --- PASS: TestTAE116ConfigModeCheckedOnLoad/0644 (0.17s)
+    --- PASS: TestTAE116ConfigModeCheckedOnLoad/0660 (0.17s)
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0666
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0664
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0662
+=== RUN   TestTAE116FleetFileWritabilityCheckedOnLoad/readable-0644-accepted
+--- PASS: TestTAE116FleetFileWritabilityCheckedOnLoad (0.67s)
+    --- PASS: TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0666 (0.17s)
+    --- PASS: TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0664 (0.17s)
+    --- PASS: TestTAE116FleetFileWritabilityCheckedOnLoad/writable-0662 (0.17s)
+    --- PASS: TestTAE116FleetFileWritabilityCheckedOnLoad/readable-0644-accepted (0.17s)
+=== RUN   TestTAE116FileOwnershipCheckedOnLoad
+=== RUN   TestTAE116FileOwnershipCheckedOnLoad/config.yaml-owned-by-someone-else
+=== RUN   TestTAE116FileOwnershipCheckedOnLoad/fleet-file-owned-by-someone-else
+--- PASS: TestTAE116FileOwnershipCheckedOnLoad (0.46s)
+    --- PASS: TestTAE116FileOwnershipCheckedOnLoad/config.yaml-owned-by-someone-else (0.23s)
+    --- PASS: TestTAE116FileOwnershipCheckedOnLoad/fleet-file-owned-by-someone-else (0.22s)
+=== RUN   TestTAE116XDGConfigHomeHonoured
+--- PASS: TestTAE116XDGConfigHomeHonoured (0.18s)
+=== RUN   TestTAE116ConfigNolintSuppressionsRemoved
+--- PASS: TestTAE116ConfigNolintSuppressionsRemoved (0.01s)
+=== RUN   TestTAE116MakeTargetsExist
+--- PASS: TestTAE116MakeTargetsExist (0.01s)
+=== RUN   TestTAE116KeyvaultResolveTarget
+--- PASS: TestTAE116KeyvaultResolveTarget (0.47s)
+=== RUN   TestTAE116ExitRegisterNoCredentialInProcessList
+--- PASS: TestTAE116ExitRegisterNoCredentialInProcessList (11.63s)
+=== RUN   TestTAE116ExitFleetFileHoldsOnlyAName
+--- PASS: TestTAE116ExitFleetFileHoldsOnlyAName (8.69s)
+=== RUN   TestTAE116ExitConfigFilesOwnerOnly
+=== RUN   TestTAE116ExitConfigFilesOwnerOnly/0644
+=== RUN   TestTAE116ExitConfigFilesOwnerOnly/0660
+--- PASS: TestTAE116ExitConfigFilesOwnerOnly (0.72s)
+    --- PASS: TestTAE116ExitConfigFilesOwnerOnly/0644 (0.17s)
+    --- PASS: TestTAE116ExitConfigFilesOwnerOnly/0660 (0.17s)
+=== RUN   TestTAE116ExitHostKeyChangeStopsConnection
+--- PASS: TestTAE116ExitHostKeyChangeStopsConnection (3.09s)
+=== RUN   TestTAE116ExitSSHPathsReachSameMachine
+--- PASS: TestTAE116ExitSSHPathsReachSameMachine (9.40s)
+PASS
+ok  	github.com/Gaetan-Jaminon/fleetdesk	193.295s
+exit 0

@@ -1,10 +1,13 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,9 +21,17 @@ type fleetFile struct {
 	TenantID         string          `yaml:"tenant_id"`
 	ActivityLogHours int             `yaml:"activity_log_hours"`
 	DisplayTags      []string        `yaml:"display_tags"`
+	Secrets          *secretsFile    `yaml:"secrets"`
 	Defaults         defaultsFile    `yaml:"defaults"`
 	Groups           []groupFile     `yaml:"groups"`
 	Hosts            []hostEntryFile `yaml:"hosts"`
+}
+
+// secretsFile is the raw secrets: block (ADR-F011).
+type secretsFile struct {
+	Provider     string `yaml:"provider"`
+	Vault        string `yaml:"vault"`
+	Subscription string `yaml:"subscription"`
 }
 
 type commandEntryFile struct {
@@ -41,8 +52,13 @@ type defaultsFile struct {
 	ErrorLogSince   string             `yaml:"error_log_since"`
 	RefreshInterval string             `yaml:"refresh_interval"`
 	RHOrgID         string             `yaml:"rh_org_id"`
-	RHActivationKey string             `yaml:"rh_activation_key"`
-	SatelliteURL    string             `yaml:"satellite_url"`
+	// RHActivationKey is a tombstone: the field was removed (ADR-F011), but
+	// the YAML parser ignores unknown keys, so a file that still carries it
+	// would otherwise load silently with a key nothing reads. A pointer, so
+	// that its presence is detected, not just a non-empty value.
+	RHActivationKey           *string `yaml:"rh_activation_key"`
+	RHActivationKeySecretName string  `yaml:"rh_activation_key_secret_name"`
+	SatelliteURL              string  `yaml:"satellite_url"`
 }
 
 type logEntryFile struct {
@@ -60,18 +76,20 @@ type groupFile struct {
 }
 
 type hostEntryFile struct {
-	Name            string             `yaml:"name"`
-	Hostname        string             `yaml:"hostname"`
-	User            string             `yaml:"user"`
-	Port            int                `yaml:"port"`
-	Timeout         string             `yaml:"timeout"`
-	SystemdMode     string             `yaml:"systemd_mode"`
-	ServiceFilter   []string           `yaml:"service_filter"`
-	Logs            []logEntryFile     `yaml:"logs"`
-	Commands        []commandEntryFile `yaml:"commands"`
-	RHOrgID         string             `yaml:"rh_org_id"`
-	RHActivationKey string             `yaml:"rh_activation_key"`
-	SatelliteURL    string             `yaml:"satellite_url"`
+	Name          string             `yaml:"name"`
+	Hostname      string             `yaml:"hostname"`
+	User          string             `yaml:"user"`
+	Port          int                `yaml:"port"`
+	Timeout       string             `yaml:"timeout"`
+	SystemdMode   string             `yaml:"systemd_mode"`
+	ServiceFilter []string           `yaml:"service_filter"`
+	Logs          []logEntryFile     `yaml:"logs"`
+	Commands      []commandEntryFile `yaml:"commands"`
+	RHOrgID       string             `yaml:"rh_org_id"`
+	// RHActivationKey: tombstone, see defaultsFile.
+	RHActivationKey           *string `yaml:"rh_activation_key"`
+	RHActivationKeySecretName string  `yaml:"rh_activation_key_secret_name"`
+	SatelliteURL              string  `yaml:"satellite_url"`
 }
 
 // probeFleetFile is the raw YAML structure for a probes fleet file.
@@ -106,7 +124,33 @@ type probeEntryFile struct {
 
 // ParseFleetFile reads and parses a single fleet YAML file.
 func ParseFleetFile(path string) (Fleet, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // G304: the user's fleet directory listing
+	// FleetDesk executes what a fleet file contains, so a file another user
+	// can write is refused. A merely readable one is fine: fleet files hold
+	// no secrets (ADR-F011) and are meant to be shared.
+	// Look before opening (see LoadAppConfig), then check again on the handle.
+	pre, err := os.Stat(path)
+	if err != nil {
+		return Fleet{}, fmt.Errorf("reading file: %w", err)
+	}
+	if err := checkOwner(pre, path, true); err != nil {
+		return Fleet{}, fmt.Errorf("fleet file %w", err)
+	}
+	f, err := os.Open(path) //nolint:gosec // G304: the user's fleet directory listing
+	if err != nil {
+		return Fleet{}, fmt.Errorf("reading file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat() // the handle that is read below, not the path again
+	if err != nil {
+		return Fleet{}, fmt.Errorf("reading file: %w", err)
+	}
+	if mode := info.Mode().Perm(); mode&0o022 != 0 {
+		return Fleet{}, fmt.Errorf("fleet file %s is writable by group or others (mode %04o); run: chmod go-w %s", path, mode, path)
+	}
+	if err := checkOwner(info, path, true); err != nil {
+		return Fleet{}, fmt.Errorf("fleet file %w", err)
+	}
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return Fleet{}, fmt.Errorf("reading file: %w", err)
 	}
@@ -128,11 +172,29 @@ func ParseFleetFile(path string) (Fleet, error) {
 	case "vm", "azure", "kubernetes":
 		// valid — parsed below
 	case "probes":
+		// A secrets: block is validated for every fleet type, so an unsupported
+		// provider is refused at load wherever it appears.
+		if _, err := parseSecrets(raw.Secrets); err != nil {
+			return Fleet{}, err
+		}
 		return parseProbeFleetFile(data, name, path)
 	case "":
 		return Fleet{}, fmt.Errorf("missing required field 'type' in %s", path)
 	default:
 		return Fleet{}, fmt.Errorf("unknown fleet type %q in %s (must be vm, azure, kubernetes, or probes)", raw.Type, path)
+	}
+
+	secrets, err := parseSecrets(raw.Secrets)
+	if err != nil {
+		return Fleet{}, err
+	}
+	if raw.Defaults.RHActivationKey != nil {
+		return Fleet{}, fmt.Errorf("defaults: %w", errActivationKeyRemoved)
+	}
+	if secrets == nil {
+		if err := rejectSecretNamesWithoutBlock(raw); err != nil {
+			return Fleet{}, err
+		}
 	}
 
 	// parse defaults
@@ -144,11 +206,15 @@ func ParseFleetFile(path string) (Fleet, error) {
 		ErrorLogSince:   raw.Defaults.ErrorLogSince,
 		RefreshInterval: raw.Defaults.RefreshInterval,
 		RHOrgID:         raw.Defaults.RHOrgID,
-		RHActivationKey: raw.Defaults.RHActivationKey,
 		SatelliteURL:    raw.Defaults.SatelliteURL,
+
+		RHActivationKeySecretName: raw.Defaults.RHActivationKeySecretName,
 	}
-	if defaults.Port == 0 {
-		defaults.Port = 22
+	// Port 0 and User "" mean "let ssh decide" (~/.ssh/config, then ssh's own
+	// defaults); the library dial and the handover both resolve them through
+	// `ssh -G`.
+	if strings.HasPrefix(defaults.User, "-") {
+		return Fleet{}, fmt.Errorf("defaults: user must not begin with %q", "-")
 	}
 	if defaults.SystemdMode == "" {
 		defaults.SystemdMode = "system"
@@ -221,6 +287,7 @@ func ParseFleetFile(path string) (Fleet, error) {
 		TenantID:         raw.TenantID,
 		ActivityLogHours: activityLogHours,
 		DisplayTags:      raw.DisplayTags,
+		Secrets:          secrets,
 		Path:             path,
 		Defaults:         defaults,
 		Groups:           groups,
@@ -241,16 +308,27 @@ func parseHosts(raw []hostEntryFile, defaults HostDefaults, groupFilter []string
 		if r.Hostname == "" {
 			return nil, fmt.Errorf("host %q missing required field 'hostname'", r.Name)
 		}
+		// A value beginning with "-" would be read by ssh as an option.
+		if strings.HasPrefix(r.Hostname, "-") {
+			return nil, fmt.Errorf("host %q: hostname must not begin with %q", r.Name, "-")
+		}
+		if strings.HasPrefix(r.User, "-") {
+			return nil, fmt.Errorf("host %q: user must not begin with %q", r.Name, "-")
+		}
+		if r.RHActivationKey != nil {
+			return nil, fmt.Errorf("host %q: %w", r.Name, errActivationKeyRemoved)
+		}
 
 		h := HostEntry{
-			Name:            r.Name,
-			Hostname:        r.Hostname,
-			User:            r.User,
-			Port:            r.Port,
-			SystemdMode:     r.SystemdMode,
-			RHOrgID:         r.RHOrgID,
-			RHActivationKey: r.RHActivationKey,
-			SatelliteURL:    r.SatelliteURL,
+			Name:         r.Name,
+			Hostname:     r.Hostname,
+			User:         r.User,
+			Port:         r.Port,
+			SystemdMode:  r.SystemdMode,
+			RHOrgID:      r.RHOrgID,
+			SatelliteURL: r.SatelliteURL,
+
+			RHActivationKeySecretName: r.RHActivationKeySecretName,
 		}
 
 		// service filter: host → group → defaults
@@ -275,12 +353,12 @@ func parseHosts(raw []hostEntryFile, defaults HostDefaults, groupFilter []string
 		}
 		// RH subscription: if host defines its own org, it's a complete override — don't inherit satellite_url
 		if h.RHOrgID != "" {
-			if h.RHActivationKey == "" {
-				h.RHActivationKey = defaults.RHActivationKey
+			if h.RHActivationKeySecretName == "" {
+				h.RHActivationKeySecretName = defaults.RHActivationKeySecretName
 			}
 		} else {
 			h.RHOrgID = defaults.RHOrgID
-			h.RHActivationKey = defaults.RHActivationKey
+			h.RHActivationKeySecretName = defaults.RHActivationKeySecretName
 			h.SatelliteURL = defaults.SatelliteURL
 		}
 
@@ -467,4 +545,58 @@ func parseProbeEntries(raw []probeEntryFile) ([]ProbeEntry, error) {
 		})
 	}
 	return entries, nil
+}
+
+// errActivationKeyRemoved is the load error for a fleet file that still
+// carries rh_activation_key. It names the field and its replacement; it
+// never carries the value.
+var errActivationKeyRemoved = errors.New("rh_activation_key is no longer accepted; use rh_activation_key_secret_name with a secrets: block (ADR-F011)")
+
+// parseSecrets validates a fleet's secrets: block. A fleet with no block
+// returns nil, which is valid. Each fleet has one provider.
+func parseSecrets(raw *secretsFile) (*SecretsConfig, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	supported := strings.Join(SupportedSecretProviders, ", ")
+	if raw.Provider == "" {
+		return nil, fmt.Errorf("secrets.provider is required (supported: %s)", supported)
+	}
+	if !slices.Contains(SupportedSecretProviders, raw.Provider) {
+		return nil, fmt.Errorf("secrets.provider %q is not supported (supported: %s)", raw.Provider, supported)
+	}
+	if raw.Vault == "" {
+		return nil, fmt.Errorf("secrets.vault is required for provider %s", raw.Provider)
+	}
+	if raw.Subscription == "" {
+		return nil, fmt.Errorf("secrets.subscription is required for provider %s", raw.Provider)
+	}
+	return &SecretsConfig{Provider: raw.Provider, Vault: raw.Vault, Subscription: raw.Subscription}, nil
+}
+
+// rejectSecretNamesWithoutBlock fails a fleet in which a field names a secret
+// but there is no secrets: block to resolve it from. It reads the raw file,
+// not the inherited entries, so a name set where inheritance would discard it
+// is still caught.
+func rejectSecretNamesWithoutBlock(raw fleetFile) error {
+	const field = "rh_activation_key_secret_name"
+	fail := func(where string) error {
+		return fmt.Errorf("%sfield %q names a secret but the fleet has no secrets: block", where, field)
+	}
+	if raw.Defaults.RHActivationKeySecretName != "" {
+		return fail("defaults: ")
+	}
+	for _, g := range raw.Groups {
+		for _, h := range g.Hosts {
+			if h.RHActivationKeySecretName != "" {
+				return fail(fmt.Sprintf("host %q: ", h.Name))
+			}
+		}
+	}
+	for _, h := range raw.Hosts {
+		if h.RHActivationKeySecretName != "" {
+			return fail(fmt.Sprintf("host %q: ", h.Name))
+		}
+	}
+	return nil
 }

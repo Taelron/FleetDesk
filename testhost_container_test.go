@@ -140,14 +140,36 @@ func mustDial(t *testing.T, info *testhostInfo, user string, auth ssh.AuthMethod
 	return client
 }
 
-// dialSSH ignores the host key: TOFU/known_hosts verification is TAE-22's
-// concern, not this fixture's.
+// dialSSH pins the container's ed25519 host key, read with ssh-keyscan at
+// the moment of the dial, so it always matches the key the container
+// presents now -- including after testhost-regen-host-key. The harness
+// verifies the host key like the product does (TAE-22), without a
+// known_hosts file of its own.
 func dialSSH(info *testhostInfo, user string, auth ssh.AuthMethod, timeout time.Duration) (*ssh.Client, error) {
+	out, err := exec.Command("ssh-keyscan", "-t", "ed25519", "-p", info.Port, info.Host).Output()
+	if err != nil {
+		return nil, fmt.Errorf("ssh-keyscan -t ed25519 -p %s %s: %w", info.Port, info.Host, err)
+	}
+	var hostKey ssh.PublicKey
+	for _, l := range strings.Split(string(out), "\n") {
+		if l == "" || strings.HasPrefix(l, "#") {
+			continue
+		}
+		_, _, hostKey, _, _, err = ssh.ParseKnownHosts([]byte(l))
+		if err != nil {
+			return nil, fmt.Errorf("parsing the ssh-keyscan host key line: %w", err)
+		}
+		break
+	}
+	if hostKey == nil {
+		return nil, fmt.Errorf("ssh-keyscan returned no ed25519 host key for %s:%s", info.Host, info.Port)
+	}
 	cfg := &ssh.ClientConfig{
-		User:            user,
-		Auth:            []ssh.AuthMethod{auth},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         timeout,
+		User:              user,
+		Auth:              []ssh.AuthMethod{auth},
+		HostKeyCallback:   ssh.FixedHostKey(hostKey),
+		HostKeyAlgorithms: []string{ssh.KeyAlgoED25519},
+		Timeout:           timeout,
 	}
 	return ssh.Dial("tcp", net.JoinHostPort(info.Host, info.Port), cfg)
 }

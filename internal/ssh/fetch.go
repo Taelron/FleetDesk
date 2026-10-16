@@ -135,7 +135,7 @@ func ExtractPkgName(nvra string) string {
 // of whether to show a password prompt at all, where a false positive
 // costs nothing worse than an extra prompt.
 func IsAuthError(err error) bool {
-	if err == nil {
+	if err == nil || isHostKeyError(err) {
 		return false
 	}
 	s := err.Error()
@@ -151,7 +151,7 @@ func IsAuthError(err error) bool {
 // is destructive: clearing a cached credential that was never actually
 // wrong.
 func IsPasswordRejected(err error) bool {
-	if err == nil {
+	if err == nil || isHostKeyError(err) {
 		return false
 	}
 	s := err.Error()

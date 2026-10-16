@@ -13,3 +13,7 @@ test/testhost/sudo-ps.out
 test/testhost/tae20.out
 # TAE-21: testhost-idle-timeout evidence output — never committed
 test/testhost/idle-timeout.out
+# TAE-116: testhost-m2 / testhost-exit-criterion / testhost-register-ps evidence output — never committed
+test/testhost/tae116.out
+test/testhost/tae116-exit.out
+test/testhost/tae116-register-ps.out

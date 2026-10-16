@@ -390,7 +390,7 @@ the user did not initiate it. It is adopting an in-flight change made elsewhere.
 
 ### 4.2 Bespoke — terminal handover
 
-All run through `sshHandover` (`ssh -t -o StrictHostKeyChecking=no -p <port> user@host '<cmd>'`)
+All run through `sshHandover` (at this snapshot: `ssh -t` with host-key checking switched off, `-p <port> user@host '<cmd>'`; TAE-116 removed the override)
 or `cmdHandover`, print a banner, and wait for Enter before returning to the TUI.
 
 | Action | Key / view | Command | Confirm |
@@ -686,8 +686,8 @@ in a **separate `gossh.Dial`** — deliberately, to avoid `MaxAuthTries` exhaust
 `~/.ssh/config` for that hostname, (3) `~/.ssh/id_ed25519`, `id_rsa`, `id_ecdsa`
 where present. **A password is not in this chain** — passwords are used only via
 the separate `ConnectWithPassword` path, triggered when the probe returns
-`IsAuthError`. `HostKeyCallback` is `InsecureIgnoreHostKey()` (flagged in-code
-against TAE-22).
+`IsAuthError`. At this snapshot the host key was not verified at all (flagged in-code
+against TAE-22; TAE-116 verifies it against `known_hosts`).
 
 **Host probe.** One compound shell command returns 13 fixed lines: FQDN, uptime,
 `PRETTY_NAME`, cron count, `journalctl -p err` count since `error_log_since`, disk

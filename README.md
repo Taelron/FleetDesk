@@ -111,6 +111,52 @@ groups:
   - name: aks-app-prd-green
 ```
 
+### File permissions
+
+FleetDesk executes what its configuration names, so it checks the files it
+reads before starting:
+
+- `config.yaml` (in `$XDG_CONFIG_HOME/fleetdesk/`, or `~/.config/fleetdesk/`
+  when that is not set) must be mode `0600`. FleetDesk writes it that way, in
+  a `0700` directory, and refuses to start on anything else, naming the file
+  and the fix (`chmod 0600 <path>`).
+- A fleet file must not be writable by group or others (`chmod go-w <path>`).
+  A readable one (`0644`) is fine: fleet files hold no secrets, so they can be
+  ordinary shareable configuration.
+
+### Secrets
+
+A fleet file never holds a shared secret's value, only its name. A field that
+holds a name carries the `_secret_name` suffix, and the fleet's `secrets:`
+block says where names are resolved:
+
+```yaml
+secrets:
+  provider: azure-keyvault
+  vault: my-vault
+  subscription: 00000000-0000-0000-0000-000000000000
+
+defaults:
+  rh_org_id: my-org
+  rh_activation_key_secret_name: rhel-activation-key
+```
+
+The name is resolved when the operation that needs it runs (`az keyvault
+secret show`, using your `az login`), never when the fleet loads, so a fleet
+whose vault is unreachable still opens. The value is held in memory only for
+that operation and is never written to disk, logged, or put on a command line.
+`azure-keyvault` is the only provider. A `_secret_name` field in a fleet with
+no `secrets:` block is rejected at load.
+
+`rh_activation_key` is no longer accepted. Removing it from a fleet file does
+not un-commit a key that was stored in one before: **rotate any activation key
+that was ever in a shared fleet file** (in Satellite or the Red Hat portal).
+
+Registration (`g` in the Subscription view) calls RHSM's D-Bus
+`RegisterWithActivationKeys` on the target, which needs RHEL 8 or later, with
+the key delivered on stdin so it appears in no process's arguments. It runs in
+the in-app stream view and keeps its confirmation.
+
 ### Run
 
 ```bash
@@ -147,12 +193,59 @@ Fleet Picker --> Host List --> Resource Picker --> View
 
 ## SSH Authentication
 
-FleetDesk uses your existing SSH setup — no additional configuration needed:
+FleetDesk uses your existing SSH setup — no additional configuration needed.
+Every connection FleetDesk makes to a host starts the same way: it asks
+`ssh -G` where the fleet entry leads, so `~/.ssh/config` means the same thing
+to the host list, the metrics and resource views, the password retry and the
+terminal handover (shell, reboot, deploy key). A `Host` block that rewrites
+`Hostname` cannot send two of those paths to different machines.
+
+`user` and `port` in a fleet file win over `~/.ssh/config`. Leave them out
+and ssh decides: `User` and `Port` from `~/.ssh/config`, then ssh's own
+defaults (your login name, port 22).
+
+Which `~/.ssh/config` directives apply to which path:
+
+| Directive | In-app (library dial) | Handover (`ssh`) |
+|---|---|---|
+| `Hostname`, `Port`, `User` | yes | yes |
+| `IdentityFile` | yes, with the default keys | yes |
+| `UserKnownHostsFile`, `GlobalKnownHostsFile` | yes | yes |
+| `ProxyJump`, `ProxyCommand` | no — see below | yes |
+| anything else | no | yes |
+
+In-app authentication tries, one method per connection (so a server's
+`MaxAuthTries` is not used up):
 
 1. SSH agent
-2. `~/.ssh/config` (IdentityFile, User, Port, ProxyJump)
-3. Default keys (~/.ssh/id_ed25519, id_rsa, id_ecdsa)
-4. Password fallback (inline masked prompt)
+2. each `IdentityFile` ssh resolves for the host (including the default keys
+   `~/.ssh/id_ed25519`, `id_rsa`, `id_ecdsa`)
+3. Password fallback (inline masked prompt), used only after the host key has
+   been verified
+
+### Host keys
+
+The host key is verified against `~/.ssh/known_hosts` (and the system
+`known_hosts`) on every connection, in-app and handover alike.
+
+- **First contact.** FleetDesk shows the host's address and fingerprint in an
+  `Unknown host key` prompt, one host at a time. `y` appends the key to
+  `~/.ssh/known_hosts` (created `0600` if missing); `N`, Enter or Esc
+  declines and the host stays unreachable. The handover uses `ssh`'s own
+  prompt.
+- **Changed key.** The connection stops with `host key mismatch for <addr>:
+  known_hosts has … , host presented …`. A changed key is never offered for
+  trust and never accepted silently; fix `known_hosts` yourself once you know
+  why it changed.
+- `@cert-authority` lines are not honoured in-app: a host with a CA-signed key
+  is asked about like any unknown host.
+
+### Hosts that need a ProxyJump
+
+The in-app dial cannot go through a jump host or a `ProxyCommand`. A host whose
+ssh configuration needs one shows `handover only (ProxyJump via <jump>;
+in-app views unavailable)`. Shell (`x`), reboot (`R`) and deploy key (`K`) still
+work on it, because they run `ssh` itself; everything else is unavailable.
 
 ## Development
 

@@ -24,6 +24,8 @@ var allTargetsAfterTAE79 = []string{
 	"help", "test", "test-report", "build", "lint",
 	"verify", "verify-nolint", "verify-lint-baseline", "verify-fresh-clone",
 	"clean", "regression",
+	// TAE-116's acceptance surface; none joins regression (no Podman on macOS CI)
+	"testhost-m2", "testhost-exit-criterion", "testhost-register-ps", "keyvault-resolve",
 }
 
 // --- make help / default goal (AC: "make help lists every target ... .DEFAULT_GOAL is help") ---

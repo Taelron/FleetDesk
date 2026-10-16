@@ -17,6 +17,10 @@ type pickerRow struct {
 	target  view
 }
 
+// countUnknown as a row's total means the count could not be read, shown as
+// "n/a" — which is not the same as there being none.
+const countUnknown = -1
+
 // visibleResourceRows builds the dynamic resource picker rows based on current host state.
 func (m Model) visibleResourceRows() []pickerRow {
 	h := m.hosts[m.selectedHost]
@@ -67,6 +71,11 @@ func (m Model) visibleResourceRows() []pickerRow {
 		}
 	}
 
+	sysLogTotal := h.ErrorCount
+	if !h.ErrorCountKnown {
+		sysLogTotal = countUnknown
+	}
+
 	rows := []pickerRow{
 		{"Services", svcTotal, svcRunning, svcFailed, viewServiceList},
 	}
@@ -79,7 +88,7 @@ func (m Model) visibleResourceRows() []pickerRow {
 	rows = append(rows,
 		pickerRow{"Containers", ctnTotal, ctnRunning, ctnFailed, viewContainerList},
 		pickerRow{"Cron Jobs", h.CronCount, 0, 0, viewCronList},
-		pickerRow{"System Logs", h.ErrorCount, 0, 0, viewLogLevelPicker},
+		pickerRow{"System Logs", sysLogTotal, 0, 0, viewLogLevelPicker},
 		pickerRow{"Updates", updTotal, 0, updFailed, viewUpdateList},
 		pickerRow{"Disk", h.DiskCount, 0, h.DiskHighCount, viewDiskList},
 		pickerRow{"Subscription", 0, 0, 0, viewSubscription},
@@ -130,7 +139,11 @@ func (m Model) renderResourcePicker() string {
 			cur = " ▸ "
 		}
 		failedStr := fmt.Sprintf("%d", r.failed)
-		line := fmt.Sprintf("%s  %-*s  %7d  %7d  %7s", cur, nameCol, r.label, r.total, r.running, failedStr)
+		totalStr := fmt.Sprintf("%d", r.total)
+		if r.total == countUnknown {
+			totalStr = "n/a"
+		}
+		line := fmt.Sprintf("%s  %-*s  %7s  %7d  %7s", cur, nameCol, r.label, totalStr, r.running, failedStr)
 
 		var style lipgloss.Style
 		if i == m.resourceCursor {

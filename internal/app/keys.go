@@ -9,6 +9,7 @@ import (
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/azure"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/config"
 	"github.com/Gaetan-Jaminon/fleetdesk/internal/k8s"
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -394,38 +395,34 @@ func (m Model) handleHostListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "x":
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
-			if h.Status != config.HostOnline {
+			if !hostAllowsHandover(h) {
 				m.flash = "Host is not reachable"
 				m.flashError = true
 				return m, nil
 			}
-			return m, sshHandover(h, []string{}, fmt.Sprintf("shell %s@%s", h.Entry.User, h.Entry.Name))
+			return m, sshHandover(h, []string{}, fmt.Sprintf("shell %s@%s", m.hostUser(m.hostCursor), h.Entry.Name))
 		}
 	case "K":
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
-			if h.Status != config.HostOnline {
+			if !hostAllowsHandover(h) {
 				m.flash = "Host is not reachable"
 				m.flashError = true
 				return m, nil
 			}
 			m.selectedHost = m.hostCursor
-			sshTarget := shellQuote(h.Entry.User) + "@" + shellQuote(h.Entry.Hostname)
-			portStr := fmt.Sprintf("%d", h.Entry.Port)
-			script := fmt.Sprintf(
-				"ssh -t -o StrictHostKeyChecking=no -p %s '%s' 'sudo mkdir -p $HOME/.ssh && sudo chown -R $(id -u):$(id -g) $HOME && chmod 700 $HOME/.ssh' && ssh-copy-id -o StrictHostKeyChecking=no -p %s '%s'",
-				portStr, sshTarget, portStr, sshTarget)
+			script := deployKeyScript(h.Entry)
 			handover := cmdHandover("bash",
 				[]string{"-c", script},
-				fmt.Sprintf("deploy key to %s@%s", h.Entry.User, h.Entry.Name))
+				fmt.Sprintf("deploy key to %s@%s", m.hostUser(m.hostCursor), h.Entry.Name))
 			m.modal = NewConfirmModal("Confirm",
-				fmt.Sprintf("Deploy SSH key to %s@%s? [Y/n]", h.Entry.User, h.Entry.Name),
+				fmt.Sprintf("Deploy SSH key to %s@%s? [Y/n]", m.hostUser(m.hostCursor), h.Entry.Name),
 				handover)
 		}
 	case "R":
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
-			if h.Status != config.HostOnline {
+			if !hostAllowsHandover(h) {
 				m.flash = "Host is not reachable"
 				m.flashError = true
 				return m, nil
@@ -445,6 +442,11 @@ func (m Model) handleHostListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		h := m.hosts[m.hostCursor]
+		if h.Status == config.HostHandoverOnly {
+			m.flash = handoverOnlyFlashFor(h)
+			m.flashError = false
+			return m, nil
+		}
 		if h.Status != config.HostOnline {
 			m.flash = "Host is not reachable"
 			m.flashError = true
@@ -475,6 +477,11 @@ func (m Model) handleHostListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if len(m.hosts) > 0 {
 			h := m.hosts[m.hostCursor]
+			if h.Status == config.HostHandoverOnly {
+				m.flash = handoverOnlyFlashFor(h)
+				m.flashError = false
+				return m, nil
+			}
 			if h.Status != config.HostOnline {
 				m.flash = "Host is not reachable"
 				m.flashError = true
@@ -1083,28 +1090,43 @@ func (m Model) handleSubscriptionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			sshHandover(h, []string{cmd}, banner))
 	case "g":
 		h := m.hosts[m.selectedHost]
+		f := m.fleets[m.selectedFleet]
 		orgID := h.Entry.RHOrgID
-		actKey := h.Entry.RHActivationKey
+		secretName := h.Entry.RHActivationKeySecretName
 		satURL := h.Entry.SatelliteURL
-		if orgID == "" || actKey == "" {
-			m.flash = "rh_org_id and rh_activation_key required in config"
+		if orgID == "" || secretName == "" || f.Secrets == nil {
+			m.flash = "rh_org_id and rh_activation_key_secret_name required in config"
 			m.flashError = true
 			return m, nil
 		}
-		var cmd, target string
+		target := "Red Hat CDN"
 		if satURL != "" {
 			target = "Satellite"
-			cmd = fmt.Sprintf("sudo subscription-manager clean && sudo dnf install -y 'http://%s/pub/katello-ca-consumer-latest.noarch.rpm' --disablerepo='*' && sudo subscription-manager register --org='%s' --activationkey='%s' --force",
-				shellQuote(satURL), shellQuote(orgID), shellQuote(actKey))
-		} else {
-			target = "Red Hat CDN"
-			cmd = fmt.Sprintf("sudo subscription-manager register --org='%s' --activationkey='%s'",
-				shellQuote(orgID), shellQuote(actKey))
 		}
-		banner := fmt.Sprintf("register to %s on %s", target, h.Entry.Name)
+		// The confirmation is kept (ADR-F005). Confirming starts the in-TUI
+		// stream, which resolves the activation key by name at that moment —
+		// the key is not read here and no message carries it.
+		cfg := SSHStreamConfig{
+			Command:    ssh.RegisterPrefix(satURL),
+			Title:      "Register to " + target,
+			SourceName: "register",
+			ReturnView: viewSubscription,
+			HostIdx:    m.selectedHost,
+			Sudo:       true,
+			AutoDone:   true,
+			Secret: &SecretConsumer{
+				Resolve:  m.secretResolver(f, secretName),
+				Tag:      ssh.RegisterTag,
+				Consumer: ssh.RegisterConsumer(orgID),
+				ExitErrors: map[int]string{
+					ssh.RegisterExitRHELTooOld: ssh.RegisterRHELTooOldMessage,
+					ssh.RegisterExitNoDBus:     ssh.RegisterNoDBusMessage,
+				},
+			},
+		}
 		m.modal = NewConfirmModal("Confirm",
 			fmt.Sprintf("Register to %s? [Y/n]", target),
-			sshHandover(h, []string{cmd}, banner))
+			func() tea.Msg { return startCommandStreamMsg{cfg: cfg} })
 	case "d":
 		if len(m.subscriptions) > 0 {
 			sub := m.subscriptions[m.subscriptionCursor]

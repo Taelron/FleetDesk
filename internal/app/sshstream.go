@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/Gaetan-Jaminon/fleetdesk/internal/credential"
 	fdssh "github.com/Gaetan-Jaminon/fleetdesk/internal/ssh"
 )
 
@@ -23,6 +24,25 @@ type SSHStreamConfig struct {
 	Sudo        bool   // whether to use sudo rewrite
 	NewestFirst bool   // true = prepend lines (log tail), false = append (command output)
 	AutoDone    bool   // true = show "Done" message when command finishes (for one-shot commands)
+	// Secret, when set, names a secret the command needs. It is resolved at
+	// the point of use — inside the stream, after the sudo prompt and before
+	// the session opens — and delivered on stdin; no message ever carries it.
+	Secret *SecretConsumer
+}
+
+// SecretConsumer describes a secret an SSH stream resolves and feeds to a
+// command running as root on the target.
+type SecretConsumer struct {
+	// Resolve returns the secret. The stream erases the result as soon as the
+	// reader that delivers it owns its own copy.
+	Resolve func() ([]byte, error)
+	// Tag labels the secret's line on the consumer's stdin ("<Tag>=<value>").
+	Tag string
+	// Consumer is the command that reads that line, run as root via sh -c.
+	Consumer string
+	// ExitErrors maps an exit status of the rewritten command to the message
+	// the user sees for it.
+	ExitErrors map[int]string
 }
 
 // sshStream holds the runtime state for a generic SSH stream view.
@@ -38,6 +58,11 @@ type sshStreamBatchMsg struct {
 type sshStreamDoneMsg struct {
 	generation int
 	exitCode   int
+	// err is why the stream could not run or did not succeed in a way the
+	// user must be told: the secret could not be resolved or delivered, or the
+	// command exited with a status its consumer maps to a message. It never
+	// carries the secret.
+	err error
 }
 
 // startSSHStream launches a generic SSH command stream.
@@ -68,19 +93,39 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 
 	exitCode := new(int) // shared with goroutine; read after channel close
 	m.streamExitCode = exitCode
+	streamErr := new(error) // shared with goroutine; read after channel close
+	m.streamErr = streamErr
 
 	sm := m.ssh
 	idx := cfg.HostIdx
 	cmd := cfg.Command
 	logger := m.logger
 
+	secretCfg := cfg.Secret
+
 	go func() {
 		defer close(ch)
+		fail := func(err error) {
+			ch <- "ERROR: " + err.Error()
+			*streamErr = err
+		}
 
 		client := sm.GetConnection(idx)
 		if client == nil {
 			ch <- "ERROR: no SSH connection to host"
 			return
+		}
+
+		// The point of use: the secret is resolved here, after the sudo
+		// prompt and before the session exists, and only on this goroutine.
+		finalCmd, sudoReader, err := prepareStreamCommand(sm, idx, cmd, secretCfg)
+		if err != nil {
+			fail(err)
+			return
+		}
+		// Whatever happens next, the reader's copy does not outlive the stream.
+		if sudoReader != nil {
+			defer sudoReader.Erase()
 		}
 
 		session, err := client.NewSession()
@@ -90,12 +135,6 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 		}
 		defer func() { _ = session.Close() }()
 
-		// Rewrite sudo if password is cached
-		finalCmd, sudoReader, err := sm.RewriteSudoInCmd(idx, cmd)
-		if err != nil {
-			ch <- "ERROR: " + err.Error()
-			return
-		}
 		// Merge stderr so we see errors
 		finalCmd = finalCmd + " 2>&1"
 
@@ -110,7 +149,6 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 		// would call Read on it.
 		if sudoReader != nil {
 			session.Stdin = sudoReader
-			defer sudoReader.Erase()
 		}
 
 		stdout, err := session.StdoutPipe()
@@ -150,11 +188,39 @@ func (m *Model) startSSHStream(cfg SSHStreamConfig) tea.Cmd {
 			if delivErr := fdssh.SudoDeliveryError(*exitCode); delivErr != nil {
 				ch <- delivErr.Error()
 			}
+			if secretCfg != nil {
+				if delivErr := fdssh.SecretDeliveryError(*exitCode); delivErr != nil {
+					ch <- delivErr.Error()
+					*streamErr = delivErr
+				} else if msg, ok := secretCfg.ExitErrors[*exitCode]; ok {
+					ch <- "ERROR: " + msg
+					*streamErr = errors.New(msg)
+				}
+			}
 		}
 		logger.Debug("ssh stream complete", "exit_code", *exitCode)
 	}()
 
 	return m.listenForStreamLines()
+}
+
+// prepareStreamCommand returns the command to run on the target and, when it
+// needs one, the reader that is the session's stdin. Without a secret that is
+// the cached sudo password's rewrite (RewriteSudoInCmd). With one, the secret
+// is resolved now — the point of use — and delivered with the sudo password
+// through RewriteSudoWithSecret; the resolved buffer is erased here, the
+// reader keeping its own copy. A resolution failure returns the error and no
+// command: nothing proceeds on an empty or default value.
+func prepareStreamCommand(sm *fdssh.Manager, idx int, cmd string, sc *SecretConsumer) (string, *credential.Reader, error) {
+	if sc == nil {
+		return sm.RewriteSudoInCmd(idx, cmd)
+	}
+	secret, err := sc.Resolve()
+	if err != nil {
+		return "", nil, err
+	}
+	defer credential.Erase(secret) // the reader holds its own copy
+	return sm.RewriteSudoWithSecret(idx, cmd, secret, sc.Tag, sc.Consumer)
 }
 
 // stopSSHStream cancels the active stream.
@@ -175,6 +241,7 @@ func (m Model) listenForStreamLines() tea.Cmd {
 	}
 	gen := m.streamGeneration
 	exitCode := m.streamExitCode
+	streamErr := m.streamErr
 	return func() tea.Msg {
 		first, ok := <-ch
 		if !ok {
@@ -182,7 +249,11 @@ func (m Model) listenForStreamLines() tea.Cmd {
 			if exitCode != nil {
 				code = *exitCode
 			}
-			return sshStreamDoneMsg{generation: gen, exitCode: code}
+			var err error
+			if streamErr != nil {
+				err = *streamErr
+			}
+			return sshStreamDoneMsg{generation: gen, exitCode: code, err: err}
 		}
 		batch := []string{first}
 		for len(batch) < 50 {

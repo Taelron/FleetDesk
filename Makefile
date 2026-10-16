@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression testhost-up testhost-down testhost-regen-host-key testhost-test testhost-sudo-ps testhost-verify-sudo-stdin testhost-run testhost-run-timeout testhost-log-scan testhost-idle-timeout
+.PHONY: help test test-report build lint verify clean verify-fresh-clone verify-fresh-clone-abort verify-nolint verify-lint-baseline verify-baseline-shallow-abort verify-license regression testhost-up testhost-down testhost-regen-host-key testhost-test testhost-sudo-ps testhost-verify-sudo-stdin testhost-run testhost-run-timeout testhost-log-scan testhost-idle-timeout testhost-m2 testhost-exit-criterion testhost-register-ps keyvault-resolve
 
 # Single pin for golangci-lint, shared by `lint` and `verify` (which
 # bootstraps transitively via `lint`'s prerequisite). The recipe below
@@ -26,11 +26,11 @@ GOLANGCI_LINT_SHA256_darwin_arm64  := 02db2a2dae8b26812e53b0688a6f617e3ef1f48979
 # issue that removes a suppression decrements the matching count here in the
 # same change — a mismatch is the point, not a bug.
 NOLINT_ERRCHECK_TAE82_WANT := 13
-NOLINT_GOSEC_TAE22_WANT    := 2
-NOLINT_GOSEC_TAE23_WANT    := 3
+NOLINT_GOSEC_TAE22_WANT    := 0
+NOLINT_GOSEC_TAE23_WANT    := 0
 NOLINT_GOSEC_TAE42_WANT    := 4
-NOLINT_GOSEC_CASE1_WANT    := 19
-NOLINT_TOTAL_WANT          := 41
+NOLINT_GOSEC_CASE1_WANT    := 23
+NOLINT_TOTAL_WANT          := 40
 
 # verify-lint-baseline's negative control. BASELINE_EXPECT is a function of
 # BOTH BASELINE_REF and this file's *current* enabled linter set, not of the
@@ -110,7 +110,7 @@ TESTHOST_CREDENTIAL_TIMEOUT ?=
 help: ## List targets, grouped
 	@awk 'BEGIN {FS = ":.*?## "} \
 		/^##@/ {printf "\n%s\n", substr($$0, 5)} \
-		/^[a-zA-Z_-]+:.*?## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+		/^[a-zA-Z0-9_-]+:.*?## / {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 clean:          ## Remove build artifacts
 	rm -f fleetdesk coverage.out coverage.html
@@ -402,10 +402,52 @@ testhost-verify-sudo-stdin: ## Run every TAE-20 acceptance test against the fixt
 		exit 1; \
 	fi
 
+# TAE-116's acceptance surface. None of these joins REGRESSION_CONTROLS: they
+# need Podman, and CI runs regression on macOS without it (Design Notes D-5).
+# Each writes its -v output to a file directly under $(TESTHOST_DIR) (see the
+# note above on why not .home/) and asserts a `--- PASS: TestTAE116` line is
+# present, since `go test -run` matching nothing exits 0.
+
+testhost-m2: ## TAE-116 — every TestTAE116* acceptance test against the fixture (about 12 minutes); output in test/testhost/tae116.out
+	@go test -tags testhost -count=1 -timeout 50m -run 'TestTAE116' -v . >$(TESTHOST_DIR)/tae116.out 2>&1; status=$$?; \
+	cat $(TESTHOST_DIR)/tae116.out; \
+	if [ $$status -ne 0 ]; then echo "testhost-m2 FAIL — go test exited $$status; output in $(TESTHOST_DIR)/tae116.out"; exit 1; fi; \
+	if ! grep -q -- '--- PASS: TestTAE116' $(TESTHOST_DIR)/tae116.out; then \
+		echo "testhost-m2 FAIL — no '--- PASS: TestTAE116' line; the testhost tag likely did not compile, or the -run pattern matched nothing"; \
+		exit 1; \
+	fi
+
+testhost-exit-criterion: ## TAE-116 H1-H5 — the M2 exit criterion, automated (the milestone-close demonstration)
+	@go test -tags testhost -count=1 -timeout 20m -run 'TestTAE116Exit' -v . >$(TESTHOST_DIR)/tae116-exit.out 2>&1; status=$$?; \
+	cat $(TESTHOST_DIR)/tae116-exit.out; \
+	if [ $$status -ne 0 ]; then echo "testhost-exit-criterion FAIL — go test exited $$status"; exit 1; fi; \
+	if [ "$$(grep -c -- '^--- PASS: TestTAE116Exit' $(TESTHOST_DIR)/tae116-exit.out)" -ne 5 ]; then \
+		echo "testhost-exit-criterion FAIL — want 5 '--- PASS: TestTAE116Exit' lines (H1-H5)"; \
+		exit 1; \
+	fi
+
+testhost-register-ps: ## TAE-116 B4 — registration while sampling ps aux and /proc/*/cmdline; no part of the key may appear (paste the output in the PR)
+	@go test -tags testhost -count=1 -run '^TestTAE116RegisterKeyNotInProcessList$$' -v . >$(TESTHOST_DIR)/tae116-register-ps.out 2>&1; status=$$?; \
+	cat $(TESTHOST_DIR)/tae116-register-ps.out; \
+	if [ $$status -ne 0 ]; then echo "testhost-register-ps FAIL — go test exited $$status"; exit 1; fi; \
+	if ! grep -q -- '--- PASS: TestTAE116RegisterKeyNotInProcessList' $(TESTHOST_DIR)/tae116-register-ps.out; then \
+		echo "testhost-register-ps FAIL — the B4 test did not run — renamed, moved, or the testhost tag did not compile"; \
+		exit 1; \
+	fi
+
+keyvault-resolve: ## TAE-116 L1 (the one human step) — make keyvault-resolve VAULT=<v> SUBSCRIPTION=<s> NAME=<n>: resolve one real secret with the real az; prints its length, never the value
+	@if [ -z "$(VAULT)" ] || [ -z "$(SUBSCRIPTION)" ] || [ -z "$(NAME)" ]; then \
+		echo "usage: make keyvault-resolve VAULT=<vault> SUBSCRIPTION=<subscription id> NAME=<secret name>"; exit 2; \
+	fi
+	@out=$$(FLEETDESK_KV_VAULT="$$VAULT" FLEETDESK_KV_SUBSCRIPTION="$$SUBSCRIPTION" FLEETDESK_KV_NAME="$$NAME" \
+		go test -tags keyvault -count=1 -run '^TestL1KeyVaultResolve$$' -v ./internal/secrets/ 2>&1); status=$$?; \
+	printf '%s\n' "$$out" | grep -E '^(resolved |--- |FAIL|ok|[[:space:]]+keyvault_l1_test)'; \
+	exit $$status
+
 testhost-run: ## Launch the TUI on the TAE-98 fixture fleet under an isolated HOME (never touches ~/.config/fleetdesk)
 	@$(MAKE) testhost-up
 	@mkdir -p $(TESTHOST_DIR)/.home/.config/fleetdesk
-	@echo 'fleet_dir: $(CURDIR)/$(TESTHOST_DIR)' > $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml
+	@(umask 077; echo 'fleet_dir: $(CURDIR)/$(TESTHOST_DIR)' > $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml); chmod 0600 $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml
 	@if [ -n "$(TESTHOST_CREDENTIAL_TIMEOUT)" ]; then echo 'credential_timeout: $(TESTHOST_CREDENTIAL_TIMEOUT)' >> $(TESTHOST_DIR)/.home/.config/fleetdesk/config.yaml; fi
 	HOME=$(CURDIR)/$(TESTHOST_DIR)/.home go run . --debug
 

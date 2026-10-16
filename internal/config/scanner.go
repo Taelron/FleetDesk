@@ -26,8 +26,14 @@ func fleetTypeOrder(t string) int {
 
 const configDir = ".config/fleetdesk"
 
-// ConfigPath returns the full path to the fleetdesk config directory.
+// ConfigPath returns the full path to the fleetdesk config directory:
+// $XDG_CONFIG_HOME/fleetdesk when that variable holds an absolute path,
+// otherwise ~/.config/fleetdesk. A relative $XDG_CONFIG_HOME is ignored, as
+// the XDG Base Directory specification requires.
 func ConfigPath() string {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" && filepath.IsAbs(xdg) {
+		return filepath.Join(xdg, "fleetdesk")
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
