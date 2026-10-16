@@ -109,6 +109,12 @@ are yours.
   first, by the Systems Analyst.
 - **Two rounds, then escalate.** Every loop stops after two rounds without agreement
   and goes to the PO, through the Orchestrator.
+- **One ball.** A session starts a step only when it holds the ball; no two
+  sessions hold it at once.
+- **No PR merges on red CI.** The Orchestrator checks the PR's CI before it asks
+  the PO to merge, and `main`'s CI after the merge.
+- **Fact or promise: when in doubt, it is a promise.** An amendment whose effect on
+  what the product promises is unclear goes to the Systems Analyst.
 
 ### Phase rules
 
@@ -119,22 +125,31 @@ are yours.
   source of the toolchain versions.
 - **B · Implementation planning** (Orchestrator, Architect). The Architect session
   is fresh for each milestone, when the PO starts the layout; between issues the
-  Orchestrator's start prompt names the new issue and its sources. The issue check is posted before any amendment it argues for;
-  the decisions before the plan. The Architect asks product questions and decides
-  technical ones. The plan is a comment titled `Implementation Plan, revision <n>`.
-  After the PO's `go`, the Orchestrator posts `APPROVED PLAN` with the plan in full.
-  No code is written in this phase.
+  Orchestrator's start prompt names the new issue and its sources. The issue check
+  is posted before any amendment it argues for; the decisions before the plan. The
+  Architect asks product questions and decides technical ones. The plan is a comment
+  titled `Implementation Plan, revision <n>`. A promise change goes to the Systems
+  Analyst only once the plan review loop has closed. After the PO's `go`, the
+  Orchestrator posts `APPROVED PLAN` with the plan in full. No code is written in
+  this phase.
 - **C · Build** (Orchestrator, Tester, Dev, Reviewer, Verifier). The Tester and Dev
   share one folder and one branch; the Verifier builds from a clean clone; the
   Orchestrator reads its own clone and writes none. The Tester writes tests from the
-  issue alone and commits the red run, taken from a clean copy of its commit. Dev
-  never modifies an acceptance test: a dispute goes to the Orchestrator. The Reviewer
-  gets the diff and the issue, never the PR. The Verifier gets the branch, the PR
-  URL, the issue and the plan, never the PR body; it reports and never fixes. On
-  disagreement the acceptance test wins. Nothing is pushed before the tests and the
-  code; the PR is a draft carrying the verification handoff (ordered Make targets,
-  purpose, expected result). The brief is a comment on the issue and gates the
-  merge. The PO verifies, marks the PR ready and merges.
+  issue alone and commits the red run, taken from a clean copy of its commit; it
+  passes the APPROVED PLAN link to Dev with "tests are red", unread. A Tester that
+  finds a weakness in its own tests later tells the Orchestrator, which holds Dev.
+  Dev never modifies an acceptance test: a dispute goes to the Orchestrator. The
+  Reviewer gets the branch's diff against `main`, the Tester's commits included,
+  and the issue, never the PR. The Verifier gets the branch, the PR URL, the issue
+  and the plan, never the PR body; it reports and never fixes. On disagreement the
+  acceptance test wins. Nothing is pushed before the tests and the code; the PR is
+  a draft carrying the verification handoff (ordered Make targets, purpose,
+  expected result). The brief is a comment on the issue and gates the merge. The
+  PO verifies, marks the PR ready and merges, once its CI is green.
+- **A post-merge fix** is always a new issue in the milestone: the Orchestrator
+  creates it once the PO has routed it, the role that owns the files makes the
+  change (the Tester for an acceptance test, Dev otherwise), and it is traced
+  through Phase C steps 13 to 21.
 
 ### Tracing: pick-up first, then the listed events
 
@@ -149,6 +164,9 @@ are yours.
   is complete. `taelron-trace --help` lists every event; it refuses any other.
   Never invent one. `--link` is optional: the PR or Linear URL the event points to.
 - **The `next` rule.** `--next` is what the ball-holder does next, in a few words.
+- **A refused event is never silent.** When `taelron-trace` cannot send, it prints
+  `taelron-trace: event NOT sent: <reason>` on stderr and exits non-zero. Fix the
+  cause and send the event again.
 
 ### Linear access
 
@@ -161,7 +179,8 @@ The key never goes in a file, an exported variable, argv or shell history.
 Fetch documents in full with `document(id:)`, which accepts the URL slug; a list
 response is truncated. Writes are issue comments and review-gated `spec-drift`
 issues; the Orchestrator may also apply an amendment that corrects a fact or names
-an interface to the issue itself. The Reviewer has no Linear access, by design.
+an interface to the issue itself, and creates the issue of a routed post-merge
+fix. The Reviewer has no Linear access, by design.
 
 ### Session read order
 
