@@ -108,8 +108,7 @@ are yours.
   document, a baseline, or a milestone's scope or exit criterion is shown to the PO
   first, by the Systems Analyst.
 - **Two rounds, then escalate.** Every loop stops after two rounds without agreement
-  and goes to the PO, through the Orchestrator, which also escalates when an
-  issue's usage budget is spent.
+  and goes to the PO, through the Orchestrator.
 
 ### Phase rules
 
@@ -118,8 +117,9 @@ are yours.
   before the PO validates the plan. The milestone is locked once created. The issue
   names the interface its tests rely on, the repository, the issue branch and the
   source of the toolchain versions.
-- **B · Implementation planning** (Orchestrator, Architect). One fresh Architect
-  session per issue. The issue check is posted before any amendment it argues for;
+- **B · Implementation planning** (Orchestrator, Architect). The Architect session
+  is fresh for each milestone, when the PO starts the layout; between issues the
+  Orchestrator's start prompt names the new issue and its sources. The issue check is posted before any amendment it argues for;
   the decisions before the plan. The Architect asks product questions and decides
   technical ones. The plan is a comment titled `Implementation Plan, revision <n>`.
   After the PO's `go`, the Orchestrator posts `APPROVED PLAN` with the plan in full.
@@ -143,9 +143,11 @@ are yours.
   event, with `--ball` set to yourself:
   `~/.local/bin/taelron-trace --product <product> --milestone <milestone> --issue <issue> --phase <phase> --event R --step <step> --from <you> --ball <you> --next '<what you do now>'`.
   This covers every handoff, including each round of a loop.
+- **A started event is the pick-up for its step.** Where your step opens with a
+  started event (A·T1, B·T1, C·T1), send it instead of `R`.
 - **Listed events.** Send the events your role prompt lists, only once their step
   is complete. `taelron-trace --help` lists every event; it refuses any other.
-  Never invent one.
+  Never invent one. `--link` is optional: the PR or Linear URL the event points to.
 - **The `next` rule.** `--next` is what the ball-holder does next, in a few words.
 
 ### Linear access
