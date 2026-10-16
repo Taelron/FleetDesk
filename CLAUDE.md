@@ -13,7 +13,7 @@ that changes lives in Linear.** When documents disagree, resolution order is
 
 Read the applicable documents at the **start of every session** — the Linear copy is
 more current than any cached context, and more current than this file. Fetch full
-text via `curl` + `$LINEAR_API_KEY` (not the Linear MCP — token cost). The GraphQL
+text via `curl`, with the key from `pass` (see *Linear access* in the workflow section; not the Linear MCP — token cost). The GraphQL
 `document(id:)` query accepts the URL slug directly, so the links below are
 fetchable as-is.
 
